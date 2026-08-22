@@ -1,10 +1,17 @@
-"""Model weights and figure bytes, in S3.
+"""Model weights, uploaded documents and figure bytes, in S3.
 
 Two stores with one client. The model store is read-only at runtime and is what
 lets a deployment boot without reaching huggingface.co: weights are published
 once, by hand, at a pinned revision, and every process afterwards pulls the same
-verified bytes. The object store holds figure images, whose lifecycle belongs to
-the notebook that owns them.
+verified bytes. The object store holds the documents a Candidate uploaded and
+the figures lifted out of them, whose lifecycle belongs to the notebook that
+owns them.
+
+The document half arrived with ISSUE-0033 and changed what this module is for.
+It used to hold things that could be rebuilt — a figure is an addition to a
+Module, and losing one costs a picture. It now holds the only copy of what a
+Candidate handed over, which is why a deployment that configures a bucket must
+be able to reach it before it accepts an upload.
 
 Nothing here decides *when* to fetch. `ensure_local` is idempotent and cheap on
 a warm cache, so callers may treat it as a lookup.
@@ -35,8 +42,12 @@ def _client():
         import boto3
         from botocore.config import Config
     except ModuleNotFoundError as exc:  # pragma: no cover - optional extra
+        # Not the `embeddings` extra any more: boto3 is runtime, because the
+        # upload path needs it (ISSUE-0033). Reaching here means the image was
+        # built without its own requirements.txt.
         raise EmbeddingUnavailable(
-            "S3 access needs the 'embeddings' extra (pip install -e backend[embeddings])"
+            "S3 access needs boto3, which backend/requirements.txt pins. "
+            "This process was installed without it."
         ) from exc
     # Its own retries, because a 1.5GB pull over a flaky link should recover
     # rather than fail a boot.

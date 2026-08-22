@@ -30,9 +30,13 @@ WORKDIR /app
 # Copied before the source so a code change does not reinstall the world.
 #
 # The `embeddings` extra is deliberately absent: 2.5GB of wheels, and a
-# deployment serving Related Topics needs no model at all — the index is a
-# committed artifact (ADR-0018). Add it only where notebook ingest must be
-# semantic, and prefer EMBEDDING_PROVIDER=openrouter over carrying weights.
+# deployment needs no local model to serve or to embed — prefer
+# EMBEDDING_PROVIDER=openrouter over carrying weights (ADR-0019).
+#
+# `boto3` is *not* part of that extra any more. The object store is on the
+# upload path since ISSUE-0033 — a document is stored before its row is
+# written — so a deployment with a bucket configured cannot answer an upload
+# without it. It is in requirements.txt for that reason.
 COPY backend/requirements.txt ./
 RUN pip install -r requirements.txt && pip install "uvicorn[standard]"
 

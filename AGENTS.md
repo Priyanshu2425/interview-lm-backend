@@ -124,9 +124,15 @@ Two consequences worth stating outright:
   keeps every row they produced. `CASCADE` empties the schema and has never
   heard of the bucket, so deleting the bytes — figures **and** the uploaded
   documents themselves — is an explicit step in the same call path.
-- The document outlives its upload (ISSUE-0033). Uploaded bytes go to the object
-  store under `…/sources/<sha256>`, content-addressed and written **before** the
-  Source row, so a row never points at an object that is not there.
+- The document outlives its upload (ISSUE-0033), which makes the object store
+  part of the runtime rather than an extra: `boto3` is in
+  `backend/requirements.txt`, and a deployment on an ephemeral filesystem that
+  sets no `CONTENT_BUCKET` keeps documents only until its next restart. A bucket
+  that is configured and unreachable **refuses the upload**
+  (`document_store_unavailable`) rather than half-keeping it somewhere the row
+  cannot point at. Bytes go under `…/sources/<sha256>`, content-addressed and
+  written **before** the Source row, so a row never points at an object that is
+  not there.
   `notebook_source.text` is what one extractor made of them and is a cache;
   `re_extract` re-reads the document itself. A Source with no `object_key`
   predates the column and says so rather than pointing at bytes nobody kept.

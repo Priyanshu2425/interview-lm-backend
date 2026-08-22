@@ -287,3 +287,83 @@ def test_figures_still_land_under_their_own_key(content_db, seeing, tmp_path):
 def test_a_missing_object_raises_the_stores_own_error_underneath(store):
     with pytest.raises(EmbeddingUnavailable):
         store.get("notebooks/nb-x/sources/deadbeef.bin")
+
+
+# -- a store that cannot be written to ---------------------------------------
+
+def test_an_upload_is_refused_rather_than_half_kept(content_db, counting):
+    """ISSUE-0033's ordering, read forwards.
+
+    Bytes are stored before the row so that a row never points at an object
+    that is not there. If the store cannot be written to, the honest answer is
+    to refuse the upload — falling back to local disk would accept a document
+    this deployment cannot keep, and the Candidate would find out weeks later
+    when a retry asked for it.
+    """
+    from interviewer.embeddings.errors import EmbeddingUnavailable
+    from interviewer.notebooks import DocumentStoreUnavailable, NotebookService
+
+    class Unreachable:
+        def source_key_for(self, notebook_id, content_hash, suffix="bin"):
+            return f"notebooks/{notebook_id}/sources/{content_hash}.{suffix}"
+
+        def put(self, key, data, media_type="application/octet-stream"):
+            raise EmbeddingUnavailable("the bucket is not there")
+
+    service = NotebookService(content_db, embedder=counting, objects=Unreachable())
+    service.create("nb-nostore", "cand-nostore", "Notes")
+    with pytest.raises(DocumentStoreUnavailable) as raised:
+        service.upload_source(
+            "nb-nostore", source_id="src-1", title="A.md", text="# Notes\n\n" + "x " * 200
+        )
+    assert raised.value.code == "document_store_unavailable"
+    # Nothing was written: no Source row to point at bytes that are not there.
+    assert service.store.get("nb-nostore").sources == ()
+
+
+def test_a_deployment_with_no_bucket_is_not_the_same_as_one_it_cannot_reach(
+    content_db, counting
+):
+    """No bucket keeps documents on disk and says so by having none configured."""
+    from interviewer.notebooks import NotebookService
+
+    service = NotebookService(content_db, embedder=counting, objects=None)
+    service.create("nb-nobucket", "cand-nobucket", "Notes")
+    uploaded = service.upload_source(
+        "nb-nobucket", source_id="src-1", title="A.md", text="# Notes\n\n" + "x " * 200
+    )
+    assert uploaded.state == "uploaded"
+    assert service.store.get("nb-nobucket").sources[0].object_key is None
+
+
+def test_the_refusal_reaches_the_surface_with_a_code(content_db, clean_db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from interviewer.api import deps
+    from interviewer.api.app import create_app
+    from interviewer.embeddings.errors import EmbeddingUnavailable
+
+    class Unreachable:
+        def source_key_for(self, notebook_id, content_hash, suffix="bin"):
+            return "k"
+
+        def put(self, *a, **kw):
+            raise EmbeddingUnavailable("the bucket is not there")
+
+    deps.get_notebook_service.cache_clear()
+    deps.get_object_store.cache_clear()
+    monkeypatch.setattr(deps, "get_object_store", lambda: Unreachable())
+    try:  # noqa: SIM105 — the caches are the thing being restored
+        client = TestClient(create_app())
+        notebook_id = client.post(
+            "/v1/notebooks", json={"candidate_id": "cand-503", "title": "Notes"}
+        ).json()["notebook_id"]
+        response = client.post(
+            f"/v1/notebooks/{notebook_id}/sources",
+            json={"title": "A.md", "text": "# Notes\n\n" + "x " * 200},
+        )
+        assert response.status_code == 503
+        assert response.json()["code"] == "document_store_unavailable"
+        assert "refused rather than half-kept" in response.json()["message"]
+    finally:
+        deps.get_notebook_service.cache_clear()

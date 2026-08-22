@@ -23,8 +23,26 @@ services:
       # Never the default. The operator console is authenticated by this alone.
       - key: OPERATOR_TOKEN
         generateValue: true
-      # Related Topics reads a committed artifact; ingest embeds. The stand-in
-      # costs nothing and needs no model. Switch to `openrouter` when notebook
-      # ingest should be semantic, and set EMBEDDING_ALLOW_PAID=1 with it.
+      # Where a Candidate's uploaded documents live. **Not optional here.**
+      # Render's filesystem is ephemeral, and since ISSUE-0033 the document is
+      # the only copy of what somebody handed over — a retry re-embeds from it
+      # rather than asking for the file again. Without a bucket the documents
+      # live in the container and are gone at the next deploy.
+      #
+      # An unreachable bucket refuses the upload rather than quietly keeping it
+      # somewhere it cannot be read back from (`document_store_unavailable`).
+      - key: CONTENT_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      # Ingest embeds, and Related Topics compares the centroids that ingest
+      # wrote (ADR-0021) — so this is what decides whether neighbours mean
+      # anything. `hashing` is a lexical stand-in: it costs nothing, needs no
+      # model, and its neighbours are not worth showing. Switch to `openrouter`
+      # for a deployment where they are, and set EMBEDDING_ALLOW_PAID=1 with it.
       - key: EMBEDDING_PROVIDER
         value: hashing

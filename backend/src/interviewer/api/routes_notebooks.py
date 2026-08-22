@@ -13,7 +13,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from interviewer.notebooks import (
-    IngestNotClaimable, SharedCorpusIsNotYours,
+    DocumentStoreUnavailable, IngestNotClaimable, SharedCorpusIsNotYours,
 )
 from interviewer.notebooks.metering import InsufficientBalance
 
@@ -163,6 +163,8 @@ def add_source(notebook_id: str, body: SourceIn) -> dict:
         raise HTTPException(404, "unknown notebook_id") from None
     except SharedCorpusIsNotYours as refused:
         raise _shared(refused) from None
+    except DocumentStoreUnavailable as refused:
+        raise _no_store(refused) from None
     return _started(notebook_id, uploaded, route)
 
 
@@ -263,6 +265,8 @@ async def add_file(
         raise HTTPException(404, "unknown notebook_id") from None
     except SharedCorpusIsNotYours as refused:
         raise _shared(refused) from None
+    except DocumentStoreUnavailable as refused:
+        raise _no_store(refused) from None
     return _started(notebook_id, uploaded, route)
 
 
@@ -325,6 +329,16 @@ def delete_notebook(notebook_id: str) -> None:
     except SharedCorpusIsNotYours as refused:
         raise _shared(refused) from None
     refresh_corpus()
+
+
+def _no_store(refused: DocumentStoreUnavailable) -> Refusal:
+    """503, because the Candidate did nothing wrong and it may work in a minute.
+
+    Named so the surface can say *the upload was refused, not half-kept* —
+    which is the honest sentence, and the one a Candidate needs before they
+    decide whether to try again.
+    """
+    return Refusal(503, refused.code, str(refused))
 
 
 def _shared(refused: SharedCorpusIsNotYours) -> Refusal:

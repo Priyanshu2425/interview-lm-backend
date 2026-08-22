@@ -50,6 +50,30 @@ class SourceBytesMissing(RuntimeError):
         self.source_id = source_id
 
 
+class DocumentStoreUnavailable(RuntimeError):
+    """The bucket a document must be kept in could not be written to.
+
+    Refused rather than degraded, and the choice is ISSUE-0033's ordering read
+    forwards: bytes are stored *before* the row, so that a row never points at
+    an object that is not there. Falling back to local disk when the bucket is
+    unreachable would accept a document this deployment cannot keep — and the
+    Candidate would find out weeks later, when a retry asked for it.
+
+    A deployment that configures no bucket at all is a different case and is
+    still allowed: it keeps documents on local disk and says so by having no
+    bucket, rather than by failing to reach one.
+    """
+
+    code = "document_store_unavailable"
+
+    def __init__(self, why: str) -> None:
+        super().__init__(
+            "this deployment stores uploaded documents in an object store and "
+            f"could not write to it, so the upload was refused rather than "
+            f"half-kept: {why}"
+        )
+
+
 class SharedCorpusIsNotYours(RuntimeError):
     """A shared Corpus is read-only to every Candidate, and undeletable by them.
 
@@ -661,7 +685,10 @@ class NotebookService:
         key = self._objects.source_key_for(
             notebook_id, sha256(payload).hexdigest(), _suffix_for(media_type)
         )
-        self._objects.put(key, payload, media_type)
+        try:
+            self._objects.put(key, payload, media_type)
+        except Exception as exc:
+            raise DocumentStoreUnavailable(str(exc)) from exc
         return key, len(payload)
 
     def source_bytes(self, notebook_id: str, source_id: str) -> bytes:

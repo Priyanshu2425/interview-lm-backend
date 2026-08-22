@@ -1,6 +1,6 @@
 # ISSUE-0026 — The embedding provider, and the BYOK gap
 
-Status: resolved — a local provider fills the port; ADR-0016 remains unsigned and remains unblocked
+Status: resolved — a local provider fills the port, and the BYOK gap closed itself (ADR-0019)
 Type: **HITL**
 Source: SPEC 2026-08-21 Notebook Adapter; ADR-0008, ADR-0014, PRD-0005
 Covers: spec §Decisions/Ingest cost; §Failure modes (provider failure, model change, insufficient balance)

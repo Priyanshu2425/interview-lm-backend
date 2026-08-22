@@ -1,6 +1,8 @@
 # The BYOK gap at ingest
 
-Status: **proposed — needs a human decision before ISSUE-0026 merges**
+Status: **superseded by ADR-0019** — OpenRouter now serves embeddings, so the
+gap this ADR was written about no longer exists. Kept because the reasoning
+is what a reader will want if that ever changes back. No decision is owed.
 
 ADR-0008 says BYOK accepts **OpenRouter keys only**, and OpenRouter is a chat
 completions gateway. Ingesting a notebook needs embeddings. So a Candidate who

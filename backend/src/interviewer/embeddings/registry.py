@@ -43,7 +43,7 @@ def _load() -> None:
     make every process that touches the registry pay for the import, and the
     whole point of the lazy loading below is that it does not.
     """
-    from . import http, siglip  # noqa: F401
+    from . import http, openrouter, siglip  # noqa: F401
 
 
 def make_embedder(env: dict | None = None) -> object:

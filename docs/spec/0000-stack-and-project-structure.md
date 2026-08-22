@@ -152,3 +152,11 @@ example (SPEC-0005).
    the vendor is not chosen.
 5. **Whether `surface` and `api` share a domain.** A cookie/CORS decision that
    should be made when auth is implemented, not before.
+
+## Amendment — 2026-08-22, the surface may live elsewhere
+
+§7 closed the CORS question by making it not exist: one origin, so
+nothing to configure. ADR-0020 reopens it for deployments that host
+the surface on a CDN. `ALLOWED_ORIGINS` and `VITE_API_URL` are both
+empty by default, and empty is exactly the arrangement described
+above — the single-origin path is still the default and still tested.

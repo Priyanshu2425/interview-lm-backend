@@ -90,6 +90,14 @@ Two consequences worth stating outright:
   there is no build-time URL to configure.
 - The API mounts `frontend/dist` at `/`, so a surface change is invisible until
   `npm run build`. `SURFACE_DIR` points the mount elsewhere.
+- Same-origin is the default and `ALLOWED_ORIGINS` is what reverses it
+  (ADR-0020). Set it and the surface must be **built** with a matching
+  `VITE_API_URL`: the two deploys have to agree, and when they do not the first
+  request fails in the browser with a CORS message that names neither usefully.
+- `Dockerfile` builds both halves and pins the runtime from
+  `backend/requirements.txt`; regenerate it with `scripts/pin_requirements.py`
+  after changing a dependency. The `embeddings` extra is deliberately not in the
+  image — Related Topics reads a committed artifact and needs no model.
 - A feature is reached through its `index.ts`; ESLint enforces it.
 - Evidence outlives the material. Deleting a notebook retires its Topics and
   keeps every row they produced. `CASCADE` empties the schema and has never

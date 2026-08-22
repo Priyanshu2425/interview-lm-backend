@@ -1,0 +1,30 @@
+# Render blueprint. The database is not here on purpose: it is Neon, it holds
+# Evidence, and Evidence outlives any one deployment (ADR-0003). A database
+# declared in the same file as the service it serves is a database that can be
+# destroyed by editing that file.
+services:
+  - type: web
+    name: cortex-interviewer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /v1/health
+    envVars:
+      # Neon. Use the pooled endpoint — the code detects it and switches off
+      # prepared statements, and points the checkpointer at the direct one.
+      - key: DATABASE_URL
+        sync: false
+      # The Cloudflare Pages origin. Without it the API is same-origin only and
+      # a browser on another host cannot call it at all (ADR-0020).
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # Never the default. The operator console is authenticated by this alone.
+      - key: OPERATOR_TOKEN
+        generateValue: true
+      # Related Topics reads a committed artifact; ingest embeds. The stand-in
+      # costs nothing and needs no model. Switch to `openrouter` when notebook
+      # ingest should be semantic, and set EMBEDDING_ALLOW_PAID=1 with it.
+      - key: EMBEDDING_PROVIDER
+        value: hashing

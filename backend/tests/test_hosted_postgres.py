@@ -108,3 +108,67 @@ def test_a_direct_endpoint_keeps_prepared_statements():
 def test_an_explicit_argument_is_never_overridden():
     engine = make_engine(LOCAL, pool_pre_ping=False)
     assert engine.pool._pre_ping is False
+
+
+# -- the surface on another origin (ADR-0020) -------------------------------
+
+def test_no_cors_headers_when_nothing_is_configured(monkeypatch):
+    """Empty is the original deployment, and it must stay untouched."""
+    from fastapi.testclient import TestClient
+
+    from interviewer.api.app import allowed_origins, create_app
+
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+    assert allowed_origins() == []
+    client = TestClient(create_app())
+    response = client.get("/v1/health", headers={"Origin": "https://elsewhere.test"})
+    assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_a_named_origin_is_allowed_and_may_send_credentials(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from interviewer.api.app import create_app
+
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
+    client = TestClient(create_app())
+    response = client.get(
+        "/v1/health", headers={"Origin": "https://cortex.pages.dev"}
+    )
+    assert response.headers["access-control-allow-origin"] == "https://cortex.pages.dev"
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_an_origin_nobody_named_is_not_allowed(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from interviewer.api.app import create_app
+
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
+    client = TestClient(create_app())
+    response = client.get("/v1/health", headers={"Origin": "https://evil.test"})
+    assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_several_origins_may_be_named(monkeypatch):
+    from interviewer.api.app import allowed_origins
+
+    monkeypatch.setenv(
+        "ALLOWED_ORIGINS", "https://a.pages.dev, https://b.pages.dev/ ,"
+    )
+    assert allowed_origins() == ["https://a.pages.dev", "https://b.pages.dev"]
+
+
+def test_a_wildcard_is_refused_at_startup(monkeypatch):
+    """A wildcard with credentials is refused by every browser.
+
+    Warning and dropping the credentials would break auth in a way that appears
+    only once auth exists, which is the worst possible time to discover it.
+    """
+    import pytest
+
+    from interviewer.api.app import create_app
+
+    monkeypatch.setenv("ALLOWED_ORIGINS", "*")
+    with pytest.raises(ValueError, match="may not be"):
+        create_app()

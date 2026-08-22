@@ -1,0 +1,30 @@
+# Everything the image does not need, and the two things it must never carry.
+.git
+.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.egg-info
+
+# Secrets. `.env.example` documents the set; a real one is supplied by the
+# platform, never baked into a layer.
+.env
+.env.*
+!.env.example
+
+# Scrape intermediates and local caches. `data/corpus.json` and
+# `data/corpus-index.json` are the Corpus and do ship.
+data/raw
+.auth
+.cache
+
+# Built here rather than copied in, so a stale local build cannot ship silently.
+frontend/dist
+
+# Not the API's business.
+docs
+design-system
+scripts
+backend/tests
+**/.DS_Store

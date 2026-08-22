@@ -1,6 +1,6 @@
 # ISSUE-0036 — Where you stand on a Topic
 
-Status: open
+Status: **machine half done** — built up to the placement decision
 Type: **HITL**
 Source: SPEC-0006 §Comparison; PRODUCT.md Principle 4; AGENTS.md §refusals
 Covers: comparison that does not become a recommendation
@@ -50,16 +50,58 @@ No new storage: `core.topic_confidence` is already keyed
 
 ## Acceptance criteria
 
-- [ ] A rank is returned for a Topic in a shared Corpus the Candidate has been examined on
-- [ ] Candidates below the Evidence Floor are excluded, never counted as zero
-- [ ] Overlapping posteriors share a position, and the response says the position is shared
-- [ ] Fewer than the Cohort Floor of tested Candidates yields no rank and a stated reason
-- [ ] A Topic the Candidate has not been examined on yields no rank
-- [ ] A personal Corpus never yields a rank
-- [ ] No endpoint returns a Candidate's overall position, or any figure combining Coverage and Mastery
-- [ ] The Cohort Floor is one named constant, documented as provisional
-- [ ] The placement is chosen by a human and recorded, with the reason it does not read as a recommendation
+- [x] A rank is returned for a Topic in a shared Corpus the Candidate has been examined on
+- [x] Candidates below the Evidence Floor are excluded, never counted as zero
+- [x] Overlapping posteriors share a position, and the response says the position is shared
+- [x] Fewer than the Cohort Floor of tested Candidates yields no rank and a stated reason
+- [x] A Topic the Candidate has not been examined on yields no rank
+- [x] A personal Corpus never yields a rank
+- [x] No endpoint returns a Candidate's overall position, or any figure combining Coverage and Mastery
+- [x] The Cohort Floor is one named constant, documented as provisional
+- [ ] The placement is chosen by a human and recorded, with the reason it does not read as a recommendation — **the one thing left, and the reason this is HITL**
 
 ## Blocked by
 
 - ISSUE-0034 — without shared `topic_id`s there is nothing to compare
+
+## Where this stopped, and why
+
+The reading and both routes exist. Nothing renders them, and no screen was
+invented to. `design-system/` never drew this, and a rank placed beside a score
+reads as *"study these next"* — Topic recommendation, which does not exist and is
+deferred for want of calibration data. That is a product decision, so it waits
+for one, exactly as ISSUE-0025 and ISSUE-0031 wait.
+
+What a human has to decide: **where the rank appears, and next to what**. The
+sentence the code can already produce is *"on Attention Mechanisms you are #7= of
+340 Candidates"*; what it must not become is a list of Topics ordered by where
+the Candidate stands on them.
+
+## How a shared position is decided
+
+A Candidate is ranked by how many others are **definitely** above them — whose
+credible interval sits entirely above theirs. Anyone merely probably above shares
+the position instead.
+
+That definition was chosen because overlap is not transitive: A can overlap B
+and B overlap C while A and C are plainly apart. Counting only the unambiguously
+higher is well defined whether or not the middle of the field forms a chain,
+where "group the ties" is not.
+
+## Two floors, and only one of them is derived
+
+The Evidence Floor is a property of the posterior's spread and is measured. The
+Cohort Floor is a privacy judgement and is a guess: `#1 of 2` discloses the other
+Candidate completely, and ten is the smallest cohort in which one person's
+position does not describe everybody else's. It is one constant, in one place,
+labelled as provisional, and it takes a parameter so a deployment can state its
+own without a second implementation appearing.
+
+## The refusal, kept by absence
+
+Coverage is compared by a different function returning a different shape, on its
+own route. There is no function that takes both, no `overall_position`, and a
+test walks the OpenAPI document to assert no path carries a rank across Topics.
+
+`Band.tells()` is what SPEC-0006 calls the gate; in this codebase it is
+`Band.reportable`, and that is what the cohort filter uses.

@@ -193,6 +193,14 @@ class NotebookStore:
                 )
             ).scalar_one_or_none()
 
+    def notebook_of_topic(self, topic_id: str) -> str | None:
+        with self._engine.begin() as c:
+            return c.execute(
+                sa.select(notebook_topic.c.notebook_id).where(
+                    notebook_topic.c.topic_id == topic_id
+                )
+            ).scalar_one_or_none()
+
     def deletable(self, notebook_id: str) -> bool:
         """Whether this Corpus may be retired by the Candidate who holds it.
 

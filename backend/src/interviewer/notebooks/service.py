@@ -920,6 +920,17 @@ class NotebookService:
         """
         return self._store.visibility_of(notebook_id) == SHARED
 
+    def comparable_topic(self, topic_id: str) -> bool:
+        """Whether this Topic is one two Candidates can be compared on.
+
+        Only a shared Corpus's. A personal Corpus mints ids nobody else holds,
+        so its cohort is one by construction — and a Topic this deployment has
+        never stored is not comparable either, because nothing can say whose it
+        was.
+        """
+        notebook_id = self._store.notebook_of_topic(topic_id)
+        return notebook_id is not None and self.comparable(notebook_id)
+
     def delete(self, notebook_id: str) -> None:
         """Retire a Corpus and its material. Refuses a shared one.
 

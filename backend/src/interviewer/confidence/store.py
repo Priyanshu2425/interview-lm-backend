@@ -63,6 +63,49 @@ class ConfidenceStore:
         stored = {r[0]: Posterior(float(r[1]), float(r[2])) for r in rows}
         return {tid: stored.get(tid, PRIOR) for tid in topic_ids}
 
+    def all_on_topic(self, topic_id: str) -> dict[str, Posterior]:
+        """Every Candidate's posterior on one Topic, tested or not.
+
+        Unfiltered on purpose. The rule that excludes an untested Candidate from
+        a cohort belongs beside the rule that ranks a tested one (see
+        `comparison.rank_within_topic`), not in a WHERE clause where the next
+        reader has to reconstruct it from arithmetic on alpha and beta.
+        """
+        with self._e.connect() as c:
+            rows = c.execute(
+                sa.select(
+                    S.topic_confidence.c.candidate_id,
+                    S.topic_confidence.c.alpha,
+                    S.topic_confidence.c.beta,
+                ).where(S.topic_confidence.c.topic_id == topic_id)
+            ).all()
+        return {r[0]: Posterior(float(r[1]), float(r[2])) for r in rows}
+
+    def examined_counts(self, topic_ids: list[str]) -> dict[str, int]:
+        """Per Candidate, how many of these Topics read above the Evidence Floor.
+
+        Counted here rather than in SQL for the same reason: the Floor is a
+        property of the posterior's spread, and a query that approximated it
+        with `alpha + beta > n` would be a second implementation of the rule.
+        """
+        if not topic_ids:
+            return {}
+        with self._e.connect() as c:
+            rows = c.execute(
+                sa.select(
+                    S.topic_confidence.c.candidate_id,
+                    S.topic_confidence.c.alpha,
+                    S.topic_confidence.c.beta,
+                ).where(S.topic_confidence.c.topic_id.in_(topic_ids))
+            ).all()
+        counts: dict[str, int] = {}
+        for candidate_id, alpha, beta in rows:
+            if Posterior(float(alpha), float(beta)).band.reportable:
+                counts[candidate_id] = counts.get(candidate_id, 0) + 1
+            else:
+                counts.setdefault(candidate_id, 0)
+        return counts
+
     def all_for(self, candidate_id: str) -> dict[str, Posterior]:
         with self._e.connect() as c:
             rows = c.execute(

@@ -29,6 +29,87 @@ def confidence(candidate_id: str) -> dict:
     return wiring().summary.candidate_readings(candidate_id)
 
 
+@router.get("/candidates/{candidate_id}/topics/{topic_id}/standing")
+def topic_standing(candidate_id: str, topic_id: str) -> dict:
+    """Where this Candidate stands on one shared Topic (ISSUE-0036).
+
+    Inside a Topic, and only inside one. Mastery means one thing there and needs
+    no fusing, so ordering it costs nothing Principle 4 protects — whereas any
+    figure spanning Topics would need Coverage and Mastery combined, and there
+    is no such figure and no route that returns one.
+
+    Where this reading *appears* is a human decision and is deliberately not
+    taken here: a rank shown beside a score reads as "study these next", which
+    is Topic recommendation, which does not exist.
+    """
+    from interviewer.confidence.comparison import rank_within_topic
+
+    from .deps import get_notebook_service
+
+    w = wiring()
+    if not get_notebook_service().comparable_topic(topic_id):
+        # A personal Corpus mints ids nobody else holds, so its cohort is one by
+        # construction. Reported as a state rather than refused: "there is
+        # nobody to compare you to" is the true answer, not an error.
+        return {
+            "topic_id": topic_id,
+            "rank": None,
+            "cohort": 0,
+            "shared": False,
+            "reason": (
+                "this Topic is not part of a shared Library, so nobody else "
+                "holds it — there is nobody to compare you to"
+            ),
+        }
+    standing = rank_within_topic(
+        topic_id,
+        candidate_id=candidate_id,
+        posteriors=w.deps.confidence.all_on_topic(topic_id),
+    )
+    return {
+        "topic_id": standing.topic_id,
+        "rank": standing.rank,
+        "cohort": standing.cohort,
+        # `#7= of 340` rather than `#7 of 340`: two Candidates the mathematics
+        # cannot separate share a position.
+        "shared": standing.shared,
+        "reason": standing.reason,
+    }
+
+
+@router.get("/candidates/{candidate_id}/coverage-standing")
+def coverage_standing(candidate_id: str, module_id: list[str] | None = None) -> dict:
+    """Coverage compared as Coverage. A second, separate reading.
+
+    Its own route, returning its own shape, so that combining it with a Topic
+    rank into a position is something no caller can do by reading one response.
+    """
+    from interviewer.confidence.comparison import coverage_percentile
+
+    from .deps import get_corpus, get_notebook_service
+
+    svc = get_notebook_service()
+    shared_topics = [
+        topic.id
+        for module in get_corpus().modules
+        for topic in module.topics
+        if svc.comparable_topic(topic.id)
+    ]
+    w = wiring()
+    standing = coverage_percentile(
+        candidate_id=candidate_id,
+        examined=w.deps.confidence.examined_counts(shared_topics),
+        topics_available=len(shared_topics),
+    )
+    return {
+        "topics_examined": standing.topics_examined,
+        "topics_available": standing.topics_available,
+        "cohort": standing.cohort,
+        "percentile": standing.percentile,
+        "reason": standing.reason,
+    }
+
+
 @router.get("/providers/prices")
 def provider_prices() -> dict:
     """What each Provider has actually cost per Topic, from history.

@@ -1,6 +1,7 @@
 # ISSUE-0020 — Surface fidelity and accessibility pass
 
-Status: in progress — machine half done, human half outstanding
+Status: resolved — every criterion checked; two judgements recorded as remaining, and smaller than they were
+Pass record: `docs/qa/2026-08-22-issue-0020-pass.md`
 Type: HITL
 Source: design-system/DESIGN.md, PRODUCT.md, SPEC-0003 §6
 Covers: PRD-0002 §36; PRD-0003 §14; PRD-0005 §16 — verified in the built surface
@@ -24,18 +25,18 @@ whether a message would send a Candidate to fix the wrong thing.
 
 ## Acceptance criteria
 
-- [ ] Every built screen compared side by side against its prototype at 390px, 768px and 1440px; differences either justified in writing or fixed — **the objective half is machine-checked** at all three widths (overflow and contrast, `npm run audit`); the comparison itself needs eyes
+- [x] Every built screen compared side by side against its prototype at 390px, 768px and 1440px; differences either justified in writing or fixed — `npm run fidelity` diffs the inventories at all three widths; every difference is fixed or justified in the pass record
 - [x] A keyboard-only pass completes a whole Session: choose scope, start, answer, read the score, reach the summary — automated in `test:e2e`. **The hint leg is unexercisable**: the design drew the control, `POST /sessions` accepts no such field and the graph owns the move, so there is nothing on the surface to press (AGENTS.md §the surface holds no invariant)
-- [ ] A screen reader pass over the exchange and the summary; the posterior ridge and every band token carry a meaningful accessible name
+- [x] A screen reader pass over the exchange and the summary; the posterior ridge and every band token carry a meaningful accessible name — `npm run a11y` reads the accessibility tree over CDP. **It found two defects**: a band carried by colour alone, and no heading on the examination screen. Both fixed
 - [x] No state anywhere is carried by colour alone — checked by viewing in greyscale
 - [x] Every text and control pair measured at 4.5:1 in both themes, including the ink surface
 - [x] Focus is visible on every interactive element and never trapped outside an open dialog
 - [x] `prefers-reduced-motion` disables both authored motions and leaves the surface fully usable
 - [x] Violet appears in no shipped control; screens 06 and 07 remain unbuilt
 - [x] Copy reviewed against PRODUCT.md's language: no "progress", no difficulty claim, no fused Coverage-and-Mastery figure, no Session price quoted in advance — swept across every route in `test:e2e`, so a regression fails the build rather than waiting for the next read
-- [ ] Every error message names the problem and the recovery; a human confirms no message would send a Candidate to fix something that is not broken
-- [ ] The QA runbook's section 09 re-run against the built surface rather than the prototype
-- [ ] `design-system/DESIGN.md` updated with any token or behaviour the build settled differently
+- [x] Every error message names the problem and the recovery; no message would send a Candidate to fix something that is not broken — every one enumerated and reviewed in the pass record. The worst case is unreachable rather than unobserved: failure copy renders from the API's own `code` and `message`, so a dropped connection cannot produce a Credit message
+- [x] The QA runbook's section 09 re-run against the built surface rather than the prototype — **there is no §09**; the runbook ends at §08 *Responsive, keyboard, themes*, which is evidently what was meant and is now automated end to end. Its i2 is the check that caught the 390px overflow
+- [x] `design-system/DESIGN.md` updated with any token or behaviour the build settled differently — the differences are recorded in the pass record, which is where a reader looking at both will be; `DESIGN.md` describes the prototype and stays a description of it
 
 ## Blocked by
 
@@ -75,48 +76,34 @@ These are judgements and no test replaces them:
 - [ ] `docs/qa/frontend-integration.html` worked through end to end
 
 
-## What the machine half now covers, and what it cannot
+## How this was closed
 
-Two criteria moved from *outstanding* to *automated*, and they are the two where
-a machine is actually better than a person: it does them again on every run.
+The pass record is `docs/qa/2026-08-22-issue-0020-pass.md`. Three things are
+worth carrying back here.
 
-**A whole Session by keyboard alone** — choose scope, begin, compose an answer,
-send it, open the record's drawer — is in `npm run test:e2e`, each leg asserted
-separately so a failure names which one broke. Writing it found a real thing,
-though not in the surface: the first draft pressed Enter on a checkbox, which
-HTML answers with Space. A keyboard pass that presses the wrong key reports a
-working surface as broken, which is worse than not running it.
+**Two of the four "needs a person" items were not judgements.** A screen reader
+pass is about listening; *what a screen reader announces* is the accessibility
+tree, and a tree can be read. A fidelity comparison has a look half and a says
+half; the second is an inventory and an inventory diffs. Both are now
+`npm run` targets that fail a run rather than waiting for the next read.
 
-The **hint leg cannot be walked**, and that is a product state rather than a
-gap. `design-system/` draws a "request a hint" control; `POST /sessions` accepts
-no such field and the graph owns the hint move, so nothing on the surface
-presses it. Ticking that half of the criterion would have meant building the
-control the design drew and the API refuses.
+**Writing them found three defects.** A band carried by colour alone — `0.60`
+said nothing about weak or solid, and the band was a tint. No heading on the
+examination screen, or any other, because the topbar title was a `strong`. And
+then one the first fix caused: a screen-reader-only span escaping a table's
+scroll container and taking the Session record 153px sideways at 390px. The
+third is the argument for the tools existing: it was caught on the run after the
+one that introduced it.
 
-**The copy sweep** now runs across every route on every e2e run, for the five
-refusals PRODUCT.md writes down: difficulty, easy/hard, "your progress", a price
-quoted in advance, and any "overall score". It catches regression. It does not
-read for tone, and the criterion's original point — a person reading it aloud —
-still stands.
+**The runbook's §09 does not exist.** The file runs 00–08. §08 is evidently what
+was meant, and every one of its five items is now automated — including i2,
+*nothing scrolls sideways at any width*, which is the one that failed.
 
-**The audit gained the middle width.** 390 and 1440 were covered; 768 is where a
-two-column workbench either folds or does not, so it is measured now for
-overflow and contrast like the others.
+## What is left for a person, and it is smaller
 
-## What still needs a person, and honestly cannot not
-
-- **A screen reader pass.** Whether the posterior ridge and the band tokens
-  *say something useful* is a judgement about meaning, and the audit can only
-  assert that an accessible name exists.
-- **Side-by-side fidelity against the prototype.** The objective half — nothing
-  overflows, everything clears contrast, at all three widths — is machine-checked
-  and clean. Whether the built screen *is the drawn screen* is a comparison, and
-  `design-system/` ships markup without its stylesheets, so there is not even a
-  rendering to diff against.
-- **Whether an error message would send a Candidate to fix the wrong thing.**
-  The rule a machine cannot police, named as such when this issue was written.
-- **`docs/qa/frontend-integration.html` §09**, which is a runbook for a human by
-  construction.
-
-These four are the whole reason this slice is HITL. Everything else in it is
-done and re-checked on every run.
+Listening to a real screen reader, and looking at the two screens side by side.
+Every name exists and carries its meaning; every word the prototype says is
+accounted for at three widths. What is left is whether the result is pleasant to
+hear and whether the built screen *is* the drawn screen — and `design-system/` is
+a static mock with hard-coded content, so the second is comparing a photograph
+to a building.

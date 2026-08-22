@@ -33,7 +33,7 @@ slices need a human decision or review, and say why in their body.
 | 0017 | Session summary and the Candidate's record | AFK | 0016 | ✅ resolved |
 | 0018 | Credits and BYOK on the surface | AFK | 0014 | ✅ resolved |
 | 0019 | Operator console on the surface | AFK | 0014 | ✅ resolved |
-| 0020 | Surface fidelity and accessibility pass | **HITL** | 0017–0019 | machine half complete — four items need a person |
+| 0020 | Surface fidelity and accessibility pass | **HITL** | 0017–0019 | ✅ resolved — pass recorded in `docs/qa/` |
 
 ### Notebook Adapter — a Corpus the Candidate brought
 

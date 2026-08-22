@@ -151,7 +151,14 @@ Two consequences worth stating outright:
   browser against a real API on port 8000.
 - `npm run audit` measures rather than asserts — real contrast against real
   backdrops, targets on both pointer types, accessible names, across five
-  variations and every route. Treat a finding as a defect, not a threshold.
+  variations and every route, at 320, 390, 768 and 1440. Treat a finding as a
+  defect, not a threshold.
+- `npm run a11y` reads the accessibility tree over CDP: what a screen reader
+  would announce, rather than what the markup looks like. `npm run fidelity`
+  diffs each prototype screen's inventory against its built counterpart at three
+  widths and prints what the design says that the build does not — every entry
+  is fixed or justified in `docs/qa/2026-08-22-issue-0020-pass.md`. Both need a
+  real API on port 8000, or `BASE` pointing at one.
 
 Backend: `.venv/bin/python -m pytest backend/tests -q` (751 tests in about 70
 seconds, plus eight skipped until `INTERVIEWER_MODEL_TESTS=1` loads real weights

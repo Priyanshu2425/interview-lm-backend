@@ -190,3 +190,67 @@ def _normalise(values: Sequence[float]) -> tuple[float, ...]:
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
+
+
+@dataclass(frozen=True, slots=True)
+class TouchedModule:
+    """A Module the chosen scope shares material with.
+
+    The reading the Module picker draws (ADR-0023). It is a claim about the
+    **material** — these Modules are near each other in the embedding space —
+    and carries nothing about the Candidate: no score, no Coverage, no Mastery,
+    and no ordering that could be read as what to study.
+
+    `in_scope` is what makes same-Module and cross-Module neighbours
+    distinguishable at this placement: a neighbour inside the chosen scope is
+    material already covered, and one outside it is the sideways connection.
+    """
+
+    module_id: str
+    title: str
+    in_scope: bool
+    #: How many Topic-to-Topic edges reach this Module from the chosen scope.
+    #: A count of connections, not a strength of recommendation.
+    edges: int
+    #: The closest single edge, so the server can order without the client
+    #: inventing a threshold (ADR-0009).
+    score: float
+
+
+def modules_touched(
+    topic_ids: list[str],
+    *,
+    neighbours_of,
+    module_of: dict[str, str],
+    titles: dict[str, str],
+    in_scope: set[str],
+) -> list[TouchedModule]:
+    """Which Modules the chosen Topics reach, ranked by the closest edge.
+
+    Aggregated here rather than on the client for the reason ADR-0009 gives:
+    summing edges and ordering the result is deciding something, and the surface
+    decides nothing. `neighbours_of` is passed in so this stays pure and so the
+    caller chooses whether the edges come from rows or from a fixture.
+    """
+    best: dict[str, tuple[int, float]] = {}
+    for topic_id in topic_ids:
+        for row in neighbours_of(topic_id):
+            module_id = row.get("module_id") or module_of.get(row["topic_id"], "")
+            if not module_id:
+                continue
+            edges, score = best.get(module_id, (0, 0.0))
+            best[module_id] = (edges + 1, max(score, float(row.get("score", 0.0))))
+    out = [
+        TouchedModule(
+            module_id=module_id,
+            title=titles.get(module_id, ""),
+            in_scope=module_id in in_scope,
+            edges=edges,
+            score=round(score, 6),
+        )
+        for module_id, (edges, score) in best.items()
+    ]
+    # Closest edge first, then by id: two Modules at the same distance must not
+    # swap places between two reads of the same rows.
+    out.sort(key=lambda m: (-m.score, m.module_id))
+    return out

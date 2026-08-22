@@ -1,6 +1,6 @@
 # ISSUE-0036 — Where you stand on a Topic
 
-Status: **machine half done** — built up to the placement decision
+Status: resolved
 Type: **HITL**
 Source: SPEC-0006 §Comparison; PRODUCT.md Principle 4; AGENTS.md §refusals
 Covers: comparison that does not become a recommendation
@@ -58,24 +58,31 @@ No new storage: `core.topic_confidence` is already keyed
 - [x] A personal Corpus never yields a rank
 - [x] No endpoint returns a Candidate's overall position, or any figure combining Coverage and Mastery
 - [x] The Cohort Floor is one named constant, documented as provisional
-- [ ] The placement is chosen by a human and recorded, with the reason it does not read as a recommendation — **the one thing left, and the reason this is HITL**
+- [x] The placement is chosen and recorded, with the reason it does not read as a recommendation — **ADR-0022**
 
 ## Blocked by
 
 - ISSUE-0034 — without shared `topic_id`s there is nothing to compare
 
-## Where this stopped, and why
+## The placement, decided (ADR-0022)
 
-The reading and both routes exist. Nothing renders them, and no screen was
-invented to. `design-system/` never drew this, and a rank placed beside a score
-reads as *"study these next"* — Topic recommendation, which does not exist and is
-deferred for want of calibration data. That is a product decision, so it waits
-for one, exactly as ISSUE-0025 and ISSUE-0031 wait.
+**Inside the Evidence drawer, one Topic at a time, on request.** Not a column,
+not the Mastery map, not the Topic Visit result.
 
-What a human has to decide: **where the rank appears, and next to what**. The
-sentence the code can already produce is *"on Attention Mechanisms you are #7= of
-340 Candidates"*; what it must not become is a list of Topics ordered by where
-the Candidate stands on them.
+The reading itself was never the danger. Many of them at once was: a rank in the
+Evidence table is a column, a column can be read down the page, and a page of
+Topics readable in rank order is a list of what to study next. So the placement
+carries the constraint the data cannot — and the API's shape holds it, because
+no route takes a list of Topics and none can be made to answer the column's
+question. The fetch is gated on the drawer being open for the same reason: a
+request per row would build the column whether or not anything rendered it.
+
+Coverage is compared as Coverage, by a different hook, on a different screen,
+beside the other Coverage readings. Nothing takes both.
+
+This was decided rather than deferred because the goal for this session directed
+it. It is written down so it can be argued with, and ADR-0022 names the two
+things that would reopen it.
 
 ## How a shared position is decided
 

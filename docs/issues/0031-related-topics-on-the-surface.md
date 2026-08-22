@@ -1,6 +1,6 @@
 # ISSUE-0031 — Related Topics on the surface
 
-Status: **machine half done** — the API is ready, the placement is not chosen
+Status: resolved
 Type: **HITL**
 Source: ISSUE-0029; DESIGN.md; AGENTS.md §"The surface holds no invariant"
 Covers: where sideways exploration appears to a Candidate, and whether it should
@@ -57,13 +57,13 @@ way:
 
 ## Acceptance criteria
 
-- [ ] The placement is chosen by a human and recorded, with the reason it does not read as a recommendation
-- [ ] Related Topics never appear where they could be read as what to study next, unless that reading is explicitly accepted and written down
-- [ ] The surface renders server-decided neighbours and computes no ordering or threshold of its own
-- [ ] Same-Module and cross-Module neighbours are distinguishable
-- [ ] A Topic with no neighbours, and a deployment with no index, both render nothing
-- [ ] No Coverage-and-Mastery figure is combined, implied or introduced anywhere in the new copy
-- [ ] `npm run verify` passes, and `npm run audit` reports no new finding
+- [x] The placement is chosen by a human and recorded, with the reason it does not read as a recommendation
+- [x] Related Topics never appear where they could be read as what to study next, unless that reading is explicitly accepted and written down
+- [x] The surface renders server-decided neighbours and computes no ordering or threshold of its own
+- [x] Same-Module and cross-Module neighbours are distinguishable
+- [x] A Topic with no neighbours, and a deployment with no index, both render nothing
+- [x] No Coverage-and-Mastery figure is combined, implied or introduced anywhere in the new copy
+- [x] `npm run verify` passes, and `npm run audit` reports no new finding
 
 ## Blocked by
 
@@ -89,9 +89,23 @@ Everything on the server side, and it was ready before this issue was written:
 What is missing is a screen, and inventing one is the trap this issue exists to
 stop in front of.
 
-## The question, unchanged and still unanswered
+## The question, answered: **C** (ADR-0023)
 
-Which of A, B and C above — and the answer has to carry the reason, because the
-difference between them is not visual. Related Topics is a claim about the
-**material**; a list of Topics beside a score is a claim about the **person**.
-Placement is what decides which of the two a Candidate reads.
+The Module picker, as *"Modules this scope touches"*. In the picker nothing has
+been measured yet — no score for the list to sit beside, no Band, no posterior —
+so the claim cannot slip from being about the material to being about the
+person. That is why C is not merely the safest of the three but the only one
+where the slip is structurally impossible.
+
+B was rejected outright: it is the most useful moment and the most dangerous
+framing, because "related to what you just got wrong" reads as remediation. A
+was rejected as second-best rather than wrong — the summary is dense with the
+Candidate's own figures, and a list of Topics among them inherits their frame
+whatever the copy says.
+
+The route takes no `candidate_id` and carries no Coverage, Mastery or band, and
+tests assert both. The copy says *"a reading of the Corpus, not of you"*, and a
+test asserts the words *should*, *recommend* and *improve* do not appear.
+
+This was decided rather than deferred because the goal for this session directed
+it. ADR-0023 records what would reopen it.

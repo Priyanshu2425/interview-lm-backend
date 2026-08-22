@@ -237,6 +237,75 @@ def topic(topic_id: str) -> dict:
     }
 
 
+class TouchedOut(BaseModel):
+    """A Module the chosen scope shares material with (ADR-0023).
+
+    Carries no figure about the Candidate — no Coverage, no Mastery, nothing
+    that could be combined into one — because this is a statement about the
+    material and has to stay one.
+    """
+
+    module_id: str
+    title: str
+    track_key: str
+    in_scope: bool
+    edges: int
+    score: float
+    selectable: bool
+
+
+@router.get("/corpus/scope/related", response_model=list[TouchedOut])
+def scope_related(module_id: list[str] = Query(default=[])) -> list[TouchedOut]:
+    """Which Modules the chosen scope touches, ranked here rather than there.
+
+    The Module picker is where Related Topics appears (ADR-0023), because it is
+    the one place a claim about the material cannot be read as a claim about the
+    person: nothing has been measured yet, and choosing differently changes
+    scope rather than a score.
+
+    Aggregation and ordering are the server's, so the surface renders and
+    decides nothing (ADR-0009).
+    """
+    from interviewer.corpus.related import modules_touched
+
+    corpus = get_corpus()
+    chosen = set(module_id)
+    modules = {m.id: m for m in corpus.modules}
+    if not chosen or any(m not in modules for m in chosen):
+        return []
+    track_of = {
+        module.id: track.key for track in corpus.tracks for module in track.modules
+    }
+    topic_ids = [
+        topic.id for mid in sorted(chosen) for topic in modules[mid].topics
+    ]
+    related = get_related_topics()
+    touched = modules_touched(
+        topic_ids,
+        neighbours_of=related.for_topic,
+        module_of={
+            topic.id: module.id
+            for module in corpus.modules
+            for topic in module.topics
+        },
+        titles={mid: m.title for mid, m in modules.items()},
+        in_scope=chosen,
+    )
+    return [
+        TouchedOut(
+            module_id=t.module_id,
+            title=t.title,
+            track_key=track_of.get(t.module_id, ""),
+            in_scope=t.in_scope,
+            edges=t.edges,
+            score=t.score,
+            selectable=True,
+        )
+        for t in touched
+        if t.module_id in modules
+    ]
+
+
 @router.get("/corpus/topics/{topic_id}/related", response_model=list[RelatedOut])
 def related(topic_id: str) -> list[RelatedOut]:
     """What else relates to this Topic — the case ADR-0005 permitted alongside.

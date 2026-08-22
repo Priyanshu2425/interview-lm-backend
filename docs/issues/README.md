@@ -59,7 +59,7 @@ FUTURE-PIPELINE §Cross-Topic similarity.
 |---|---|---|---|---|
 | 0029 | The shipped Corpus, embedded, and Related Topics served | AFK | — | ✅ resolved |
 | 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | ✅ resolved, then retired by 0037 |
-| 0031 | Related Topics on the surface | **HITL** | — | machine half done |
+| 0031 | Related Topics on the surface | **HITL** | — | ✅ resolved (ADR-0023) |
 
 ### A Corpus is assembled, not shipped
 
@@ -73,7 +73,7 @@ over time.
 | 0033 | The document outlives its upload | AFK | — | ✅ resolved |
 | 0034 | A structured import keeps the Topics it arrived with | AFK | 0032 | ✅ resolved |
 | 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | ✅ resolved |
-| 0036 | Where you stand on a Topic | **HITL** | 0034 | machine half done |
+| 0036 | Where you stand on a Topic | **HITL** | 0034 | ✅ resolved (ADR-0022) |
 | 0037 | Retire the disk path | AFK | 0034, 0036 | ✅ resolved |
 
 ## Shape of the graph

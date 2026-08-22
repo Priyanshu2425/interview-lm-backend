@@ -274,3 +274,28 @@ def test_coverage_standing_is_its_own_route_returning_its_own_shape(client):
         "topics_examined", "topics_available", "cohort", "percentile", "reason"
     }
     assert "rank" not in body
+
+
+# -- the placement, held by the API's shape (ADR-0022) -----------------------
+
+def test_a_standing_is_asked_for_one_topic_at_a_time(client):
+    """No route takes a list of Topics, so no caller can build a column.
+
+    The placement carries a constraint the data cannot — one Topic, on request —
+    and it only holds if the API cannot answer the other question. It cannot.
+    """
+    paths = client.get("/v1/openapi.json").json()["paths"]
+    standing = paths["/v1/candidates/{candidate_id}/topics/{topic_id}/standing"]
+    params = {p["name"] for p in standing["get"].get("parameters", [])}
+    assert params == {"candidate_id", "topic_id"}
+    assert not any(
+        "standings" in path or path.endswith("/standing/all") for path in paths
+    )
+
+
+def test_the_two_comparisons_are_never_returned_together(client):
+    """Coverage is compared as Coverage, in its own response and nowhere else."""
+    topic = client.get("/v1/corpus/modules").json()
+    body = client.get("/v1/candidates/me/coverage-standing").json()
+    assert "rank" not in body and "shared" not in body
+    assert topic is not None

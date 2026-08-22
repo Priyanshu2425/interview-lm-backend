@@ -23,7 +23,7 @@ def client(content_db, clean_db):
     refresh_corpus()
 
 
-def _notebook_with_a_graded_visit(client, real_notes, candidate="cand-l"):
+def _notebook_with_a_graded_visit(client, ingested, real_notes, candidate="cand-l"):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": candidate, "title": "Notes"}
     ).json()
@@ -32,6 +32,9 @@ def _notebook_with_a_graded_visit(client, real_notes, candidate="cand-l"):
         f"/v1/notebooks/{notebook_id}/sources",
         json={"title": "AIML notes", "text": real_notes},
     ).json()["module_id"]
+    # The upload outlives the ingestion (ISSUE-0035), so a Module exists only
+    # once the embedding has finished. Waiting is what the Library does.
+    ingested(client, notebook_id)
     started = client.post(
         "/v1/sessions",
         json={
@@ -55,7 +58,7 @@ def _notebook_with_a_graded_visit(client, real_notes, candidate="cand-l"):
 # -- upload ------------------------------------------------------------------
 
 
-def test_each_source_reports_its_own_state(client, real_notes):
+def test_each_source_reports_its_own_state(client, ingested, real_notes):
     from pdf_fixtures import scanned_pdf
 
     created = client.post(
@@ -71,6 +74,7 @@ def test_each_source_reports_its_own_state(client, real_notes):
         files={"file": ("scan.pdf", scanned_pdf(), "application/pdf")},
         data={"title": "A scan"},
     )
+    ingested(client, notebook_id)
 
     listed = client.get("/v1/notebooks", params={"candidate_id": "cand-u"}).json()
     states = {s["title"]: s for s in listed[0]["sources"]}
@@ -80,10 +84,10 @@ def test_each_source_reports_its_own_state(client, real_notes):
 
 
 def test_a_session_can_be_scoped_to_ready_modules_while_others_are_stubs(
-    client, real_notes
+    client, ingested, real_notes
 ):
     notebook_id, module_id, _, _ = _notebook_with_a_graded_visit(
-        client, real_notes, candidate="cand-mix"
+        client, ingested, real_notes, candidate="cand-mix"
     )
     from pdf_fixtures import scanned_pdf
 
@@ -107,12 +111,12 @@ def test_a_session_can_be_scoped_to_ready_modules_while_others_are_stubs(
 
 
 def test_deleting_a_notebook_empties_content_and_keeps_every_evidence_row(
-    client, real_notes, engine
+    client, ingested, real_notes, engine
 ):
     from interviewer.confidence.store import ConfidenceStore, EvidenceLedger
 
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
-        client, real_notes
+        client, ingested, real_notes
     )
     before = EvidenceLedger(engine).for_session(session_id)
     assert before, "no Evidence to protect"
@@ -131,10 +135,10 @@ def test_deleting_a_notebook_empties_content_and_keeps_every_evidence_row(
 
 
 def test_a_retired_topic_is_gone_from_the_picker_and_refused_by_a_session(
-    client, real_notes
+    client, ingested, real_notes
 ):
     notebook_id, module_id, _, candidate = _notebook_with_a_graded_visit(
-        client, real_notes, candidate="cand-retire"
+        client, ingested, real_notes, candidate="cand-retire"
     )
     client.delete(f"/v1/notebooks/{notebook_id}")
 
@@ -154,9 +158,9 @@ def test_a_retired_topic_is_gone_from_the_picker_and_refused_by_a_session(
     assert refused.status_code == 422
 
 
-def test_the_record_still_reads_after_the_material_is_gone(client, real_notes):
+def test_the_record_still_reads_after_the_material_is_gone(client, ingested, real_notes):
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
-        client, real_notes, candidate="cand-record"
+        client, ingested, real_notes, candidate="cand-record"
     )
     before = client.get(f"/v1/sessions/{session_id}/summary").json()
     assert before["per_topic"]
@@ -172,9 +176,11 @@ def test_the_record_still_reads_after_the_material_is_gone(client, real_notes):
         assert now["citations"], "a citation vanished with the notebook"
 
 
-def test_a_retired_topic_keeps_its_coverage_and_its_reading(client, real_notes, engine):
+def test_a_retired_topic_keeps_its_coverage_and_its_reading(
+    client, ingested, real_notes, engine
+):
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
-        client, real_notes, candidate="cand-cov"
+        client, ingested, real_notes, candidate="cand-cov"
     )
     before = client.get(f"/v1/candidates/{candidate}/confidence").json()
     client.delete(f"/v1/notebooks/{notebook_id}")
@@ -187,7 +193,9 @@ def test_a_retired_topic_keeps_its_coverage_and_its_reading(client, real_notes, 
     ]
 
 
-def test_deleting_one_source_retires_only_that_modules_topics(client, real_notes):
+def test_deleting_one_source_retires_only_that_modules_topics(
+    client, ingested, real_notes
+):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-one", "title": "Two files"}
     ).json()
@@ -203,6 +211,7 @@ def test_deleting_one_source_retires_only_that_modules_topics(client, real_notes
             "text": real_notes.replace("Revison", "Second file") + "\n\nExtra.\n",
         },
     ).json()
+    ingested(client, notebook_id)
 
     deleted = client.delete(
         f"/v1/notebooks/{notebook_id}/sources/{first['source_id']}"
@@ -220,7 +229,7 @@ def test_deleting_one_source_retires_only_that_modules_topics(client, real_notes
 
 
 def test_deleting_a_notebook_mid_session_ends_it_after_the_current_visit(
-    client, real_notes, engine
+    client, ingested, real_notes, engine
 ):
     """The soft deadline already built for duration, reused for deletion."""
     from interviewer.confidence.store import EvidenceLedger
@@ -233,6 +242,7 @@ def test_deleting_a_notebook_mid_session_ends_it_after_the_current_visit(
         f"/v1/notebooks/{notebook_id}/sources",
         json={"title": "AIML notes", "text": real_notes},
     ).json()["module_id"]
+    ingested(client, notebook_id)
     started = client.post(
         "/v1/sessions",
         json={

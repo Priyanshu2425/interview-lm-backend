@@ -34,6 +34,17 @@ async def lifespan(app: FastAPI):
     process still in the middle of that.
     """
     app.state.ready = True
+    # No worker survives a restart, so anything still marked `ingesting` is
+    # stale by definition rather than by a guess about how long is too long
+    # (ISSUE-0035). Reset before serving, so the first poll after a deploy tells
+    # the truth. A database that is not reachable yet is not a reason to refuse
+    # to start: every other route still works, and the next boot will do this.
+    try:
+        from .ingest_worker import reset_stale
+
+        reset_stale()
+    except Exception:
+        log.warning("could not reset interrupted ingests", exc_info=True)
     if os.environ.get("MODEL_WARM_AT_BOOT") == "1":
         from .deps import get_embedder
 

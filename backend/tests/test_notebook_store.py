@@ -97,7 +97,9 @@ def client(content_db, clean_db):
     refresh_corpus()
 
 
-def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(client, real_notes):
+def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(
+    client, ingested, real_notes
+):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-9", "title": "Notes"}
     )
@@ -110,7 +112,11 @@ def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(client, real_not
     )
     assert added.status_code == 201
     module_id = added.json()["module_id"]
-    assert added.json()["topics"] >= 1
+    # The upload answers immediately and the ingest runs behind it, so the work
+    # *found* is what the response carries and the Module arrives with the poll.
+    assert added.json()["state"] == "uploaded"
+    assert added.json()["progress_total"] >= 1
+    assert ingested(client, notebook_id)["state"] == "ready"
 
     modules = client.get("/v1/corpus/modules", params={"candidate_id": "cand-9"})
     listed = {m["module_id"]: m for m in modules.json()}
@@ -139,7 +145,9 @@ def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(client, real_not
     assert topic.json()["module_id"] == module_id
 
 
-def test_a_notebook_is_not_listed_for_another_candidate(client, real_notes):
+def test_a_notebook_is_not_listed_for_another_candidate(
+    client, ingested, real_notes
+):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-owner", "title": "Private"}
     )
@@ -149,6 +157,7 @@ def test_a_notebook_is_not_listed_for_another_candidate(client, real_notes):
         json={"title": "Private notes", "text": real_notes},
     )
     module_id = added.json()["module_id"]
+    ingested(client, notebook_id)
 
     mine = client.get("/v1/corpus/modules", params={"candidate_id": "cand-owner"})
     theirs = client.get("/v1/corpus/modules", params={"candidate_id": "cand-other"})

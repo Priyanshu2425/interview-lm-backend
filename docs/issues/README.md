@@ -72,7 +72,7 @@ over time.
 | 0032 | A Corpus has an owner, and a shared one cannot be deleted | AFK | — | ✅ resolved |
 | 0033 | The document outlives its upload | AFK | — | ✅ resolved |
 | 0034 | A structured import keeps the Topics it arrived with | AFK | 0032 | ✅ resolved |
-| 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | open |
+| 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | ✅ resolved |
 | 0036 | Where you stand on a Topic | **HITL** | 0034 | open |
 | 0037 | Retire the disk path | AFK | 0034, 0036 | open |
 

@@ -159,13 +159,13 @@ def test_the_object_is_written_before_the_row(
 
     store = Watching(tmp_path)
     service = NotebookService(content_db, embedder=counting, objects=store)
-    original = NotebookStore.save_source_ingest
+    original = NotebookStore.create_source
 
     def watched(self, **kw):
         seen.append("row")
         return original(self, **kw)
 
-    monkeypatch.setattr(NotebookStore, "save_source_ingest", watched)
+    monkeypatch.setattr(NotebookStore, "create_source", watched)
     service.create("nb-order", "cand-order", "Notes")
     _upload(
         service, "nb-order", source_id="src-1", title="A.md",

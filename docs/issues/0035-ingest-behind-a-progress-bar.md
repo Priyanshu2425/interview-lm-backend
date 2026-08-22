@@ -1,6 +1,6 @@
 # ISSUE-0035 — A document is in the Library before it is ingested
 
-Status: open
+Status: resolved
 Type: AFK
 Source: SPEC-0006 §The open problem; SPEC-0000 §refusals; ISSUE-0023, ISSUE-0026
 Covers: a forty-second import nobody stares through, and an upload that survives it
@@ -62,21 +62,67 @@ stubs and for un-ingested documents alike.
 
 ## Acceptance criteria
 
-- [ ] An uploaded document appears in the Library immediately, before ingestion
-- [ ] Adding a Source returns at once and does not block on embedding
-- [ ] Ingestion starts automatically after upload
-- [ ] Progress reports work done against work found, never an indeterminate state
-- [ ] A document that is not ready is listed, not selectable, and says why
-- [ ] `stub_reason` is rendered on the surface, for stubs as well as for failures
-- [ ] A killed process leaves the Source listed and marked failed, never stuck ingesting
-- [ ] Rows left `ingesting` are reset at startup, since no worker survives a restart
-- [ ] A failed document offers Retry, and retrying re-ingests without re-uploading
-- [ ] A retry is billed as a fresh ingest and never double-charges a completed one
-- [ ] A killed run still leaves no Module, no chunks and no ledger entry
-- [ ] A Source already ingesting refuses a second start, so two tabs cannot run it twice
-- [ ] Polling stops when the job ends and does not hold the process awake afterwards
-- [ ] A completed ingest appears as a usable Module without a reload
+- [x] An uploaded document appears in the Library immediately, before ingestion
+- [x] Adding a Source returns at once and does not block on embedding
+- [x] Ingestion starts automatically after upload
+- [x] Progress reports work done against work found, never an indeterminate state
+- [x] A document that is not ready is listed, not selectable, and says why
+- [x] `stub_reason` is rendered on the surface, for stubs as well as for failures
+- [x] A killed process leaves the Source listed and marked failed, never stuck ingesting
+- [x] Rows left `ingesting` are reset at startup, since no worker survives a restart
+- [x] A failed document offers Retry, and retrying re-ingests without re-uploading
+- [x] A retry is billed as a fresh ingest and never double-charges a completed one
+- [x] A killed run still leaves no Module, no chunks and no ledger entry
+- [x] A Source already ingesting refuses a second start, so two tabs cannot run it twice
+- [x] Polling stops when the job ends and does not hold the process awake afterwards
+- [x] A completed ingest appears as a usable Module without a reload
 
 ## Blocked by
 
 - ISSUE-0033 — the bytes must be durable before the Source can outlive its ingest
+
+## `ready` has to imply *composed*
+
+The subtle one, and it was a real bug before it was a rule. `ready` is what the
+Library shows as examinable, so it must not become true before the served Corpus
+contains the Module — otherwise a Candidate who starts a Session the moment the
+progress bar fills is told their Module holds no examinable Topic.
+
+So an ingest writes its material, then rebuilds whatever the caller has to
+rebuild, then marks the Source ready. `mark_ready` is its own store method for
+that reason and says so.
+
+## Progress is measured before the work, not during it
+
+Chunking is local and free, so the work *found* is counted at upload and stored
+with the row. The readout therefore starts at `0 of 214` rather than at nothing
+of nothing — which is the indeterminate spinner by another name.
+
+Work *done* comes from wrapping the embedder rather than instrumenting the
+pipeline: it is the one place that knows, and wrapping means the reading cannot
+drift from the work because there is no second counter to keep in step.
+
+## Two clocks are one clock
+
+Elapsed time and time-since-progress are computed in Postgres, from the same
+clock that wrote the timestamps. Subtracting one machine's clock from another's
+is a duration nobody can defend — and it would also have put `datetime.now()` in
+a route, which the architecture test refuses.
+
+## What the split cost, and what it did not
+
+Two existing tests changed their assertions rather than their expectations: a
+refused or failed ingest now leaves the document **listed and marked failed**
+instead of leaving nothing. That is the slice, stated: the upload outlives the
+ingestion. What did not change is what those tests were really protecting — no
+Module, no Topic, no chunk, no ledger entry.
+
+## Not in this slice
+
+Resuming a partial ingest. Re-embedding costs about two cents, and resuming
+would mean chunks belonging to no Module — a class of partial state worth
+considerably more than the two cents it saves.
+
+A stall deadline. A worker that stalls inside a live process reports elapsed
+time and time since last progress, and how long is too long is left to whoever
+is reading it: it is unknown until real documents have been through this.

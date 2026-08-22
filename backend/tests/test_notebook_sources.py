@@ -222,7 +222,7 @@ def test_a_stub_module_is_listed_unselectable_and_unreachable(client):
     assert "no examinable Topic" in refused.text
 
 
-def test_a_pdf_uploaded_through_the_surface_is_examinable(client):
+def test_a_pdf_uploaded_through_the_surface_is_examinable(client, ingested):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-p", "title": "Handouts"}
     )
@@ -233,7 +233,9 @@ def test_a_pdf_uploaded_through_the_surface_is_examinable(client):
         data={"title": "Lecture handout"},
     )
     assert added.status_code == 201, added.text
-    assert added.json()["state"] == "ready"
+    # The upload answers at once and the embedding runs behind it (ISSUE-0035).
+    assert added.json()["state"] == "uploaded"
+    assert ingested(client, notebook_id)["state"] == "ready"
 
     module_id = added.json()["module_id"]
     started = client.post(

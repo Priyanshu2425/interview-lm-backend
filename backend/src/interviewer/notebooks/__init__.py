@@ -6,11 +6,13 @@ Corpus the API serves, and deleted when the Candidate says so.
 """
 
 from .service import (
-    NotebookService, SharedCorpusIsNotYours, SourceBytesMissing,
+    IngestNotClaimable, NotebookService, SharedCorpusIsNotYours,
+    SourceBytesMissing, UploadedSource,
 )
 from .store import NotebookRecord, NotebookStore, SourceRecord
 
 __all__ = [
-    "NotebookRecord", "NotebookService", "NotebookStore",
+    "IngestNotClaimable", "NotebookRecord", "NotebookService", "NotebookStore",
     "SharedCorpusIsNotYours", "SourceBytesMissing", "SourceRecord",
+    "UploadedSource",
 ]

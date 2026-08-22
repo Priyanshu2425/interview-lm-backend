@@ -27,6 +27,7 @@ from interviewer.db.content import PERSONAL, SHARED
 
 from .corpus_view import corpus_for
 from .metering import IngestCost, IngestMeter, InsufficientBalance, estimate
+from .progress import ProgressEmbedder
 from .reuse import ReusingEmbedder
 from .store import NotebookRecord, NotebookStore
 
@@ -77,6 +78,46 @@ class ReIngested:
     new: list[str]
     vanished: list[str]
     chunks: int
+
+
+@dataclass(frozen=True, slots=True)
+class UploadedSource:
+    """A document in the Library, before anything has been made of it."""
+
+    source_id: str
+    module_id: str
+    state: str
+    stub_reason: str | None = None
+    deduplicated: bool = False
+    #: Work found: how many sections the embedder will be asked for. Known
+    #: before the first provider call, so the progress readout starts at 0 of N
+    #: rather than at nothing of nothing.
+    sections: int = 0
+
+
+class IngestNotClaimable(RuntimeError):
+    """Something else already has this Source, or it is already a Module.
+
+    Two tabs pressing Retry is the ordinary case, and `ready` is the important
+    one: a completed ingest is not re-runnable, which is what stops a retry
+    billing twice for one document.
+    """
+
+    code = "ingest_not_claimable"
+
+    def __init__(self, source_id: str, state: str) -> None:
+        super().__init__(
+            f"{source_id} is {state}: "
+            + (
+                "it has already been ingested"
+                if state == "ready"
+                else "an ingest is already running for it"
+                if state == "ingesting"
+                else "it carries no text to ingest"
+            )
+        )
+        self.source_id = source_id
+        self.state = state
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,15 +205,60 @@ class NotebookService:
         route: str = "credits",
         as_operator: bool = False,
     ) -> AddedSource:
-        """Ingest one Source. Clustering runs inside it and nowhere else.
+        """Upload a Source and ingest it, in one call and in that order.
 
-        Extraction happens first and costs nothing, which is what lets a source
-        carrying no text become a stub without ever reaching the embedder.
+        The two halves are separable and separated (`upload_source` and
+        `ingest_source`), because the upload has to outlive a forty-second
+        embed that dies. This is the synchronous composition of them, for
+        callers that have nowhere to poll from — a script, an import, MCP.
+        """
+        uploaded = self.upload_source(
+            notebook_id,
+            source_id=source_id,
+            title=title,
+            text=text,
+            data=data,
+            media_type=media_type,
+            url=url,
+            stub_reason=stub_reason,
+            as_operator=as_operator,
+        )
+        if uploaded.state != "uploaded":
+            return AddedSource(
+                source_id=uploaded.source_id,
+                module_id=uploaded.module_id,
+                state=uploaded.state,
+                topics=0,
+                chunks=0,
+                dossier_tokens={},
+                deduplicated=uploaded.deduplicated,
+                stub_reason=uploaded.stub_reason,
+            )
+        return self.ingest_source(notebook_id, uploaded.source_id, route=route)
 
-        A shared Corpus is read-only to every Candidate, so writing into one
-        needs `as_operator`. The flag is here rather than only at the route for
-        the same reason the delete guard is: a rule that lives in a route is a
-        rule the next route has never heard of.
+    def upload_source(
+        self,
+        notebook_id: str,
+        *,
+        source_id: str,
+        title: str,
+        text: str = "",
+        data: bytes | None = None,
+        media_type: str = "text/markdown",
+        url: str = "",
+        stub_reason: str | None = None,
+        as_operator: bool = False,
+    ) -> "UploadedSource":
+        """Keep the document and list it. Embed nothing.
+
+        A Source exists as soon as its bytes do (ISSUE-0035), so this returns as
+        soon as the file is stored and the row is written — the document appears
+        in the Library at once, marked as not yet ingested.
+
+        Extraction happens here rather than in the ingest, and it is the reason
+        the progress readout is never indeterminate: chunking is local and free,
+        so the work *found* is a measurement taken before the first provider
+        call rather than a number that appears after it.
         """
         record = self._store.get(notebook_id)
         if record is None:
@@ -193,80 +279,131 @@ class NotebookService:
             or (text or "")
             or source_id
         )
-        pages = extracted.pages
         stub_reason = stub_reason or extracted.stub_reason
-        text = extracted.text
+        body = extracted.text
         existing = self._store.source_by_hash(notebook_id, content_hash)
         if existing is not None:
             # The same file twice is the same Module. No embedding, no charge.
             source = next(s for s in record.sources if s.source_id == existing)
-            return AddedSource(
+            return UploadedSource(
                 source_id=existing,
                 module_id=source.module_id,
                 state=source.state,
-                topics=0,
-                chunks=0,
-                dossier_tokens={},
-                deduplicated=True,
                 stub_reason=source.stub_reason,
+                deduplicated=True,
+                sections=source.progress_total,
             )
 
         order = self._store.next_source_order(notebook_id)
-        # The document is stored before any row is written, the same ordering
+        module_id = module_id_for(notebook_id, source_id)
+        # The document is stored before the row is written, the same ordering
         # ADR-0017 fixed for figures. A row without an object is a citation
         # pointing at nothing; an object without a row is unreferenced bytes a
         # sweep can find. One is a broken product, the other is a bill.
-        payload = data if data is not None else (text or "").encode()
+        payload = data if data is not None else (body or text or "").encode()
         object_key, byte_length = self._keep(
             notebook_id, payload, media_type=media_type
         )
-        cost = estimate([text], embedder=self._embedder, route=route)
+        is_stub = bool(stub_reason) or not body.strip()
+        sections = 0 if is_stub else len(chunk_source(source_id, body))
+        self._store.create_source(
+            notebook_id=notebook_id,
+            source_id=source_id,
+            module_id=module_id,
+            title=title,
+            text=body,
+            media_type=media_type,
+            order=order,
+            content_hash=content_hash,
+            state="stub" if is_stub else "uploaded",
+            stub_reason=stub_reason or ("no extractable text" if is_stub else None),
+            object_key=object_key,
+            byte_length=byte_length,
+            progress_total=sections,
+            pages=extracted.pages,
+        )
+        return UploadedSource(
+            source_id=source_id,
+            module_id=module_id,
+            state="stub" if is_stub else "uploaded",
+            stub_reason=stub_reason or ("no extractable text" if is_stub else None),
+            sections=sections,
+        )
+
+    def ingest_source(
+        self,
+        notebook_id: str,
+        source_id: str,
+        *,
+        route: str = "credits",
+        before_ready=None,
+    ) -> AddedSource:
+        """Turn an uploaded document into a Module. The forty seconds.
+
+        Claimed with a conditional UPDATE, so two tabs pressing the same button
+        race in the database and exactly one wins. A failure marks the Source
+        `failed` and leaves the bytes where they are: a retry re-ingests and
+        never re-uploads.
+        """
+        record = self._store.get(notebook_id)
+        if record is None:
+            raise LookupError(notebook_id)
+        source = next(
+            (s for s in record.sources if s.source_id == source_id), None
+        )
+        if source is None:
+            raise LookupError(source_id)
+        if not self._store.begin_ingest(source_id):
+            raise IngestNotClaimable(source_id, source.state)
+        try:
+            return self._run_ingest(
+                record, source, route=route, before_ready=before_ready
+            )
+        except Exception as exc:
+            # A failure is a state on the document rather than a lost upload.
+            # Nothing partial was written: the Topics and chunks land in one
+            # transaction at the end, so there is no Module, no orphan Topic and
+            # no ledger entry to unwind.
+            self._store.fail_ingest(source_id, _failure_reason(exc))
+            raise
+
+    def _run_ingest(
+        self, record, source, *, route: str, before_ready=None
+    ) -> AddedSource:
+        source_id = source.source_id
+        data, extracted = self._material_of(record.notebook_id, source)
+        body = extracted.text
+        cost = estimate([body], embedder=self._embedder, route=route)
         # Refused before the first provider call, never half-ingested.
         self._meter.gate(cost, candidate_id=record.candidate_id)
-        source = Source(
-            source_id=source_id,
-            title=title,
-            text=text,
-            media_type=media_type,
-            stub_reason=stub_reason,
-            pages=pages,
-            url=url,
-        )
-        module_id = module_id_for(notebook_id, source_id)
 
-        if source.is_stub:
-            reason = stub_reason or "no extractable text"
-            self._store.save_source_ingest(
-                notebook_id=notebook_id,
-                source=Source(
-                    source_id=source_id, title=title, text=text,
-                    media_type=media_type, stub_reason=reason, url=url,
+        embedder = ProgressEmbedder(
+            ReusingEmbedder(
+                self._embedder,
+                # Scoped to the model that drew them: a vector from a space this
+                # notebook has left is not a saving, it is a corruption.
+                self._store.embeddings_by_hash(
+                    record.notebook_id, embedding_model=self._model_name
                 ),
-                module_id=module_id,
-                order=order,
-                content_hash=content_hash,
-                chunks=[],
-                frozen={},
-                topic_orders={},
-                topic_tokens={},
-                object_key=object_key,
-                byte_length=byte_length,
-            )
-            return AddedSource(
-                source_id=source_id, module_id=module_id, state="stub",
-                topics=0, chunks=0, dossier_tokens={}, stub_reason=reason,
-            )
-
-        embedder = ReusingEmbedder(
-            self._embedder,
-            # Scoped to the model that drew them: a vector from a space this
-            # notebook has left is not a saving, it is a corruption.
-            self._store.embeddings_by_hash(
-                notebook_id, embedding_model=self._model_name
+            ),
+            lambda done, total: self._store.record_progress(
+                source_id, done=done, total=total
             ),
         )
         ingested = ingest_notebook(
-            Notebook(notebook_id=notebook_id, title=record.title, sources=(source,)),
+            Notebook(
+                notebook_id=record.notebook_id,
+                title=record.title,
+                sources=(
+                    Source(
+                        source_id=source_id,
+                        title=source.title,
+                        text=body,
+                        media_type=source.media_type,
+                        pages=extracted.pages,
+                    ),
+                ),
+            ),
             embedder=embedder,
             labeller=self._labeller,
         )
@@ -276,23 +413,26 @@ class NotebookService:
             t.id: sum(len(l.text or "") for l in t.leaves) // 4 for t in module.topics
         }
         figures = self._figures_for(
-            notebook_id, source_id=source_id, data=data,
-            media_type=media_type, chunks=ingested.chunks, embedder=embedder,
+            record.notebook_id, source_id=source_id, data=data,
+            media_type=source.media_type, chunks=ingested.chunks,
+            embedder=embedder,
         )
-        self._store.save_source_ingest(
-            notebook_id=notebook_id,
-            source=source,
-            module_id=module_id,
-            order=order,
-            content_hash=content_hash,
+        self._store.finish_ingest(
+            notebook_id=record.notebook_id,
+            source_id=source_id,
             chunks=ingested.chunks + figures,
             frozen=ingested.frozen,
             topic_orders=orders,
             topic_tokens=tokens,
             embedding_model=self._model_name,
-            object_key=object_key,
-            byte_length=byte_length,
         )
+        # Whatever the caller has to rebuild before `ready` can be true — the
+        # served Corpus, for the API. A Module that is `ready` and not yet
+        # composed is a Session refused on the Topic the Candidate just watched
+        # finish.
+        if before_ready is not None:
+            before_ready()
+        self._store.mark_ready(source.source_id)
         # Charged on what was actually embedded — a resumed ingest re-reads the
         # vectors it already has and pays for none of them — and idempotent on
         # the Source, so a retry cannot bill twice either.
@@ -304,12 +444,12 @@ class NotebookService:
         self._meter.charge(
             cost,
             candidate_id=record.candidate_id,
-            notebook_id=notebook_id,
+            notebook_id=record.notebook_id,
             source_id=source_id,
         )
         return AddedSource(
             source_id=source_id,
-            module_id=module_id,
+            module_id=source.module_id,
             state="ready",
             topics=len(module.topics),
             chunks=len(ingested.chunks),
@@ -317,6 +457,26 @@ class NotebookService:
             cost=cost,
             figures=len(figures),
         )
+
+    def _material_of(self, notebook_id: str, source):
+        """What the ingest works from: the extraction, and the bytes if kept.
+
+        The text and its locators come off the row, because extraction happened
+        at upload and both were written with it — a deployment with no object
+        store keeps its page numbers, which it would not if this re-extracted.
+
+        The bytes are fetched only for the figure lane, which genuinely needs
+        them, and their absence costs pictures rather than the Module.
+        """
+        from interviewer.corpus.adapters.notebook.extract import Extracted, Page
+
+        text = source_text(self._store, source.source_id)
+        pages = source.pages or ((Page(1, 0, len(text)),) if text else ())
+        try:
+            data = self.source_bytes(notebook_id, source.source_id)
+        except SourceBytesMissing:
+            data = None
+        return data, Extracted(text, pages)
 
     def import_structured(
         self,
@@ -811,3 +971,28 @@ _SUFFIXES = {
 
 def _suffix_for(media_type: str) -> str:
     return _SUFFIXES.get((media_type or "").split(";")[0].strip(), "bin")
+
+
+def _failure_reason(exc: Exception) -> str:
+    """What the Library says about a failed ingest.
+
+    The exception's own words where it has any: a message composed here would
+    be this module's guess at somebody else's failure, and the Candidate would
+    read the guess.
+    """
+    message = str(exc).strip()
+    return message[:200] if message else f"ingest failed: {type(exc).__name__}"
+
+
+def source_text(store: NotebookStore, source_id: str) -> str:
+    """The cached extraction, for the one case where the bytes are gone."""
+    import sqlalchemy as sa
+
+    from interviewer.db.content import notebook_source
+
+    with store._engine.begin() as c:  # noqa: SLF001 — same package, same table
+        return c.execute(
+            sa.select(notebook_source.c.text).where(
+                notebook_source.c.source_id == source_id
+            )
+        ).scalar_one_or_none() or ""

@@ -275,3 +275,34 @@ def illustrated(content_db, seeing, objects):
     return NotebookService(
         content_db, embedder=seeing, objects=objects, images=True
     )
+
+
+@pytest.fixture()
+def ingested():
+    """Wait for a document to stop being in flight, the way the surface does.
+
+    ISSUE-0035 separated the upload from the ingestion: `POST /sources` returns
+    as soon as the bytes are durable, and the embedding runs in a thread. So a
+    test that wants a Module has to do what the Library does — poll — rather
+    than assume the work finished inside the request.
+    """
+    import time
+
+    TERMINAL = {"ready", "failed", "stub"}
+
+    def wait(client, notebook_id: str, source_id: str | None = None,
+             *, timeout: float = 60.0) -> dict:
+        deadline = time.monotonic() + timeout
+        last: dict = {}
+        while time.monotonic() < deadline:
+            body = client.get(f"/v1/notebooks/{notebook_id}").json()
+            sources = body["sources"]
+            if source_id is not None:
+                sources = [s for s in sources if s["source_id"] == source_id]
+            last = sources[-1] if sources else {}
+            if sources and all(s["state"] in TERMINAL for s in sources):
+                return last
+            time.sleep(0.02)
+        raise AssertionError(f"ingest did not finish in {timeout}s: {last}")
+
+    return wait

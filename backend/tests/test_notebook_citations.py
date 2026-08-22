@@ -84,7 +84,7 @@ def client(content_db, clean_db):
     refresh_corpus()
 
 
-def _run_one_visit(client, real_notes):
+def _run_one_visit(client, ingested, real_notes):
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-cite", "title": "Notes"}
     )
@@ -93,6 +93,7 @@ def _run_one_visit(client, real_notes):
         f"/v1/notebooks/{notebook_id}/sources",
         json={"title": "AIML notes", "text": real_notes},
     ).json()["module_id"]
+    ingested(client, notebook_id)
     started = client.post(
         "/v1/sessions",
         json={
@@ -117,9 +118,9 @@ def _run_one_visit(client, real_notes):
 
 
 def test_a_graded_visit_carries_the_spans_that_grounded_its_question(
-    client, real_notes, engine
+    client, ingested, real_notes, engine
 ):
-    session_id, payload = _run_one_visit(client, real_notes)
+    session_id, payload = _run_one_visit(client, ingested, real_notes)
     assert payload, "no Visit closed"
 
     from interviewer.confidence.store import EvidenceLedger
@@ -134,15 +135,17 @@ def test_a_graded_visit_carries_the_spans_that_grounded_its_question(
     assert row["module_title_snapshot"] == "AIML notes"
 
 
-def test_citations_reach_the_session_summary(client, real_notes):
-    session_id, _ = _run_one_visit(client, real_notes)
+def test_citations_reach_the_session_summary(client, ingested, real_notes):
+    session_id, _ = _run_one_visit(client, ingested, real_notes)
     summary = client.get(f"/v1/sessions/{session_id}/summary").json()
     per_topic = summary["per_topic"]
     assert per_topic
     assert any(t["citations"] for t in per_topic)
 
 
-def test_no_citation_path_queries_anything_during_a_session(client, real_notes):
+def test_no_citation_path_queries_anything_during_a_session(
+    client, ingested, real_notes
+):
     """ADR-0005 as amended: the index is read at ingest and for attribution,
     never to answer a question."""
     from interviewer.corpus.adapters.notebook import embedding
@@ -164,6 +167,7 @@ def test_no_citation_path_queries_anything_during_a_session(client, real_notes):
             f"/v1/notebooks/{notebook_id}/sources",
             json={"title": "AIML notes", "text": real_notes},
         ).json()["module_id"]
+        ingested(client, notebook_id)
         during_ingest = len(embedded)
         assert during_ingest, "ingest embedded nothing"
 

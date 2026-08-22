@@ -27,6 +27,13 @@ class ModuleOut(BaseModel):
     #: part that happened to parse (PRD-0001 §16).
     selectable: bool = True
     stub_reason: str | None = None
+    #: uploaded | ingesting | ready | failed | stub. `ready` for everything in
+    #: the shipped Corpus and for every finished ingest; the others are
+    #: documents that are in the Library and not yet examinable (ISSUE-0035).
+    state: str = "ready"
+    #: Sections embedded of sections found, for a document still being read.
+    progress_done: int = 0
+    progress_total: int = 0
 
 
 class RelatedOut(BaseModel):
@@ -74,11 +81,14 @@ def modules(track: str | None = None, candidate_id: str | None = None) -> list[M
 
 
 def _stub_modules(candidate_id: str | None, track: str | None) -> list[ModuleOut]:
-    """Sources that extracted to nothing, shown rather than hidden.
+    """Documents that are in the Library and are not examinable, and why.
 
-    A stub holds no Topic, so it cannot be part of a Corpus at all — it is read
-    from the notebook record instead. Omitting it would make Coverage a
-    measurement of what parsed rather than of what the Candidate uploaded.
+    Three situations with one shape: a Source that extracted to nothing, one
+    that has not been ingested yet, and one whose ingest failed. None of them
+    holds a Topic, so none can be part of a Corpus at all — they are read from
+    the notebook record instead. Omitting them would make Coverage a measurement
+    of what parsed rather than of what the Candidate uploaded, and would make a
+    forty-second import look like a document that never arrived.
     """
     if candidate_id is None:
         return []
@@ -86,12 +96,12 @@ def _stub_modules(candidate_id: str | None, track: str | None) -> list[ModuleOut
 
     svc = get_notebook_service()
     out: list[ModuleOut] = []
-    for record in svc.store.for_candidate(candidate_id):
+    for record in svc.store.visible_to(candidate_id):
         key = track_key(record.notebook_id)
         if track and track != key:
             continue
         for source in record.sources:
-            if source.state != "stub":
+            if source.selectable:
                 continue
             out.append(
                 ModuleOut(
@@ -104,10 +114,30 @@ def _stub_modules(candidate_id: str | None, track: str | None) -> list[ModuleOut
                     ground_truth_topic_count=0,
                     ceiling="model_judgment",
                     selectable=False,
-                    stub_reason=source.stub_reason,
+                    stub_reason=source.stub_reason or _waiting_reason(source),
+                    state=source.state,
+                    progress_done=source.progress_done,
+                    progress_total=source.progress_total,
                 )
             )
     return out
+
+
+def _waiting_reason(source) -> str:
+    """Why a document that has not failed is still not selectable.
+
+    Said rather than left blank: "listed and greyed out with no explanation" is
+    the state ISSUE-0023 wrote `stub_reason` to prevent, and an un-ingested
+    document lands in exactly the same place.
+    """
+    if source.state == "ingesting":
+        return (
+            f"still being read — {source.progress_done} of "
+            f"{source.progress_total} sections embedded"
+        )
+    if source.state == "uploaded":
+        return "uploaded, waiting to be read"
+    return "not examinable"
 
 
 def _visible_notebook_tracks(candidate_id: str | None) -> set[str]:

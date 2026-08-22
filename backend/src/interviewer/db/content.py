@@ -82,10 +82,32 @@ notebook_source = Table(
     Column("source_order", Integer, nullable=False),
     Column("text", Text, nullable=False, server_default=""),
     Column("content_hash", String, nullable=False),
-    # ready | stub. A stub is a Module that exists, is visible, and states why
-    # it carries nothing (ISSUE-0023).
+    # uploaded | ingesting | ready | failed | stub.
+    #
+    # `stub` is a Module that exists, is visible, and states why it carries
+    # nothing (ISSUE-0023). The other four are the ingest lifecycle: a Source
+    # exists as soon as its bytes do, so `uploaded` is a document in the Library
+    # that has not been embedded yet (ISSUE-0035). A Module still appears only
+    # at `ready`, so there is no partial Module and no orphan Topic.
     Column("state", String, nullable=False, server_default="ready"),
     Column("stub_reason", String, nullable=True),
+    # Work done against work found — never an indeterminate spinner, because
+    # forty seconds of spinner is indistinguishable from a hang. The total is
+    # known at upload: chunking is local and costs nothing, so the count is a
+    # measurement before the first provider call rather than after it.
+    # Where each region of the extracted text came from, as JSON, so a citation
+    # can name a page after the upload and the ingest have been separated
+    # (ISSUE-0035). Extraction produces these and nothing carries a locator
+    # across a process boundary, so they are written with the row rather than
+    # rediscovered — a deployment with no object store keeps its page numbers.
+    Column("pages", Text, nullable=False, server_default="[]"),
+    Column("progress_done", Integer, nullable=False, server_default="0"),
+    Column("progress_total", Integer, nullable=False, server_default="0"),
+    _ts("started_at", nullable=True),
+    # When progress last moved. A worker that stalls inside a live process
+    # cannot be detected by a timeout we invented, so this is reported and the
+    # judgement is left to whoever is reading it.
+    _ts("progress_at", nullable=True),
     # Where the bytes that arrived still are (ISSUE-0033). `text` is what one
     # extractor made of them and is a cache; this is the document. Nullable
     # because a Source ingested before this column existed has no object, and

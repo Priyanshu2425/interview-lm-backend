@@ -110,7 +110,11 @@ def test_an_insufficient_balance_refuses_before_the_first_call(
 
     assert raised.value.shortfall > 0
     assert priced.embedder.calls == [], "it embedded anyway"
-    assert priced.service.store.get("nb-poor").sources == ()
+    # The upload outlives the refusal (ISSUE-0035): the document is listed and
+    # marked failed, so the Candidate can top up and retry rather than upload it
+    # again. What must not exist is a Module — and it does not.
+    listed = priced.service.store.get("nb-poor").sources
+    assert [s.state for s in listed] == ["failed"]
     assert priced.service.corpus("nb-poor") is None
 
 
@@ -219,7 +223,12 @@ def test_a_provider_failure_leaves_no_partial_module(
     finally:
         priced.embedder.embed = original
 
-    assert priced.service.store.get("nb-fail").sources == ()
+    listed = priced.service.store.get("nb-fail").sources
+    assert [s.state for s in listed] == ["failed"]
+    assert "provider unavailable" in (listed[0].stub_reason or "")
+    # No Module, no Topic, no chunk. Atomicity is unchanged by the split: the
+    # material lands in one transaction at the end or not at all.
     assert priced.service.store.chunks_of("nb-fail") == []
+    assert priced.service.store.frozen_topics("nb-fail") == {}
     assert priced.service.corpus("nb-fail") is None
     assert priced.ledger.balance(candidate) == 5000

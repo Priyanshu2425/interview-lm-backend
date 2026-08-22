@@ -188,6 +188,13 @@ _ADDED_COLUMNS = (
     ("notebook_source", "byte_length", "integer NOT NULL DEFAULT 0"),
     # ISSUE-0034. Derived is what every existing Source was.
     ("notebook_source", "structure", "text NOT NULL DEFAULT 'derived'"),
+    # ISSUE-0035. Every Source that already exists is `ready` or `stub`, so
+    # these describe work that has already finished and start at zero.
+    ("notebook_source", "pages", "text NOT NULL DEFAULT '[]'"),
+    ("notebook_source", "progress_done", "integer NOT NULL DEFAULT 0"),
+    ("notebook_source", "progress_total", "integer NOT NULL DEFAULT 0"),
+    ("notebook_source", "started_at", "timestamptz"),
+    ("notebook_source", "progress_at", "timestamptz"),
     ("notebook_chunk", "embedding_model", "text NOT NULL DEFAULT ''"),
     ("notebook_chunk", "modality", "text NOT NULL DEFAULT 'text'"),
     ("notebook_chunk", "object_key", "text"),

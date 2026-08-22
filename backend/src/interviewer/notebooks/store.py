@@ -37,6 +37,34 @@ class SourceRecord:
     byte_length: int = 0
     #: derived | given. Which branch of the pipeline made this Source's Topics.
     structure: str = "derived"
+    #: Sections embedded of sections found. Work done against work found, never
+    #: an indeterminate state (ISSUE-0035).
+    progress_done: int = 0
+    progress_total: int = 0
+    #: Locators, as extraction found them. Carried on the row because nothing
+    #: carries a `Page` across a process boundary (ISSUE-0035).
+    pages: tuple = ()
+    started_at: object | None = None
+    progress_at: object | None = None
+    #: How long the current ingest has been running, and how long since it last
+    #: moved — measured by the same clock that wrote the timestamps. A worker
+    #: that stalls inside a live process cannot be detected by a deadline
+    #: anybody invented, so both are reported and neither is judged.
+    elapsed_seconds: float | None = None
+    since_progress_seconds: float | None = None
+
+    @property
+    def ingesting(self) -> bool:
+        return self.state == "ingesting"
+
+    @property
+    def selectable(self) -> bool:
+        """Whether a Session may be scoped to this Source's Module.
+
+        Only `ready`. Everything else — uploaded, ingesting, failed, stub — is
+        listed and not selectable, and says why.
+        """
+        return self.state == "ready"
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +213,18 @@ class NotebookStore:
     @staticmethod
     def _sources(c, notebook_id: str) -> tuple[SourceRecord, ...]:
         rows = c.execute(
-            sa.select(notebook_source)
+            sa.select(
+                notebook_source,
+                # Read from Postgres rather than from this process: the
+                # timestamps were written by that clock, and two clocks
+                # subtracted from each other is a duration nobody can defend.
+                sa.extract(
+                    "epoch", sa.func.now() - notebook_source.c.started_at
+                ).label("elapsed"),
+                sa.extract(
+                    "epoch", sa.func.now() - notebook_source.c.progress_at
+                ).label("since_progress"),
+            )
             .where(notebook_source.c.notebook_id == notebook_id)
             .order_by(notebook_source.c.source_order)
         ).mappings().all()
@@ -201,6 +240,13 @@ class NotebookStore:
                 object_key=r["object_key"],
                 byte_length=int(r["byte_length"] or 0),
                 structure=r["structure"],
+                pages=_pages_from(r["pages"]),
+                progress_done=int(r["progress_done"] or 0),
+                progress_total=int(r["progress_total"] or 0),
+                started_at=r["started_at"],
+                progress_at=r["progress_at"],
+                elapsed_seconds=_seconds(r["elapsed"]),
+                since_progress_seconds=_seconds(r["since_progress"]),
             )
             for r in rows
         )
@@ -254,6 +300,208 @@ class NotebookStore:
             title=record.title,
             sources=tuple(self.sources_of(notebook_id)),
         )
+
+    # -- the ingest lifecycle (ISSUE-0035) -----------------------------------
+
+    def create_source(
+        self,
+        *,
+        notebook_id: str,
+        source_id: str,
+        module_id: str,
+        title: str,
+        text: str,
+        media_type: str,
+        order: int,
+        content_hash: str,
+        state: str,
+        stub_reason: str | None = None,
+        object_key: str | None = None,
+        byte_length: int = 0,
+        structure: str = "derived",
+        progress_total: int = 0,
+        pages: tuple = (),
+    ) -> None:
+        """The Source row, written the moment its bytes are durable.
+
+        A document is in the Library before it is ingested, which is the whole
+        point of ISSUE-0035: a forty-second embed that dies leaves a document
+        somebody can retry rather than an upload that never happened.
+        """
+        with self._engine.begin() as c:
+            c.execute(
+                sa.insert(notebook_source).values(
+                    source_id=source_id,
+                    notebook_id=notebook_id,
+                    module_id=module_id,
+                    title=title,
+                    media_type=media_type,
+                    source_order=order,
+                    text=text,
+                    content_hash=content_hash,
+                    state=state,
+                    stub_reason=stub_reason,
+                    object_key=object_key,
+                    byte_length=byte_length,
+                    structure=structure,
+                    progress_total=progress_total,
+                    pages=_pages_to(pages),
+                )
+            )
+
+    def begin_ingest(self, source_id: str) -> bool:
+        """Claim a Source for ingestion. False when somebody else already has.
+
+        A conditional UPDATE rather than a read-then-write, so two tabs pressing
+        the same button race in the database and exactly one of them wins.
+        Deliberately not reachable from `ready`: a completed ingest is not
+        retried, which is what stops a retry billing twice for one document.
+        """
+        with self._engine.begin() as c:
+            result = c.execute(
+                sa.update(notebook_source)
+                .where(
+                    notebook_source.c.source_id == source_id,
+                    notebook_source.c.state.in_(("uploaded", "failed")),
+                )
+                .values(
+                    state="ingesting",
+                    stub_reason=None,
+                    progress_done=0,
+                    started_at=sa.func.now(),
+                    progress_at=sa.func.now(),
+                )
+            )
+        return result.rowcount == 1
+
+    def record_progress(self, source_id: str, *, done: int, total: int) -> None:
+        with self._engine.begin() as c:
+            c.execute(
+                sa.update(notebook_source)
+                .where(notebook_source.c.source_id == source_id)
+                .values(
+                    progress_done=done,
+                    progress_total=total,
+                    progress_at=sa.func.now(),
+                )
+            )
+
+    def fail_ingest(self, source_id: str, reason: str) -> None:
+        """A failure is a state on the document, not a lost upload."""
+        with self._engine.begin() as c:
+            c.execute(
+                sa.update(notebook_source)
+                .where(notebook_source.c.source_id == source_id)
+                .values(state="failed", stub_reason=reason)
+            )
+
+    def reset_stale_ingests(self, reason: str) -> int:
+        """Anything still `ingesting` at startup, marked failed.
+
+        No timeout is needed and none is invented. The worker runs in-process,
+        so no worker survives a restart: a row in that state when the process
+        starts is stale by definition rather than by a guess about how long is
+        too long.
+        """
+        with self._engine.begin() as c:
+            result = c.execute(
+                sa.update(notebook_source)
+                .where(notebook_source.c.state == "ingesting")
+                .values(state="failed", stub_reason=reason)
+            )
+        return result.rowcount
+
+    def finish_ingest(
+        self,
+        *,
+        notebook_id: str,
+        source_id: str,
+        chunks: list[Chunk],
+        frozen: dict[str, FrozenTopic],
+        topic_orders: dict[str, int],
+        topic_tokens: dict[str, int],
+        embedding_model: str = "",
+    ) -> None:
+        """Topics, chunks and `ready`, in one transaction.
+
+        The Source row already exists; this is what makes it a Module. Written
+        whole or not at all, so a killed run leaves no orphan Topic and no chunk
+        belonging to nothing — ISSUE-0026's atomicity, unchanged.
+        """
+        with self._engine.begin() as c:
+            if frozen:
+                c.execute(
+                    sa.insert(notebook_topic),
+                    [
+                        {
+                            "topic_id": t.topic_id,
+                            "notebook_id": notebook_id,
+                            "source_id": t.source_id,
+                            "module_id": t.module_id,
+                            "title": t.title,
+                            "topic_order": topic_orders[t.topic_id],
+                            "centroid": list(t.centroid),
+                            "chunk_hashes": list(t.chunk_hashes),
+                            "dossier_tokens": topic_tokens.get(t.topic_id, 0),
+                        }
+                        for t in frozen.values()
+                    ],
+                )
+            if chunks:
+                c.execute(
+                    sa.insert(notebook_chunk),
+                    [
+                        {
+                            "chunk_id": ch.chunk_id,
+                            "notebook_id": notebook_id,
+                            "source_id": ch.source_id,
+                            "topic_id": ch.topic_id,
+                            "page": ch.page,
+                            "char_start": ch.char_start,
+                            "char_end": ch.char_end,
+                            "anchor": ch.anchor,
+                            "text": ch.text,
+                            "content_hash": ch.content_hash,
+                            "embedding": list(ch.embedding),
+                            "embedding_model": embedding_model or "",
+                            "modality": ch.modality,
+                            "object_key": ch.object_key,
+                            "leaf_kind": ch.leaf_kind,
+                            "answers_chunk_id": ch.answers_chunk_id,
+                        }
+                        for ch in chunks
+                    ],
+                )
+            c.execute(
+                sa.update(notebook_source)
+                .where(notebook_source.c.source_id == source_id)
+                .values(
+                    stub_reason=None,
+                    progress_done=sa.func.greatest(
+                        notebook_source.c.progress_total, len(chunks)
+                    ),
+                    progress_total=sa.func.greatest(
+                        notebook_source.c.progress_total, len(chunks)
+                    ),
+                    progress_at=sa.func.now(),
+                )
+            )
+
+    def mark_ready(self, source_id: str) -> None:
+        """The last write of an ingest, and deliberately its own step.
+
+        `ready` is what the surface reads to mean *examinable*, so it must not
+        be true before the served Corpus contains the Module — otherwise a
+        Candidate who starts a Session the moment the progress bar fills is told
+        their Module holds no examinable Topic. Material first, then whatever
+        the caller has to rebuild, then this.
+        """
+        with self._engine.begin() as c:
+            c.execute(
+                sa.update(notebook_source)
+                .where(notebook_source.c.source_id == source_id)
+                .values(state="ready", stub_reason=None)
+            )
 
     # -- one ingest, written whole ------------------------------------------
 
@@ -611,3 +859,32 @@ class NotebookStore:
         if objects is not None:
             # CASCADE empties the schema; it has never heard of the bucket.
             objects.delete_prefix(notebook_id)
+
+
+def _seconds(value) -> float | None:
+    return None if value is None else round(float(value), 1)
+
+
+def _pages_to(pages) -> str:
+    """Locators as JSON. A plain text column rather than a dialect's own type:
+    nothing queries inside this, it is read whole and turned back into `Page`s."""
+    import json
+
+    return json.dumps([
+        [p.number, p.char_start, p.char_end, p.anchor] for p in pages
+    ])
+
+
+def _pages_from(raw: str | None) -> tuple:
+    import json
+
+    from interviewer.corpus.adapters.notebook.extract import Page
+
+    try:
+        return tuple(
+            Page(number=n, char_start=a, char_end=b, anchor=anchor)
+            for n, a, b, anchor in json.loads(raw or "[]")
+        )
+    except Exception:
+        # A malformed locator set costs page numbers, never an ingest.
+        return ()

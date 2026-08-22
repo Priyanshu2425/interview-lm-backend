@@ -123,6 +123,14 @@ Two consequences worth stating outright:
   `notebook_source.text` is what one extractor made of them and is a cache;
   `re_extract` re-reads the document itself. A Source with no `object_key`
   predates the column and says so rather than pointing at bytes nobody kept.
+- The upload outlives the ingestion (ISSUE-0035). `POST /notebooks/{id}/sources`
+  stores the bytes, writes the row and returns; the embedding runs in a thread
+  and the surface polls `GET /notebooks/{id}`. States are `uploaded → ingesting
+  → ready`, with `failed` beside them and `stub` unchanged, and only `ready` is
+  selectable. `ready` implies *composed*: an ingest rebuilds the served Corpus
+  **before** marking the Source ready, or a Session started the moment the
+  progress bar fills is refused. No worker survives a restart, so rows left
+  `ingesting` are reset to `failed` at boot rather than timed out.
 - A timeout is a **park**, not an error: recovery reads the Session and resumes,
   the same path an interruption uses.
 - One idempotency key per composed answer, advanced only when a turn lands — a

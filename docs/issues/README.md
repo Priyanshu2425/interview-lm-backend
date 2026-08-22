@@ -33,7 +33,7 @@ slices need a human decision or review, and say why in their body.
 | 0017 | Session summary and the Candidate's record | AFK | 0016 | ✅ resolved |
 | 0018 | Credits and BYOK on the surface | AFK | 0014 | ✅ resolved |
 | 0019 | Operator console on the surface | AFK | 0014 | ✅ resolved |
-| 0020 | Surface fidelity and accessibility pass | **HITL** | 0017–0019 | machine half done |
+| 0020 | Surface fidelity and accessibility pass | **HITL** | 0017–0019 | machine half complete — four items need a person |
 
 ### Notebook Adapter — a Corpus the Candidate brought
 
@@ -45,8 +45,8 @@ Sources: SPEC `2026-08-21-notebook-adapter-design`, ADR-0015, ADR-0005 (amended)
 | 0022 | Freeze and re-ingest: ids survive, drift is logged | AFK | 0021 | ✅ resolved |
 | 0023 | PDF and URL sources, and the stub Module | AFK | 0021 | ✅ resolved |
 | 0024 | Ground Truth mined from the notebook | AFK | 0021 | ✅ resolved |
-| 0025 | Citation: the span that grounded the question | **HITL** | 0021 | machine half done |
-| 0026 | The embedding provider, and the BYOK gap | **HITL** | 0021 | machine half done |
+| 0025 | Citation: the span that grounded the question | **HITL** | 0021 | ✅ resolved (ADR-0025) |
+| 0026 | The embedding provider, and the BYOK gap | **HITL** | 0021 | ✅ resolved (ADR-0019) |
 | 0027 | Notebook lifecycle: upload, delete, retire | AFK | 0025 | ✅ resolved |
 | 0028 | Image-only sources become Modules | **HITL** | 0026 | ✅ resolved — decided against (ADR-0024) |
 

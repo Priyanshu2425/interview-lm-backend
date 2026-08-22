@@ -1,6 +1,6 @@
 # ISSUE-0025 — Citation: the span that grounded the question
 
-Status: machine half resolved — the placement decision is open
+Status: resolved — the placement is decided and recorded (ADR-0025)
 Type: **HITL**
 Source: SPEC 2026-08-21 Notebook Adapter; ADR-0015, ADR-0005 (amended), ADR-0002
 Covers: spec §Surface/Citation
@@ -47,8 +47,21 @@ only, never to answer a follow-up (ADR-0005 amendment).
 - [x] No citation path issues a similarity query during a Session, verified by counting embedder calls across a whole Session
 - [x] Citations appear in the Session summary
 - [x] A Cortex Topic, which has no chunks, records an empty citation list and renders without one
-- [ ] The chosen placement matches a design decision recorded before the surface work merges
+- [x] The chosen placement matches a design decision recorded before the surface work merges — **ADR-0025**
 
 ## Blocked by
 
 - ISSUE-0021 — chunks and locators must exist to cite
+
+
+## The placement, decided (ADR-0025)
+
+**The Evidence drawer, on request, beside the row it grounded.** Not the
+exchange, and the reason is not visual: a citation shown beside a live question
+is a hint nobody asked for. The graph owns the hint move — a Candidate asks and
+the Interviewer decides — and a passage rendered alongside the question hands
+over the same help with no asking, no record and no cost, while the Evidence
+still says the Visit was not hinted. It also inverts the examination, testing
+reading rather than recall.
+
+Attribution is what a citation is for, and attribution is read afterwards.

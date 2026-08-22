@@ -47,7 +47,7 @@ message** (Principle 3), whichever way the BYOK decision lands.
 - [x] Resuming an ingest re-embeds no chunk whose content hash is already stored, verified by call count
 - [x] `embedding_model` is recorded on the notebook
 - [x] A BYOK Candidate sees provider and token count and no Credit figure anywhere in the ingest path
-- [x] The BYOK decision is recorded as an ADR — **ADR-0016, proposed, awaiting a signature**
+- [x] The BYOK decision is recorded as an ADR — **ADR-0016, superseded by ADR-0019**
 - [x] Swapping the provider touches only the port implementation
 - [x] A real embedding provider fills the port — `google/siglip2-base-patch16-224`
       behind `BaseEmbedder` (ADR-0017)
@@ -67,3 +67,14 @@ is the moment they will read it.
 ## Blocked by
 
 - ISSUE-0021 — the port it fills is defined there
+
+
+## Closed, because the question stopped being asked
+
+ADR-0016 was left unsigned because none of its three answers was obviously
+right. It is now superseded: OpenRouter serves embeddings, so a BYOK Candidate's
+key can do the ingest work and there is no gap to choose an answer to
+(ADR-0019). That is ADR-0008 being *satisfied* rather than worked around — one
+gateway, one key, one ledger.
+
+Nothing here waits on a signature any more.

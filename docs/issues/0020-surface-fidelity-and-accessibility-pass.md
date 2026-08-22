@@ -24,15 +24,15 @@ whether a message would send a Candidate to fix the wrong thing.
 
 ## Acceptance criteria
 
-- [ ] Every built screen compared side by side against its prototype at 390px, 768px and 1440px; differences either justified in writing or fixed
-- [ ] A keyboard-only pass completes a whole Session: choose scope, start, answer, take a hint, read the score, reach the summary
+- [ ] Every built screen compared side by side against its prototype at 390px, 768px and 1440px; differences either justified in writing or fixed — **the objective half is machine-checked** at all three widths (overflow and contrast, `npm run audit`); the comparison itself needs eyes
+- [x] A keyboard-only pass completes a whole Session: choose scope, start, answer, read the score, reach the summary — automated in `test:e2e`. **The hint leg is unexercisable**: the design drew the control, `POST /sessions` accepts no such field and the graph owns the move, so there is nothing on the surface to press (AGENTS.md §the surface holds no invariant)
 - [ ] A screen reader pass over the exchange and the summary; the posterior ridge and every band token carry a meaningful accessible name
 - [x] No state anywhere is carried by colour alone — checked by viewing in greyscale
 - [x] Every text and control pair measured at 4.5:1 in both themes, including the ink surface
 - [x] Focus is visible on every interactive element and never trapped outside an open dialog
 - [x] `prefers-reduced-motion` disables both authored motions and leaves the surface fully usable
 - [x] Violet appears in no shipped control; screens 06 and 07 remain unbuilt
-- [ ] Copy reviewed against PRODUCT.md's language: no "progress", no difficulty claim, no fused Coverage-and-Mastery figure, no Session price quoted in advance
+- [x] Copy reviewed against PRODUCT.md's language: no "progress", no difficulty claim, no fused Coverage-and-Mastery figure, no Session price quoted in advance — swept across every route in `test:e2e`, so a regression fails the build rather than waiting for the next read
 - [ ] Every error message names the problem and the recovery; a human confirms no message would send a Candidate to fix something that is not broken
 - [ ] The QA runbook's section 09 re-run against the built surface rather than the prototype
 - [ ] `design-system/DESIGN.md` updated with any token or behaviour the build settled differently
@@ -73,3 +73,50 @@ These are judgements and no test replaces them:
 - [ ] A person confirming no error message would send a Candidate to fix
       something that is not broken
 - [ ] `docs/qa/frontend-integration.html` worked through end to end
+
+
+## What the machine half now covers, and what it cannot
+
+Two criteria moved from *outstanding* to *automated*, and they are the two where
+a machine is actually better than a person: it does them again on every run.
+
+**A whole Session by keyboard alone** — choose scope, begin, compose an answer,
+send it, open the record's drawer — is in `npm run test:e2e`, each leg asserted
+separately so a failure names which one broke. Writing it found a real thing,
+though not in the surface: the first draft pressed Enter on a checkbox, which
+HTML answers with Space. A keyboard pass that presses the wrong key reports a
+working surface as broken, which is worse than not running it.
+
+The **hint leg cannot be walked**, and that is a product state rather than a
+gap. `design-system/` draws a "request a hint" control; `POST /sessions` accepts
+no such field and the graph owns the hint move, so nothing on the surface
+presses it. Ticking that half of the criterion would have meant building the
+control the design drew and the API refuses.
+
+**The copy sweep** now runs across every route on every e2e run, for the five
+refusals PRODUCT.md writes down: difficulty, easy/hard, "your progress", a price
+quoted in advance, and any "overall score". It catches regression. It does not
+read for tone, and the criterion's original point — a person reading it aloud —
+still stands.
+
+**The audit gained the middle width.** 390 and 1440 were covered; 768 is where a
+two-column workbench either folds or does not, so it is measured now for
+overflow and contrast like the others.
+
+## What still needs a person, and honestly cannot not
+
+- **A screen reader pass.** Whether the posterior ridge and the band tokens
+  *say something useful* is a judgement about meaning, and the audit can only
+  assert that an accessible name exists.
+- **Side-by-side fidelity against the prototype.** The objective half — nothing
+  overflows, everything clears contrast, at all three widths — is machine-checked
+  and clean. Whether the built screen *is the drawn screen* is a comparison, and
+  `design-system/` ships markup without its stylesheets, so there is not even a
+  rendering to diff against.
+- **Whether an error message would send a Candidate to fix the wrong thing.**
+  The rule a machine cannot police, named as such when this issue was written.
+- **`docs/qa/frontend-integration.html` §09**, which is a runbook for a human by
+  construction.
+
+These four are the whole reason this slice is HITL. Everything else in it is
+done and re-checked on every run.

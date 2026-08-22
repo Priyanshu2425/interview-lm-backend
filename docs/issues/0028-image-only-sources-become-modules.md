@@ -1,6 +1,6 @@
 # ISSUE-0028 — A deck with no words is still a Corpus
 
-Status: **open — waiting on a decision, deliberately unstarted**
+Status: resolved — decided against, and recorded (ADR-0024)
 Type: **HITL**
 Source: ADR-0017; ISSUE-0023 §stub Module; ISSUE-0025
 
@@ -42,7 +42,31 @@ before building the first two.
 
 - Not blocked to *start*; blocked to *finish* on the grading question above.
 
-## Why nothing has been built
+## The decision (ADR-0024)
+
+**Answered third question first, as this issue advised: no caption model.** A
+dossier assembled from captions is a description a model wrote of the
+Candidate's material, and examining somebody on it measures how well they
+explain a machine's account of their own slide. Worse where the grading is
+strongest: ADR-0002's Judge works against authored spans, and captions are
+nobody's material.
+
+That answer makes the first two questions moot rather than concrete, which is
+the opposite of what this issue predicted and is the better outcome: no
+figure-only Topic is created, so there is nothing to ask about it and no Grading
+Mode for it to claim.
+
+What was built is what follows: **the refusal now describes the material rather
+than the parser.** A deck says how many figures it holds, says that pictures
+alone are not examinable, and says the document is kept — which it is
+(ISSUE-0033), so reversing this costs an ingest and nothing else.
+
+Figures keep the job ADR-0017 gave them: attaching to the Topic that
+*surrounding prose* drew, so a citation can show the diagram a question came
+from. A figure may support a question grounded in text. It may not be the thing
+a question is grounded in.
+
+## Why nothing more was built
 
 This slice says, in its own body, that the third open question *"would make this
 slice mostly disappear"*. Building the clusterer half first is therefore not a

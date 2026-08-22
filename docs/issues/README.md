@@ -48,7 +48,7 @@ Sources: SPEC `2026-08-21-notebook-adapter-design`, ADR-0015, ADR-0005 (amended)
 | 0025 | Citation: the span that grounded the question | **HITL** | 0021 | machine half done |
 | 0026 | The embedding provider, and the BYOK gap | **HITL** | 0021 | machine half done |
 | 0027 | Notebook lifecycle: upload, delete, retire | AFK | 0025 | ✅ resolved |
-| 0028 | Image-only sources become Modules | **HITL** | 0026 | open — deliberately unstarted |
+| 0028 | Image-only sources become Modules | **HITL** | 0026 | ✅ resolved — decided against (ADR-0024) |
 
 ### Related Topics — the shipped Corpus, embedded
 

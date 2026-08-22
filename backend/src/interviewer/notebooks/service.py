@@ -307,6 +307,10 @@ class NotebookService:
             notebook_id, payload, media_type=media_type
         )
         is_stub = bool(stub_reason) or not body.strip()
+        if is_stub:
+            stub_reason = self._stub_reason(
+                stub_reason, data=data, media_type=media_type
+            )
         sections = 0 if is_stub else len(chunk_source(source_id, body))
         self._store.create_source(
             notebook_id=notebook_id,
@@ -603,6 +607,40 @@ class NotebookService:
             chunks=len(ingested.chunks),
             dossier_tokens=ingested.report.dossier_tokens,
             cost=cost,
+        )
+
+    def _stub_reason(
+        self, reason: str | None, *, data: bytes | None, media_type: str
+    ) -> str:
+        """What this document holds, said in terms of the document.
+
+        A deck of slides that extracted no text is not empty — it is full of
+        pictures, and "no extractable text" describes what the extractor did
+        rather than what the Candidate uploaded. ADR-0024 decided that pictures
+        alone are not examinable here; the least this can do is name what is
+        actually in the file, so the refusal is about the material rather than
+        about a parser.
+
+        Counting costs no provider call: `extract_figures` reads the PDF and
+        never raises, on the same principle as extraction itself.
+        """
+        base = reason or "no extractable text"
+        if not data or media_type != "application/pdf":
+            return base
+        try:
+            from interviewer.corpus.adapters.notebook.extract import extract_figures
+
+            figures = len(extract_figures(data, media_type=media_type))
+        except Exception:  # pragma: no cover - counting must not fail an upload
+            return base
+        if not figures:
+            return base
+        return (
+            f"{figures} figure{'s' if figures != 1 else ''} and no text. "
+            "Pictures alone are not examinable here: a Topic is something you "
+            "can be asked to explain, and there is nothing written to ground a "
+            "question in. The document is kept, so it can be re-read if that "
+            "ever changes."
         )
 
     def _keep(

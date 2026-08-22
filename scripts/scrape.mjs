@@ -140,4 +140,12 @@ const pairs = classes.filter(c => c.answerKeyId).length;
 console.log(`assignment→answer-key pairs: ${pairs}`);
 const kb = classes.reduce((a, c) => a + c.chars, 0) / 1024;
 console.log(`total content: ${kb.toFixed(0)} KB across ${classes.length} classes`);
+
+// The Corpus index is now out of date, and this is the moment somebody is
+// standing in front of a terminal able to do something about it. A stale index
+// serves no neighbours rather than wrong ones (ADR-0018), so nothing is broken
+// — but "the Related Topics went away" is a mystery unless it is said here.
+console.log('');
+console.log('data/corpus-index.json is now stale — Related Topics will serve nothing.');
+console.log('Next: python scripts/embed_corpus.py --provider siglip');
 await ctx.dispose();

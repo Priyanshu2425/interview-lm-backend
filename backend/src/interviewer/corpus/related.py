@@ -11,8 +11,11 @@ neighbour is a claim about the material that nobody can trace, and this product
 would rather say nothing — the same instinct that makes an untested Topic read
 *Untested* instead of zero.
 
-Making that state *visible* is ISSUE-0030. Making it *safe* is here, because a
-thing that can silently lie must not ship first and be fixed second.
+Making it *safe* came first, because a thing that can silently lie must not ship
+first and be fixed second. Making the state *visible* is ISSUE-0030 and is
+`Staleness.reading()` below — deliberately in the same file as the gate it
+explains, so that "the reading says stale" and "the gate serves nothing" cannot
+drift apart into two opinions about one artifact.
 """
 
 from __future__ import annotations
@@ -39,6 +42,10 @@ def save(index: CorpusIndex, path: Path) -> None:
         "fingerprint": index.fingerprint,
         "embedding_model": index.embedding_model,
         "topic_count": index.topic_count,
+        # The one field that is allowed to differ between two builds of the
+        # same Corpus. Everything else describes content and must not, or the
+        # artifact stops being reviewable in a diff.
+        "built_at": index.built_at,
         # Kept alongside the edges rather than discarded with them. They are
         # what lets a later question — which shipped Topics does a Candidate's
         # own material correspond to? — be answered by comparison, on a machine
@@ -90,6 +97,7 @@ def load(path: Path) -> CorpusIndex | None:
             embedding_model=body["embedding_model"],
             format_version=int(body["format_version"]),
             topic_count=int(body.get("topic_count", 0)),
+            built_at=str(body.get("built_at", "")),
             mean=tuple(float(v) for v in (body.get("mean") or ())),
             centroids={
                 topic_id: tuple(float(v) for v in vector)
@@ -116,15 +124,61 @@ def load(path: Path) -> CorpusIndex | None:
 
 @dataclass(frozen=True, slots=True)
 class Staleness:
-    """Why an index is not being served. Read by ISSUE-0030, acted on here."""
+    """What the index was built from, and whether that is still true.
+
+    Deliberately not a boolean. A re-scrape that changed two Topics and a model
+    swap are different problems with different fixes, and "stale" alone tells an
+    operator neither — so the two are reported separately and named.
+    """
 
     present: bool
     corpus_changed: bool = False
     model_changed: bool = False
+    built_at: str = ""
+    topic_count: int = 0
+    index_fingerprint: str = ""
+    corpus_fingerprint: str = ""
+    index_model: str = ""
+    running_model: str = ""
 
     @property
     def fresh(self) -> bool:
         return self.present and not self.corpus_changed and not self.model_changed
+
+    @property
+    def state(self) -> str:
+        """`absent`, `fresh` or `stale` — three states, never two.
+
+        Never built and gone out of date are different problems: one is a
+        command nobody has run, the other is a command somebody needs to run
+        again. Collapsing them would send an operator looking for a change that
+        did not happen.
+        """
+        if not self.present:
+            return "absent"
+        return "fresh" if self.fresh else "stale"
+
+    @property
+    def changed(self) -> tuple[str, ...]:
+        """Which of the two inputs moved. Empty when neither did."""
+        out = []
+        if self.corpus_changed:
+            out.append("corpus")
+        if self.model_changed:
+            out.append("model")
+        return tuple(out)
+
+    @property
+    def serving(self) -> bool:
+        """Whether neighbours are actually being served.
+
+        Not the same question as `fresh`, and the gap is intentional: a model
+        mismatch is reported and still serves, because nothing embeds at request
+        time. Reported here so that a console showing "stale" can also show
+        whether the feature is still working, rather than leaving the reader to
+        infer one from the other and get it wrong.
+        """
+        return self.present and not self.corpus_changed
 
     @property
     def reason(self) -> str | None:
@@ -137,6 +191,31 @@ class Staleness:
         if self.model_changed:
             return "the embedding model has changed since the index was built"
         return None
+
+    def reading(self) -> dict:
+        """The whole state, as an operator console renders it.
+
+        A state rather than a failure: the Corpus is fully examinable with no
+        index at all, so nothing here is an error and nothing raises.
+        """
+        return {
+            "state": self.state,
+            "changed": list(self.changed),
+            "serving": self.serving,
+            "reason": self.reason,
+            "built_at": self.built_at,
+            "topic_count": self.topic_count,
+            "index_fingerprint": self.index_fingerprint,
+            "corpus_fingerprint": self.corpus_fingerprint,
+            "index_model": self.index_model,
+            "running_model": self.running_model,
+            "rebuild_with": REBUILD_COMMAND,
+        }
+
+
+#: Where an operator is sent when the reading says stale. Named once, here, so
+#: the console, the script's own help and `data/README.md` cannot disagree.
+REBUILD_COMMAND = "python scripts/embed_corpus.py --provider siglip"
 
 
 class RelatedTopics:
@@ -155,11 +234,17 @@ class RelatedTopics:
         *,
         embedding_model: str | None = None,
     ) -> None:
+        current = fingerprint(corpus)
         if index is None:
-            self._index, self._staleness = None, Staleness(present=False)
+            self._index = None
+            self._staleness = Staleness(
+                present=False,
+                corpus_fingerprint=current,
+                running_model=embedding_model or "",
+            )
             return
 
-        corpus_changed = index.fingerprint != fingerprint(corpus)
+        corpus_changed = index.fingerprint != current
         model_changed = bool(
             embedding_model and index.embedding_model != embedding_model
         )
@@ -167,6 +252,12 @@ class RelatedTopics:
             present=True,
             corpus_changed=corpus_changed,
             model_changed=model_changed,
+            built_at=index.built_at,
+            topic_count=index.topic_count,
+            index_fingerprint=index.fingerprint,
+            corpus_fingerprint=current,
+            index_model=index.embedding_model,
+            running_model=embedding_model or "",
         )
         # Serving is gated on the **Corpus** alone, and deliberately not on the
         # model. Nothing embeds at request time: the edges were decided when the

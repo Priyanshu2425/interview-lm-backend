@@ -19,6 +19,7 @@ import argparse
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,13 +48,15 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="report whether the artifact is current and write nothing",
+        help="report whether the artifact is current, and when it is not, "
+             "which of the Corpus and the model moved — they are different "
+             "problems. Writes nothing.",
     )
     args = parser.parse_args()
 
     from interviewer.corpus.adapters.cortex import ingest
     from interviewer.corpus.index import build, fingerprint
-    from interviewer.corpus.related import load, save
+    from interviewer.corpus.related import RelatedTopics, load, save
     from interviewer.embeddings import make_embedder
 
     corpus = ingest(Path(args.corpus))
@@ -64,14 +67,30 @@ def main() -> int:
 
     existing = load(out)
     if args.check:
-        if existing is None:
+        # The same reading the operator console shows, computed the same way.
+        # Two implementations of "is this stale" would eventually disagree, and
+        # the one an operator trusts is whichever they read last.
+        reading = RelatedTopics(
+            existing, corpus,
+            embedding_model=os.environ.get("EMBEDDING_MODEL_NAME") or None,
+        ).staleness.reading()
+        if reading["state"] == "absent":
             print("no artifact — run without --check to build one")
             return 1
-        fresh = existing.fingerprint == current
         print(f"artifact: {existing.embedding_model}, "
-              f"fingerprint {existing.fingerprint[:16]}")
-        print("current" if fresh else "STALE — the Corpus has changed")
-        return 0 if fresh else 1
+              f"fingerprint {existing.fingerprint[:16]}, "
+              f"built {existing.built_at or 'at an unrecorded time'}")
+        if reading["state"] == "fresh":
+            print("current")
+            return 0
+        # Which of the two moved, because they are different problems: a
+        # re-scrape needs a rebuild, a model swap needs a rebuild *and* a
+        # decision about what the deployment is running.
+        print(f"STALE — {reading['reason']}")
+        print("neighbours are still being served"
+              if reading["serving"] else
+              "neighbours are not being served until this is rebuilt")
+        return 1
 
     embedder = make_embedder({**os.environ, "EMBEDDING_PROVIDER": args.provider})
     model = getattr(embedder, "model_name", "unknown")
@@ -90,7 +109,13 @@ def main() -> int:
         print(f"model ready in {time.monotonic() - started:.1f}s")
 
     started = time.monotonic()
-    index = build(corpus, embedder, top_k=args.top_k)
+    # The clock is read here and passed in, never inside the build: the artifact
+    # is reviewed in a diff, so everything describing content stays deterministic
+    # and only the stamp differs between two builds of one Corpus.
+    index = build(
+        corpus, embedder, top_k=args.top_k,
+        built_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+    )
     print(f"embedded {index.topic_count} Topics in "
           f"{time.monotonic() - started:.1f}s with {index.embedding_model}")
 

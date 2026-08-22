@@ -1,6 +1,6 @@
 # ISSUE-0030 — A stale Corpus index is visible, not silent
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ADR-0005 §"Embeddings are a liability against a re-scraped Corpus";
 ADR-0015 §Amendment; ISSUE-0029
@@ -47,16 +47,38 @@ front of a terminal having just re-scraped.
 
 ## Acceptance criteria
 
-- [ ] The artifact records corpus fingerprint, embedding model identity, build time and Topic count
-- [ ] A reading is available that reports fresh or stale and, when stale, whether the Corpus changed, the model changed, or both
-- [ ] A changed Corpus is detected by content rather than by timestamp — touching a file changes nothing, editing one does
-- [ ] The operator console shows index freshness beside its existing readings
-- [ ] A stale index reads as a state, never as a failure: no route 500s, no Session is affected, the Corpus stays examinable
-- [ ] The rebuild command is documented where an operator will find it, and is a no-op with a clear message on an unchanged Corpus
-- [ ] `scripts/scrape.mjs` names the rebuild as the next step when it finishes
-- [ ] Deleting the artifact and rebuilding it reproduces it byte-for-byte
-- [ ] A stale index still serves no neighbours, and a test proves the two behaviours agree — visibility must not accidentally re-enable serving
+- [x] The artifact records corpus fingerprint, embedding model identity, build time and Topic count
+- [x] A reading is available that reports fresh or stale and, when stale, whether the Corpus changed, the model changed, or both
+- [x] A changed Corpus is detected by content rather than by timestamp — touching a file changes nothing, editing one does
+- [x] The operator console shows index freshness beside its existing readings
+- [x] A stale index reads as a state, never as a failure: no route 500s, no Session is affected, the Corpus stays examinable
+- [x] The rebuild command is documented where an operator will find it, and is a no-op with a clear message on an unchanged Corpus
+- [x] `scripts/scrape.mjs` names the rebuild as the next step when it finishes
+- [x] Deleting the artifact and rebuilding it reproduces it byte-for-byte
+- [x] A stale index still serves no neighbours, and a test proves the two behaviours agree — visibility must not accidentally re-enable serving
 
 ## Blocked by
 
 - ISSUE-0029 — it writes the fingerprint this slice reads
+
+## Three states, not two
+
+`absent`, `fresh` and `stale`, because *never built* and *gone out of date* are
+different problems — one is a command nobody has run, the other a command
+somebody needs to run again. Collapsing them sends an operator looking for a
+change that did not happen.
+
+`serving` is reported separately from `state` for the same reason, and the gap
+between them is real rather than cosmetic: a model swap is stale **and still
+serves**, because nothing is embedded at request time and the edges stay
+internally consistent with the Corpus they were built from. A console that
+showed only "stale" would send somebody hunting for neighbours that are still
+there.
+
+## The one field allowed to differ
+
+`built_at` is stamped by the caller — `scripts/embed_corpus.py` reads the clock
+and passes it in — and never inside `build`. A function whose whole value is
+that the same inputs produce the same bytes must not reach for a clock, so a
+rebuild reproduces every field describing content byte-for-byte and only the
+stamp moves. That is what the determinism test asserts, and it says why.

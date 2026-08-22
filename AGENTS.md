@@ -84,8 +84,10 @@ Two consequences worth stating outright:
   `scripts/embed_corpus.py` and read at runtime — a deployment needs no model to
   serve them, only to rebuild them. Re-scraping the Corpus makes the index
   stale, and a stale index serves **no** neighbours rather than wrong ones
-  (ADR-0018). Rebuild with `--force` after changing how the index is built, not
-  only after changing the Corpus.
+  (ADR-0018). Rebuild with `python scripts/embed_corpus.py --provider siglip`;
+  `--check` reports freshness and names which of the Corpus and the model moved,
+  and the operator console shows the same reading. Add `--force` after changing
+  how the index is built, not only after changing the Corpus.
 - A figure is a chunk with `modality='image'` and its bytes in an object store
   (ADR-0017). Anything rebuilding prose — a dossier, a Leaf, a token budget —
   must filter to text, and `store.chunks_of` takes the argument for it.

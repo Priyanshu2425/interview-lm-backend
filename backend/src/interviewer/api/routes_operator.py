@@ -39,6 +39,20 @@ def providers(x_operator_token: str | None = Header(default=None)) -> dict:
     }
 
 
+@router.get("/operator/corpus-index")
+def corpus_index(x_operator_token: str | None = Header(default=None)) -> dict:
+    """Whether Related Topics is being served, and what it was built from.
+
+    A reading beside the ledgers rather than an alert: a stale index is a state,
+    not a failure. The Corpus stays fully examinable with no index at all, so
+    this reports and never raises — including when there has never been one.
+    """
+    _guard(x_operator_token)
+    from .deps import get_related_topics
+
+    return get_related_topics().staleness.reading()
+
+
 @router.get("/operator/sessions")
 def sessions(x_operator_token: str | None = Header(default=None)) -> dict:
     _guard(x_operator_token)

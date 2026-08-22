@@ -19,10 +19,12 @@ against every other centroid, computed here, offline. At runtime the answer is a
 lookup in a file. ADR-0005's "there is no query to embed" stays literally true of
 the running system rather than approximately true.
 
-**The index states what it was built from.** Corpus fingerprint and embedding
-model identity travel with the vectors, so a re-scrape or a model change is
-detectable — ADR-0005's third objection answered the way ADR-0015 answered it,
-rather than dismissed.
+**The index states what it was built from.** Corpus fingerprint, embedding
+model identity, build time and Topic count travel with the vectors, so a
+re-scrape or a model change is detectable — ADR-0005's third objection answered
+the way ADR-0015 answered it, rather than dismissed. Detecting it is ISSUE-0029;
+reporting *which* of the two moved is ISSUE-0030, and lives in `related.py`
+beside the gate it explains.
 """
 
 from __future__ import annotations
@@ -78,6 +80,11 @@ class CorpusIndex:
     embedding_model: str
     format_version: int = FORMAT_VERSION
     topic_count: int = 0
+    #: When this artifact was built, ISO-8601 UTC — or empty when nothing
+    #: stamped it. Injected by the caller rather than read here: the stamp is a
+    #: fact about the *run*, and a function whose whole value is that the same
+    #: inputs produce the same bytes must not reach for a clock.
+    built_at: str = ""
     centroids: dict[str, tuple[float, ...]] = field(default_factory=dict)
     #: The mean of every Topic centroid, kept so that a vector produced later —
     #: a notebook's, say — can be centred against the same origin these edges
@@ -131,6 +138,7 @@ def build(
     embedder,
     *,
     top_k: int = TOP_K,
+    built_at: str = "",
 ) -> CorpusIndex:
     """Embed every Topic and precompute its neighbours.
 
@@ -189,6 +197,7 @@ def build(
         fingerprint=fingerprint(corpus),
         embedding_model=getattr(embedder, "model_name", "unknown"),
         topic_count=len(centroids),
+        built_at=built_at,
         centroids=centroids,
         mean=mean,
         related=related,

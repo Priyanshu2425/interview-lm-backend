@@ -58,7 +58,7 @@ FUTURE-PIPELINE §Cross-Topic similarity.
 | # | Slice | Type | Blocked by | State |
 |---|---|---|---|---|
 | 0029 | The shipped Corpus, embedded, and Related Topics served | AFK | — | ✅ resolved |
-| 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | open |
+| 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | ✅ resolved |
 | 0031 | Related Topics on the surface | **HITL** | 0030 | open |
 
 ### A Corpus is assembled, not shipped

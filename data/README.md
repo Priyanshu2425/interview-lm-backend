@@ -33,6 +33,28 @@ project on material you actually own.
 designed state rather than a broken one: a missing or stale index serves no
 neighbours instead of wrong ones (ADR-0018).
 
+## Rebuilding the index
+
+    python scripts/embed_corpus.py --provider siglip
+
+Run it after a scrape, or after changing the embedding model. Against an
+unchanged Corpus it is a no-op that says so rather than a several-minute job
+that looks like work; `--force` rebuilds anyway, which is what you want after
+changing *how* the index is built rather than what it is built from.
+
+    python scripts/embed_corpus.py --check
+
+reports whether the artifact is current and, when it is not, which of the two
+inputs moved. They are different problems: a re-scrape needs a rebuild and stops
+neighbours being served until it happens, while a model swap leaves the existing
+edges serving — nothing is embedded at request time, so they still describe the
+Corpus consistently — and only matters to anything comparing a *new* vector
+against these centroids.
+
+The same reading is on the operator console beside the ledgers, because the
+person who notices Related Topics has gone quiet is not always the person at a
+terminal.
+
 **Part of the test suite needs a Corpus**, and on a clean clone it says so
 rather than passing quietly. Measured, with `data/corpus.json` absent:
 

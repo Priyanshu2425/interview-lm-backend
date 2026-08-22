@@ -86,6 +86,12 @@ notebook_source = Table(
     # it carries nothing (ISSUE-0023).
     Column("state", String, nullable=False, server_default="ready"),
     Column("stub_reason", String, nullable=True),
+    # Where the bytes that arrived still are (ISSUE-0033). `text` is what one
+    # extractor made of them and is a cache; this is the document. Nullable
+    # because a Source ingested before this column existed has no object, and
+    # that is a different state from an object that has gone missing.
+    Column("object_key", String, nullable=True),
+    Column("byte_length", Integer, nullable=False, server_default="0"),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
 )
 

@@ -182,6 +182,10 @@ _ADDED_COLUMNS = (
     # Existing rows migrate to personal, which is what they always were
     # (SPEC-0006 §Ownership).
     ("notebook", "visibility", "text NOT NULL DEFAULT 'personal'"),
+    # ISSUE-0033. A Source from before these existed has no object, and says so
+    # rather than pointing at bytes nobody kept.
+    ("notebook_source", "object_key", "text"),
+    ("notebook_source", "byte_length", "integer NOT NULL DEFAULT 0"),
     ("notebook_chunk", "embedding_model", "text NOT NULL DEFAULT ''"),
     ("notebook_chunk", "modality", "text NOT NULL DEFAULT 'text'"),
     ("notebook_chunk", "object_key", "text"),

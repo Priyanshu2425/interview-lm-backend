@@ -31,6 +31,10 @@ class SourceRecord:
     state: str
     stub_reason: str | None
     media_type: str = "text/markdown"
+    #: Where the bytes that arrived still are, or None for a Source ingested
+    #: before they were kept (ISSUE-0033).
+    object_key: str | None = None
+    byte_length: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +196,8 @@ class NotebookStore:
                 state=r["state"],
                 stub_reason=r["stub_reason"],
                 media_type=r["media_type"],
+                object_key=r["object_key"],
+                byte_length=int(r["byte_length"] or 0),
             )
             for r in rows
         )
@@ -261,6 +267,8 @@ class NotebookStore:
         topic_orders: dict[str, int],
         topic_tokens: dict[str, int],
         embedding_model: str = "",
+        object_key: str | None = None,
+        byte_length: int = 0,
     ) -> None:
         """Atomic per Source (ISSUE-0026): a Module appears whole or not at all."""
         with self._engine.begin() as c:
@@ -276,6 +284,8 @@ class NotebookStore:
                     content_hash=content_hash,
                     state="stub" if source.is_stub else "ready",
                     stub_reason=source.stub_reason,
+                    object_key=object_key,
+                    byte_length=byte_length,
                 )
             )
             if frozen:

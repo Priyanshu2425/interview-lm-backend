@@ -218,6 +218,18 @@ class S3ObjectStore:
     def key_for(self, notebook_id: str, content_hash: str, suffix: str = "png") -> str:
         return f"{self.prefix}/{notebook_id}/figures/{content_hash}.{suffix}"
 
+    def source_key_for(
+        self, notebook_id: str, content_hash: str, suffix: str = "bin"
+    ) -> str:
+        """Where the uploaded document itself lives.
+
+        Beside the figures and never among them: the two have different
+        lifetimes in the reader's head — one is the material, the other is
+        something lifted out of it — and a shared prefix makes "delete the
+        figures" and "delete the document" the same list.
+        """
+        return f"{self.prefix}/{notebook_id}/sources/{content_hash}.{suffix}"
+
     def put(self, key: str, data: bytes, media_type: str = "image/png") -> str:
         """Idempotent on the key, which is the content hash."""
         self.client.put_object(
@@ -270,6 +282,18 @@ class LocalObjectStore:
 
     def key_for(self, notebook_id: str, content_hash: str, suffix: str = "png") -> str:
         return f"{self.prefix}/{notebook_id}/figures/{content_hash}.{suffix}"
+
+    def source_key_for(
+        self, notebook_id: str, content_hash: str, suffix: str = "bin"
+    ) -> str:
+        """Where the uploaded document itself lives.
+
+        Beside the figures and never among them: the two have different
+        lifetimes in the reader's head — one is the material, the other is
+        something lifted out of it — and a shared prefix makes "delete the
+        figures" and "delete the document" the same list.
+        """
+        return f"{self.prefix}/{notebook_id}/sources/{content_hash}.{suffix}"
 
     def _path(self, key: str) -> Path:
         return self.root / key

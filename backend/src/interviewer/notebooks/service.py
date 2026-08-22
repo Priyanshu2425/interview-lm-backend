@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from hashlib import sha256
 
 from sqlalchemy.engine import Engine
 
@@ -30,6 +31,22 @@ from .reuse import ReusingEmbedder
 from .store import NotebookRecord, NotebookStore
 
 _log = logging.getLogger(__name__)
+
+
+class SourceBytesMissing(RuntimeError):
+    """The document this Source was made from is not where it should be.
+
+    Named rather than bare, because "we cannot re-extract" is a sentence a
+    surface has to be able to say, and because the two ways of arriving here —
+    never stored, and stored then lost — are different problems for whoever
+    reads the log.
+    """
+
+    code = "source_bytes_missing"
+
+    def __init__(self, source_id: str, why: str) -> None:
+        super().__init__(f"{source_id}: {why}")
+        self.source_id = source_id
 
 
 class SharedCorpusIsNotYours(RuntimeError):
@@ -195,6 +212,14 @@ class NotebookService:
             )
 
         order = self._store.next_source_order(notebook_id)
+        # The document is stored before any row is written, the same ordering
+        # ADR-0017 fixed for figures. A row without an object is a citation
+        # pointing at nothing; an object without a row is unreferenced bytes a
+        # sweep can find. One is a broken product, the other is a bill.
+        payload = data if data is not None else (text or "").encode()
+        object_key, byte_length = self._keep(
+            notebook_id, payload, media_type=media_type
+        )
         cost = estimate([text], embedder=self._embedder, route=route)
         # Refused before the first provider call, never half-ingested.
         self._meter.gate(cost, candidate_id=record.candidate_id)
@@ -224,6 +249,8 @@ class NotebookService:
                 frozen={},
                 topic_orders={},
                 topic_tokens={},
+                object_key=object_key,
+                byte_length=byte_length,
             )
             return AddedSource(
                 source_id=source_id, module_id=module_id, state="stub",
@@ -263,6 +290,8 @@ class NotebookService:
             topic_orders=orders,
             topic_tokens=tokens,
             embedding_model=self._model_name,
+            object_key=object_key,
+            byte_length=byte_length,
         )
         # Charged on what was actually embedded — a resumed ingest re-reads the
         # vectors it already has and pays for none of them — and idempotent on
@@ -287,6 +316,90 @@ class NotebookService:
             dossier_tokens=ingested.report.dossier_tokens,
             cost=cost,
             figures=len(figures),
+        )
+
+    def _keep(
+        self, notebook_id: str, payload: bytes, *, media_type: str
+    ) -> tuple[str | None, int]:
+        """Put the document in the object store and say where it went.
+
+        Content-addressed, so the same document twice is stored once and a
+        re-upload after a failed ingest costs nothing extra.
+
+        A deployment with no object store keeps no document and says so with a
+        null key — storage is an addition to this pipeline, never a
+        precondition for it, and an upload must not start failing because a
+        bucket was not configured.
+        """
+        if self._objects is None or not payload:
+            return None, len(payload)
+        key = self._objects.source_key_for(
+            notebook_id, sha256(payload).hexdigest(), _suffix_for(media_type)
+        )
+        self._objects.put(key, payload, media_type)
+        return key, len(payload)
+
+    def source_bytes(self, notebook_id: str, source_id: str) -> bytes:
+        """The document as it arrived, or a named failure.
+
+        Two different absences, reported as one exception carrying which:
+        a Source ingested before ISSUE-0033 never had an object, and a Source
+        whose object has gone missing had one. Both mean "cannot re-extract",
+        and neither is a bare `KeyError` from inside a bucket client.
+        """
+        source = next(
+            (
+                s for s in self._store.get(notebook_id).sources
+                if s.source_id == source_id
+            ),
+            None,
+        )
+        if source is None:
+            raise LookupError(source_id)
+        if not source.object_key or self._objects is None:
+            raise SourceBytesMissing(
+                source_id,
+                "this Source was ingested before its bytes were kept, so there "
+                "is nothing to re-extract from",
+            )
+        try:
+            return self._objects.get(source.object_key)
+        except Exception as exc:
+            raise SourceBytesMissing(
+                source_id,
+                f"the stored document at {source.object_key} could not be read",
+            ) from exc
+
+    def re_extract(self, notebook_id: str, source_id: str) -> "ReIngested":
+        """Re-ingest from the stored document rather than from the text column.
+
+        `notebook_source.text` is what one extractor made of the bytes on one
+        day. Re-running against it can only ever reproduce that opinion, which
+        is why a better extractor could never be applied to old material —
+        this is the path that can.
+        """
+        source = next(
+            (
+                s for s in self._store.get(notebook_id).sources
+                if s.source_id == source_id
+            ),
+            None,
+        )
+        if source is None:
+            raise LookupError(source_id)
+        data = self.source_bytes(notebook_id, source_id)
+        # The same framing the upload route uses: a PDF is bytes to an
+        # extractor, everything else is text that happened to arrive as bytes.
+        extracted = extract(
+            text=(
+                "" if source.media_type == "application/pdf"
+                else data.decode("utf-8", errors="replace")
+            ),
+            data=data,
+            media_type=source.media_type,
+        )
+        return self.replace_source(
+            notebook_id, source_id=source_id, text=extracted.text
         )
 
     def _figures_for(
@@ -562,3 +675,18 @@ def _orders_and_tokens(
         tokens[tid] = tokens.get(tid, 0) + chunk.approx_tokens
     ordered = sorted(frozen, key=lambda tid: earliest.get(tid, 0))
     return {tid: i for i, tid in enumerate(ordered, 1)}, tokens
+
+
+#: What to call the stored document on disk. Cosmetic — the key is the content
+#: hash and nothing reads the extension — but a bucket somebody has to look
+#: through by hand is easier when the files are named after what they are.
+_SUFFIXES = {
+    "application/pdf": "pdf",
+    "text/markdown": "md",
+    "text/plain": "txt",
+    "text/html": "html",
+}
+
+
+def _suffix_for(media_type: str) -> str:
+    return _SUFFIXES.get((media_type or "").split(";")[0].strip(), "bin")

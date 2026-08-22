@@ -108,8 +108,14 @@ Two consequences worth stating outright:
 - A feature is reached through its `index.ts`; ESLint enforces it.
 - Evidence outlives the material. Deleting a notebook retires its Topics and
   keeps every row they produced. `CASCADE` empties the schema and has never
-  heard of the bucket, so deleting figure bytes is an explicit step in the same
-  call path.
+  heard of the bucket, so deleting the bytes — figures **and** the uploaded
+  documents themselves — is an explicit step in the same call path.
+- The document outlives its upload (ISSUE-0033). Uploaded bytes go to the object
+  store under `…/sources/<sha256>`, content-addressed and written **before** the
+  Source row, so a row never points at an object that is not there.
+  `notebook_source.text` is what one extractor made of them and is a cache;
+  `re_extract` re-reads the document itself. A Source with no `object_key`
+  predates the column and says so rather than pointing at bytes nobody kept.
 - A timeout is a **park**, not an error: recovery reads the Session and resumes,
   the same path an interruption uses.
 - One idempotency key per composed answer, advanced only when a turn lands — a

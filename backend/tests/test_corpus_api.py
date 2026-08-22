@@ -10,8 +10,17 @@ from fastapi.testclient import TestClient
 from interviewer.api.app import create_app
 
 
-@pytest.fixture(scope="module")
-def client():
+@pytest.fixture()
+def client(served_corpus):
+    """The imported Corpus, served from rows.
+
+    There is no shipped Corpus any more (ISSUE-0037): what the picker lists is
+    every Library this deployment stores, and the Scaler material is one of
+    them — imported once, shared, and read back out of Postgres.
+    """
+    from interviewer.api.deps import refresh_corpus
+
+    refresh_corpus()
     return TestClient(create_app())
 
 

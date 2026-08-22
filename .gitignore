@@ -15,9 +15,8 @@ node_modules/
 # ours, so this repository carries the code that examines a Corpus and not the
 # Corpus itself. `data/README.md` says what belongs here and how to produce it.
 #
-# `corpus-index.json` is excluded for the same reason at one remove: it is
-# derived from that material and carries every Topic title. Nothing breaks
-# without it — Related Topics simply serves no neighbours (ADR-0018).
+# It is an *import source* rather than a runtime path (ISSUE-0037): a clean
+# clone has no missing Corpus, because there is no shipped Corpus to miss.
 data/*
 !data/README.md
 
@@ -31,8 +30,7 @@ frontend/dist/
 frontend/
 
 # Model weights are published to S3 by scripts/publish_model.py and cached
-# locally. `data/corpus-index.json` IS tracked — it is a build artifact meant to
-# ship, and reviewing its diff is how a Corpus change gets noticed (ADR-0018).
+# locally.
 .cache/
 *.safetensors
 

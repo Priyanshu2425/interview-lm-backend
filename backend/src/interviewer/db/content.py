@@ -64,6 +64,13 @@ notebook = Table(
     # Recorded, not assumed: a change of model re-embeds, and Topic membership
     # is carried across rather than recomputed (ISSUE-0022).
     Column("embedding_model", String, nullable=False),
+    # Which extract this Library is, as JSON, where it came from one. PRD-0001
+    # §13 requires a Session to be able to say what it ran against, and after
+    # ISSUE-0037 the answer cannot come from a file's header — so an import
+    # carries its source's provenance across rather than replacing it with the
+    # adapter that happened to load it. Empty for a Candidate's own upload,
+    # which *is* the notebook adapter's own extract.
+    Column("provenance", Text, nullable=False, server_default="{}"),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
     CheckConstraint(
         f"visibility IN ('{PERSONAL}','{SHARED}')", name="ck_notebook_visibility"
@@ -120,6 +127,12 @@ notebook_source = Table(
     # produce different ids meaning something different by every one
     # (SPEC-0006 §Structure is given, or derived).
     Column("structure", String, nullable=False, server_default="derived"),
+    # Which Track this Module belongs to, where the source drew one. A
+    # Candidate's upload has no Tracks and gets the notebook's own key; an
+    # import keeps the divisions it arrived with, and a Track is one of them
+    # (ISSUE-0034, ISSUE-0037).
+    Column("track_key", String, nullable=False, server_default=""),
+    Column("track_title", String, nullable=False, server_default=""),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
     CheckConstraint(
         "structure IN ('derived','given')", name="ck_source_structure"

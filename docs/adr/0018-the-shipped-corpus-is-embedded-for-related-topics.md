@@ -1,5 +1,14 @@
 # The shipped Corpus is embedded, for Related Topics and nothing else
 
+> **Superseded by ADR-0021 (2026-08-22).** The precomputed artifact this ADR
+> introduced no longer exists. Its reasoning was sound and its measurements
+> still hold — mean-centring, the floor, five neighbours, "no neighbours rather
+> than wrong ones" — but its *mechanism* existed because the Corpus was a file.
+> Once every Corpus is rows (SPEC-0006), the centroids are already stored and
+> the artifact is a second copy of them that can go out of date. Everything this
+> ADR decided about the *space* survives in `corpus/related.py`; everything it
+> decided about the *file* is gone.
+
 ADR-0005 refused a vector store and named the one case it would allow:
 
 > If something needs cross-Topic similarity — "what else relates to this?",

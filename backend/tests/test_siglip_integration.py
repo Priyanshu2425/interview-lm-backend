@@ -97,7 +97,30 @@ def test_a_corrupt_image_is_refused_rather_than_embedded(model):
         model.embed_images([b"this is not a png"])
 
 
-# -- the Corpus index, and whether its neighbours mean anything --------------
+# -- Related Topics, and whether its neighbours mean anything ----------------
+
+
+def _centroids(corpus, model) -> dict[str, tuple[float, ...]]:
+    """Topic centroids, the way an ingest writes them.
+
+    Computed here rather than read from rows: this test is about the *space*,
+    not about the store, and a database is not needed to measure whether a model
+    can tell two subjects apart.
+    """
+    from interviewer.corpus.adapters.notebook.embedding import centroid_of
+    from interviewer.corpus.chunking import chunk_source
+
+    out: dict[str, tuple[float, ...]] = {}
+    for topic in corpus.topics:
+        chunks = [
+            chunk.text
+            for leaf in topic.leaves
+            for chunk in chunk_source(leaf.id, leaf.text or "")
+            if chunk.text.strip()
+        ]
+        if chunks:
+            out[topic.id] = centroid_of(model.embed(chunks))
+    return out
 
 def test_related_topics_beat_chance_by_a_wide_margin(model):
     """The measurement that made mean-centring non-optional.
@@ -117,20 +140,28 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     from pathlib import Path
 
     from interviewer.corpus.adapters.cortex import ingest
-    from interviewer.corpus.index import build
+    from interviewer.corpus.related import rank
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
-    index = build(corpus, model)
+    centroids = _centroids(corpus, model)
     track_of = {
         topic.id: track.key
         for track in corpus.tracks
         for module in track.modules
         for topic in module.topics
     }
+    module_of = {
+        topic.id: module.id
+        for module in corpus.modules
+        for topic in module.topics
+    }
+    titles = {topic.id: topic.title for topic in corpus.topics}
 
     hits = total = 0
-    for topic_id, neighbours in index.related.items():
-        for neighbour in neighbours:
+    for topic_id in centroids:
+        for neighbour in rank(
+            topic_id, centroids=centroids, titles=titles, module_of=module_of
+        ):
             total += 1
             hits += track_of[topic_id] == track_of[neighbour.topic_id]
 
@@ -141,26 +172,27 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     )
 
 
-def test_the_index_spreads_out_once_centred(model):
+def test_the_space_spreads_out_once_centred(model):
     """Directly: the cone is real, and centring opens it."""
     from pathlib import Path
 
     from interviewer.corpus.adapters.cortex import ingest
-    from interviewer.corpus.index import build, centre
+    from interviewer.corpus.related import _mean, centre
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
-    index = build(corpus, model)
-    ids = sorted(index.centroids)[:30]
+    centroids = _centroids(corpus, model)
+    mean = _mean(list(centroids.values()))
+    ids = sorted(centroids)[:30]
 
     def cos(a, b):
         return sum(x * y for x, y in zip(a, b))
 
     raw = [
-        cos(index.centroids[a], index.centroids[b])
+        cos(centroids[a], centroids[b])
         for i, a in enumerate(ids) for b in ids[i + 1:]
     ]
     centred = [
-        cos(centre(index.centroids[a], index.mean), centre(index.centroids[b], index.mean))
+        cos(centre(centroids[a], mean), centre(centroids[b], mean))
         for i, a in enumerate(ids) for b in ids[i + 1:]
     ]
     assert max(raw) - min(raw) < 0.1, "the raw space is expected to be collapsed"

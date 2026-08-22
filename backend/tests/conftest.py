@@ -306,3 +306,113 @@ def ingested():
         raise AssertionError(f"ingest did not finish in {timeout}s: {last}")
 
     return wait
+
+
+#: Where the imported Corpus is kept between tests. A separate schema, so that
+#: `content_db` can empty `content` completely — a test asserting an empty picker
+#: must see one — while the expensive part of the import survives.
+TEMPLATE = "content_template"
+SHIPPED = "nb-shipped"
+
+
+@pytest.fixture(scope="session")
+def shipped_template(engine, corpus_path):
+    """Import the shipped Corpus once, and keep a copy to stamp out per test.
+
+    ISSUE-0037 removed the disk path, so material reaches the API by being
+    imported into Postgres — which makes "a Corpus the API serves" cost an
+    embed and eight hundred inserts. Paying that once per test took the suite
+    from 40 seconds to nearly two minutes, so it is paid once per session and
+    copied with `INSERT ... SELECT` afterwards.
+    """
+    from sqlalchemy import text
+
+    from interviewer.corpus.adapters.cortex import ingest as ingest_corpus
+    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.db.content import CONTENT, PLATFORM_OWNER, SHARED
+    from interviewer.db.engine import create_content
+    from interviewer.notebooks import NotebookService
+
+    create_content(engine)
+    corpus = ingest_corpus(corpus_path)
+    track_of = {
+        module.id: (track.key, track.title)
+        for track in corpus.tracks
+        for module in track.modules
+    }
+    with engine.begin() as c:
+        c.execute(text(f"DROP SCHEMA IF EXISTS {TEMPLATE} CASCADE"))
+        c.execute(text(
+            "TRUNCATE content.notebook, content.notebook_source, "
+            "content.notebook_topic, content.notebook_chunk CASCADE"
+        ))
+
+    service = NotebookService(engine, embedder=HashingEmbedder())
+    service.create(
+        SHIPPED, PLATFORM_OWNER, "Scaler Cortex", visibility=SHARED,
+        provenance=corpus.provenance.model_dump(),
+    )
+    for module in corpus.modules:
+        key, title = track_of[module.id]
+        service.import_structured(
+            SHIPPED,
+            source_id=f"src-{module.id}",
+            title=module.title,
+            module_id=module.id,
+            track_key=key,
+            track_title=title,
+            topics=[
+                GivenTopic(
+                    topic_id=topic.id,
+                    title=topic.title,
+                    order=topic.order,
+                    leaves=tuple(
+                        GivenLeaf(
+                            leaf_id=leaf.id,
+                            title=leaf.title,
+                            text=leaf.text or "",
+                            kind=leaf.kind.value,
+                            answers_leaf_id=leaf.answers_leaf_id,
+                        )
+                        for leaf in topic.leaves
+                    ),
+                )
+                for topic in module.topics
+            ],
+            as_operator=True,
+        )
+
+    tables = ("notebook", "notebook_source", "notebook_topic", "notebook_chunk")
+    with engine.begin() as c:
+        c.execute(text(f"CREATE SCHEMA {TEMPLATE}"))
+        for table in tables:
+            c.execute(text(
+                f"CREATE TABLE {TEMPLATE}.{table} AS "  # noqa: S608
+                f"SELECT * FROM {CONTENT}.{table}"
+            ))
+    yield tables
+    with engine.begin() as c:
+        c.execute(text(f"DROP SCHEMA IF EXISTS {TEMPLATE} CASCADE"))
+
+
+@pytest.fixture()
+def served_corpus(content_db, shipped_template):
+    """The shipped Corpus, served from rows, restored from the template.
+
+    Ordering matters and is why `content_db` comes first: it empties `content`,
+    and this fills it back in. In the order the arguments are declared.
+    """
+    from sqlalchemy import text
+
+    from interviewer.api import deps
+    from interviewer.db.content import CONTENT
+
+    with content_db.begin() as c:
+        for table in shipped_template:
+            c.execute(text(
+                f"INSERT INTO {CONTENT}.{table} SELECT * FROM {TEMPLATE}.{table}"
+            ))
+    deps.refresh_corpus()
+    yield SHIPPED
+    deps.refresh_corpus()

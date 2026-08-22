@@ -25,7 +25,7 @@ from interviewer.corpus.adapters.notebook.embedding import centroid_of
 from interviewer.corpus.contract import Corpus
 from interviewer.db.content import PERSONAL, SHARED
 
-from .corpus_view import corpus_for
+from .corpus_view import corpus_for, merge
 from .metering import IngestCost, IngestMeter, InsufficientBalance, estimate
 from .progress import ProgressEmbedder
 from .reuse import ReusingEmbedder
@@ -185,10 +185,12 @@ class NotebookService:
         title: str,
         *,
         visibility: str = PERSONAL,
+        provenance: dict | None = None,
     ) -> NotebookRecord:
         return self._store.create(
             notebook_id, candidate_id, title,
             embedding_model=self._model_name, visibility=visibility,
+            provenance=provenance,
         )
 
     def add_source(
@@ -486,6 +488,8 @@ class NotebookService:
         title: str,
         topics,
         module_id: str | None = None,
+        track_key: str = "",
+        track_title: str = "",
         route: str = "credits",
         as_operator: bool = False,
     ) -> AddedSource:
@@ -577,6 +581,8 @@ class NotebookService:
             object_key=object_key,
             byte_length=byte_length,
             structure="given",
+            track_key=track_key,
+            track_title=track_title,
         )
         cost = estimate(
             ["x" * (embedder.embedded_tokens * 4)],
@@ -901,6 +907,10 @@ class NotebookService:
     def corpus(self, notebook_id: str) -> Corpus | None:
         record = self._store.get(notebook_id)
         return corpus_for(self._store, record) if record else None
+
+    def served_corpus(self) -> Corpus:
+        """Everything examinable, as one Corpus. Empty where nothing is stored."""
+        return merge(self.all_corpora())
 
     def all_corpora(self) -> list[Corpus]:
         out = []

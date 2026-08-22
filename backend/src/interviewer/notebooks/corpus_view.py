@@ -53,7 +53,12 @@ def corpus_for(store: NotebookStore, record: NotebookRecord) -> Corpus | None:
             )
         )
 
-    modules = []
+    # Grouped by Track, because a Track is part of the structure a source can
+    # arrive with (ISSUE-0034). An upload has none and every Module lands in the
+    # notebook's own Track, which is what every notebook did before imports
+    # existed; an import keeps the Tracks it was authored with, so a Corpus that
+    # went into Postgres comes back out as the same Corpus.
+    by_track: dict[tuple[str, str], list[Module]] = {}
     for source in record.sources:
         topics = sorted(
             topics_by_source.get(source.source_id, []), key=lambda t: t.order
@@ -61,7 +66,9 @@ def corpus_for(store: NotebookStore, record: NotebookRecord) -> Corpus | None:
         if not topics:
             # A stub Module carries no Topic and is not examinable (ISSUE-0023).
             continue
-        modules.append(
+        key = source.track_key or track_key(record.notebook_id)
+        title = source.track_title or record.title
+        by_track.setdefault((key, title), []).append(
             Module(
                 id=source.module_id,
                 order=source.order,
@@ -70,28 +77,92 @@ def corpus_for(store: NotebookStore, record: NotebookRecord) -> Corpus | None:
                 topics=tuple(_renumber(topics)),
             )
         )
-    if not modules:
+    if not by_track:
         return None
 
     return Corpus(
-        provenance=CorpusProvenance(
-            source=f"notebook:{record.notebook_id}",
-            extracted_at="",
-            adapter=ADAPTER_NAME,
-            adapter_version="1",
-        ),
-        tracks=(
+        provenance=_provenance(record),
+        tracks=tuple(
             Track(
-                key=track_key(record.notebook_id),
-                title=record.title,
+                key=key,
+                title=title,
                 modules=tuple(sorted(modules, key=lambda m: m.order)),
-            ),
+            )
+            for (key, title), modules in sorted(by_track.items())
         ),
+    )
+
+
+def _provenance(record: NotebookRecord) -> CorpusProvenance:
+    """Which extract this Library is.
+
+    An imported Corpus keeps the provenance it arrived with, because PRD-0001
+    §13 asks what a Session ran against and "the notebook adapter" is not that
+    answer — the material came from somewhere, and the import is a transport
+    rather than a source. A Candidate's own upload has no other source, so the
+    adapter genuinely is the extract.
+    """
+    stored = record.provenance or {}
+    if stored.get("source"):
+        return CorpusProvenance(
+            source=stored["source"],
+            extracted_at=stored.get("extracted_at", ""),
+            adapter=stored.get("adapter", ADAPTER_NAME),
+            adapter_version=str(stored.get("adapter_version", "1")),
+        )
+    return CorpusProvenance(
+        source=f"notebook:{record.notebook_id}",
+        extracted_at="",
+        adapter=ADAPTER_NAME,
+        adapter_version="1",
     )
 
 
 def track_key(notebook_id: str) -> str:
     return f"nb-{notebook_id}"
+
+
+#: What a deployment holding no Corpus at all serves. Empty rather than absent,
+#: so everything downstream keeps its shape: the picker lists no Modules instead
+#: of failing, and the first upload composes onto nothing exactly as the second
+#: composes onto something.
+EMPTY = Corpus(
+    provenance=CorpusProvenance(
+        source="none", extracted_at="", adapter="none", adapter_version="1",
+    ),
+    tracks=(),
+)
+
+
+def merge(corpora: list[Corpus]) -> Corpus:
+    """Every Library this deployment serves, as one Corpus.
+
+    The backbone was always Corpus-agnostic (ADR-0007); it was never
+    multi-Corpus. A Candidate examining themselves on a shared course *and* on
+    their own notes needs both in one picker, and `topic_id` was required to be
+    globally unique precisely so that this is a merge rather than a namespace
+    problem.
+
+    It lives here, in the package the Corpora come from, because after
+    ISSUE-0037 there is no base to compose onto — every Corpus is somebody's,
+    and they all come out of `content`.
+    """
+    present = [c for c in corpora if c is not None]
+    if not present:
+        return EMPTY
+    if len(present) == 1:
+        return present[0]
+    return Corpus(
+        provenance=CorpusProvenance(
+            source=" + ".join(c.provenance.source for c in present),
+            extracted_at=max(c.provenance.extracted_at for c in present),
+            adapter=" + ".join(sorted({c.provenance.adapter for c in present})),
+            adapter_version=" + ".join(
+                sorted({c.provenance.adapter_version for c in present})
+            ),
+        ),
+        tracks=tuple(t for c in present for t in c.tracks),
+    )
 
 
 def _topic_orders(store: NotebookStore, notebook_id: str) -> dict[str, int]:

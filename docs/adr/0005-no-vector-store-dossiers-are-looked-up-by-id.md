@@ -87,3 +87,29 @@ that no longer matches serves **no** neighbours rather than wrong ones.
 What has *not* changed is the sentence this ADR exists for: the interview loop
 runs no retriever. Topic selection is Thompson sampling over ids, a dossier is
 loaded whole, and no follow-up is answered out of a top-k result.
+
+
+## Amendment — 2026-08-22, a dossier is loaded from rows
+
+**One sentence changed and it is named here: "a dossier is a file read".** It is
+now a read of `content.notebook_chunk` for a `topic_id`. Nothing else in this
+ADR moved, and the distinction matters because the title still says *no vector
+store* and that is still true of the interview loop.
+
+What did **not** change, each of it still under test:
+
+- **No query is embedded at question time.** Related Topics compares stored
+  centroids that were written at ingest; nothing produces a vector to answer a
+  request (`test_the_route_embeds_nothing`).
+- **Topic selection is Thompson sampling over ids**, before any content is
+  needed.
+- **A dossier is loaded whole by `topic_id`**, and the loader's contract is
+  unchanged. The whole Topic still fits; there is still no top-k.
+- **No follow-up is answered out of a retrieval result.**
+
+The third objection this ADR raised — *embeddings are a liability against a
+re-scraped Corpus* — is not answered any more. It is **gone**. There is nothing
+to re-scrape: the Corpus is documents in Postgres, and every vector was written
+alongside the Topic it describes, so the two cannot disagree. The fingerprint and
+staleness machinery that ISSUE-0029 and ISSUE-0030 built for a file went with the
+file (ADR-0021).

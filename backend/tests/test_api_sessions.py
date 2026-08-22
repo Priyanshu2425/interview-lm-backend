@@ -9,7 +9,13 @@ from interviewer.api.wiring import wiring
 
 
 @pytest.fixture()
-def client(clean_db):
+def client(clean_db, served_corpus):
+    """A client serving an imported Corpus.
+
+    ISSUE-0037 removed the disk path, so material reaches the API by being
+    imported into Postgres — `served_corpus` is `scripts/import_corpus.py`
+    without the command line around it.
+    """
     wiring.cache_clear()
     idempotency.reset()
     return TestClient(create_app())

@@ -37,6 +37,9 @@ class SourceRecord:
     byte_length: int = 0
     #: derived | given. Which branch of the pipeline made this Source's Topics.
     structure: str = "derived"
+    #: The Track this Module belongs to, or empty for the notebook's own.
+    track_key: str = ""
+    track_title: str = ""
     #: Sections embedded of sections found. Work done against work found, never
     #: an indeterminate state (ISSUE-0035).
     progress_done: int = 0
@@ -77,6 +80,8 @@ class NotebookRecord:
     #: personal | shared. Defaulted rather than required, so every existing
     #: caller keeps meaning what it meant.
     visibility: str = PERSONAL
+    #: Which extract this Library is, where it was imported from one.
+    provenance: dict | None = None
 
     @property
     def shared(self) -> bool:
@@ -101,7 +106,10 @@ class NotebookStore:
         embedding_model: str,
         *,
         visibility: str = PERSONAL,
+        provenance: dict | None = None,
     ) -> NotebookRecord:
+        import json
+
         with self._engine.begin() as c:
             c.execute(
                 sa.insert(notebook_t).values(
@@ -110,11 +118,12 @@ class NotebookStore:
                     title=title,
                     embedding_model=embedding_model,
                     visibility=visibility,
+                    provenance=json.dumps(provenance or {}),
                 )
             )
         return NotebookRecord(
             notebook_id, candidate_id, title, embedding_model, (),
-            visibility=visibility,
+            visibility=visibility, provenance=provenance,
         )
 
     def get(self, notebook_id: str) -> NotebookRecord | None:
@@ -131,6 +140,7 @@ class NotebookStore:
                 embedding_model=row["embedding_model"],
                 sources=self._sources(c, notebook_id),
                 visibility=row["visibility"],
+                provenance=_provenance_from(row["provenance"]),
             )
 
     def for_candidate(self, candidate_id: str) -> list[NotebookRecord]:
@@ -171,6 +181,7 @@ class NotebookStore:
                     embedding_model=r["embedding_model"],
                     sources=self._sources(c, r["notebook_id"]),
                     visibility=r["visibility"],
+                    provenance=_provenance_from(r["provenance"]),
                 )
                 for r in rows
             ]
@@ -248,6 +259,8 @@ class NotebookStore:
                 object_key=r["object_key"],
                 byte_length=int(r["byte_length"] or 0),
                 structure=r["structure"],
+                track_key=r["track_key"],
+                track_title=r["track_title"],
                 pages=_pages_from(r["pages"]),
                 progress_done=int(r["progress_done"] or 0),
                 progress_total=int(r["progress_total"] or 0),
@@ -329,6 +342,8 @@ class NotebookStore:
         structure: str = "derived",
         progress_total: int = 0,
         pages: tuple = (),
+        track_key: str = "",
+        track_title: str = "",
     ) -> None:
         """The Source row, written the moment its bytes are durable.
 
@@ -354,6 +369,8 @@ class NotebookStore:
                     structure=structure,
                     progress_total=progress_total,
                     pages=_pages_to(pages),
+                    track_key=track_key,
+                    track_title=track_title,
                 )
             )
 
@@ -529,6 +546,8 @@ class NotebookStore:
         object_key: str | None = None,
         byte_length: int = 0,
         structure: str = "derived",
+        track_key: str = "",
+        track_title: str = "",
     ) -> None:
         """Atomic per Source (ISSUE-0026): a Module appears whole or not at all."""
         with self._engine.begin() as c:
@@ -547,6 +566,8 @@ class NotebookStore:
                     object_key=object_key,
                     byte_length=byte_length,
                     structure=structure,
+                    track_key=track_key,
+                    track_title=track_title,
                 )
             )
             if frozen:
@@ -867,6 +888,15 @@ class NotebookStore:
         if objects is not None:
             # CASCADE empties the schema; it has never heard of the bucket.
             objects.delete_prefix(notebook_id)
+
+
+def _provenance_from(raw: str | None) -> dict | None:
+    import json
+
+    try:
+        return json.loads(raw or "{}") or None
+    except Exception:
+        return None
 
 
 def _seconds(value) -> float | None:

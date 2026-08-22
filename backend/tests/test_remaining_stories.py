@@ -110,7 +110,7 @@ def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
     assert "not a forecast" in prices["claude"]["basis"]
 
 
-def test_a_running_total_is_available_mid_session(client):
+def test_a_running_total_is_available_mid_session(client, served_corpus):
     mods = [m["module_id"] for m in
             client.get("/v1/corpus/modules", params={"track": "aiml"}).json()][:1]
     client.post("/v1/credits/grants", json={

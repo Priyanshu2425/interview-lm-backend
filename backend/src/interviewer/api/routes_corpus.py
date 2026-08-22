@@ -42,7 +42,7 @@ class RelatedOut(BaseModel):
     `same_module` is reported rather than filtered on. A Topic's nearest
     neighbours are often its own Module's, which is true and useful for "what
     leads into this"; cross-Module neighbours are the sideways connection this
-    index was built for. Which to show is the surface's decision (ISSUE-0031).
+    was built for. Which to show is the surface's decision (ISSUE-0031).
     """
 
     topic_id: str
@@ -182,16 +182,32 @@ def scope(module_id: list[str] = Query(default=[])) -> ScopeOut:
 def provenance(candidate_id: str | None = None) -> dict:
     """Which extract a Session ran against (PRD-0001 §13).
 
-    The shipped Corpus has one provenance and it is reported as itself. A
-    notebook is a second Source with a second provenance, listed separately —
-    merging them into one composite string would name an extract that never
-    happened.
-    """
-    from .deps import get_base_corpus
+    Each Library is reported as itself. Merging several into one composite
+    string would name an extract that never happened, so the shared Library the
+    Candidate is examined on is reported at the top level and their own
+    notebooks are listed beside it.
 
-    out = get_base_corpus().provenance.model_dump()
+    An imported Library keeps the provenance it arrived with (ISSUE-0037): the
+    import is a transport, not a source, and "the notebook adapter" is not an
+    answer to what the material was extracted from.
+    """
+    from interviewer.db.content import SHARED
+
+    svc = get_notebook_service()
+    shared = [
+        corpus.provenance.model_dump()
+        for record in svc.store.visible_to("")
+        if record.visibility == SHARED
+        and (corpus := svc.corpus(record.notebook_id)) is not None
+    ]
+    out = shared[0] if shared else {
+        "source": "none", "extracted_at": "", "adapter": "none",
+        "adapter_version": "1",
+    }
+    if len(shared) > 1:
+        # Listed rather than merged, for the same reason as above.
+        out["shared"] = shared
     if candidate_id is not None:
-        svc = get_notebook_service()
         out["notebooks"] = [
             corpus.provenance.model_dump()
             for record in svc.store.for_candidate(candidate_id)
@@ -225,14 +241,14 @@ def topic(topic_id: str) -> dict:
 def related(topic_id: str) -> list[RelatedOut]:
     """What else relates to this Topic — the case ADR-0005 permitted alongside.
 
-    Precomputed, never queried. The neighbours were decided when the index was
-    built, so no vector search runs here and nothing is embedded: ADR-0005's
+    Answered from the centroids stored at ingest. Nothing is embedded here:
+    every vector this compares was written when its Topic was, so ADR-0005's
     "there is no query to embed" stays literally true of the running system.
 
-    An empty list means one of three things — no index, an index that no longer
-    matches the Corpus, or a Topic that genuinely has no neighbours — and looks
-    identical from out here on purpose. All three render as nothing, and all
-    three are honest.
+    An empty list means two things — a Topic whose Corpus this deployment does
+    not hold, and a Topic with no neighbour above the floor — and looks
+    identical from out here on purpose. Both render as nothing, and both are
+    honest.
     """
     if topic_id not in {topic.id for topic in get_corpus().topics}:
         raise HTTPException(404, "unknown topic_id")

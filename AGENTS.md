@@ -11,7 +11,6 @@ Corpus; a React surface (`frontend/`) renders what it decides.
 | What a word means | `CONTEXT.md` — authoritative on vocabulary |
 | What the surface looks like, and why | `DESIGN.md` |
 | Why a thing is built the way it is | `docs/adr/` |
-| What the Corpus is *about*, topic by topic | `data/corpus-index.json` — derived, rebuildable, never hand-edited |
 | What a screen is for | `docs/prd/`, `docs/issues/` |
 | How the surface is laid out | `frontend/README.md` |
 
@@ -80,14 +79,17 @@ Two consequences worth stating outright:
   refuses to start rather than writing a second geometry into one column.
   There is no alembic, so `create_content` applies the DDL on every boot,
   idempotently, the way `create_core` applies its triggers.
-- Related Topics come from `data/corpus-index.json`, built offline by
-  `scripts/embed_corpus.py` and read at runtime — a deployment needs no model to
-  serve them, only to rebuild them. Re-scraping the Corpus makes the index
-  stale, and a stale index serves **no** neighbours rather than wrong ones
-  (ADR-0018). Rebuild with `python scripts/embed_corpus.py --provider siglip`;
-  `--check` reports freshness and names which of the Corpus and the model moved,
-  and the operator console shows the same reading. Add `--force` after changing
-  how the index is built, not only after changing the Corpus.
+- **There is no Corpus on disk.** Every Corpus belongs to somebody and lives in
+  `content` (SPEC-0006, ISSUE-0037): a shared one an operator imported, or a
+  Candidate's own uploads. `CORPUS_PATH` is where `scripts/import_corpus.py`
+  reads from and is not read by the API; a clean clone has no missing Corpus
+  because there is no shipped Corpus to miss.
+- Related Topics is the stored Topic centroids of **one** Corpus compared
+  against each other, mean-centred (the centring is the whole quality of it —
+  `related.centre` carries the measurement). No artifact, no fingerprint, no
+  staleness: the vectors were written with the Topics they describe (ADR-0021).
+  A neighbour never crosses a Corpus, because `embedding_model` is per Corpus
+  and a cosine across two spaces means nothing.
 - A figure is a chunk with `modality='image'` and its bytes in an object store
   (ADR-0017). Anything rebuilding prose — a dossier, a Leaf, a token budget —
   must filter to text, and `store.chunks_of` takes the argument for it.
@@ -104,7 +106,7 @@ Two consequences worth stating outright:
 - `Dockerfile` builds both halves and pins the runtime from
   `backend/requirements.txt`; regenerate it with `scripts/pin_requirements.py`
   after changing a dependency. The `embeddings` extra is deliberately not in the
-  image — Related Topics reads a committed artifact and needs no model.
+  image, and no Corpus is copied into it — material arrives by import.
 - Structure is given or derived, and the Source says which (ISSUE-0034). Derived
   is the existing path — a Candidate's file arrives with no divisions and the
   clusterer mints them. Given is a structured import: Topic ids, order, titles,
@@ -146,7 +148,12 @@ Two consequences worth stating outright:
   backdrops, targets on both pointer types, accessible names, across five
   variations and every route. Treat a finding as a defect, not a threshold.
 
-Backend: `.venv/bin/python -m pytest backend/tests -q` (660 tests, plus eight
-skipped until `INTERVIEWER_MODEL_TESTS=1` loads real weights — those eight
-include the quality floor for Related Topics, which is the only check that
-would notice the embedding space collapsing).
+Backend: `.venv/bin/python -m pytest backend/tests -q` (751 tests in about 70
+seconds, plus eight skipped until `INTERVIEWER_MODEL_TESTS=1` loads real weights
+— those eight include the quality floor for Related Topics, which is the only
+check that would notice the embedding space collapsing).
+
+Roughly half the runtime is one fixture. `served_corpus` gives a test an API
+serving imported material, which after ISSUE-0037 means an embed and eight
+hundred inserts; it is done once per session and copied out of a template schema
+per test. If it starts dominating again, that copy is the thing to look at.

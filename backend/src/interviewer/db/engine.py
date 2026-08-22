@@ -182,6 +182,9 @@ _ADDED_COLUMNS = (
     # Existing rows migrate to personal, which is what they always were
     # (SPEC-0006 §Ownership).
     ("notebook", "visibility", "text NOT NULL DEFAULT 'personal'"),
+    # ISSUE-0037. Empty is the notebook adapter's own extract, which is what
+    # every existing row was.
+    ("notebook", "provenance", "text NOT NULL DEFAULT '{}'"),
     # ISSUE-0033. A Source from before these existed has no object, and says so
     # rather than pointing at bytes nobody kept.
     ("notebook_source", "object_key", "text"),
@@ -191,6 +194,10 @@ _ADDED_COLUMNS = (
     # ISSUE-0035. Every Source that already exists is `ready` or `stub`, so
     # these describe work that has already finished and start at zero.
     ("notebook_source", "pages", "text NOT NULL DEFAULT '[]'"),
+    # ISSUE-0037. Empty means "the notebook's own Track", which is what every
+    # existing Source was.
+    ("notebook_source", "track_key", "text NOT NULL DEFAULT ''"),
+    ("notebook_source", "track_title", "text NOT NULL DEFAULT ''"),
     ("notebook_source", "progress_done", "integer NOT NULL DEFAULT 0"),
     ("notebook_source", "progress_total", "integer NOT NULL DEFAULT 0"),
     ("notebook_source", "started_at", "timestamptz"),

@@ -166,5 +166,7 @@ def test_a_notebook_is_not_listed_for_another_candidate(
     assert module_id in {m["module_id"] for m in mine.json()}
     assert module_id not in {m["module_id"] for m in theirs.json()}
     assert module_id not in {m["module_id"] for m in anonymous.json()}
-    # The shipped Corpus is visible to everyone, notebook or no notebook.
-    assert any(not m["track_key"].startswith("nb-") for m in anonymous.json())
+    # Nothing else is visible either. There is no Corpus that belongs to
+    # nobody any more (ISSUE-0037): a shared Library would show here, and this
+    # deployment has none.
+    assert anonymous.json() == []

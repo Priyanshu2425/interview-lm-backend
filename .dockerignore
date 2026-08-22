@@ -13,9 +13,9 @@
 .env.*
 !.env.example
 
-# Scrape intermediates and local caches. `data/corpus.json` and
-# `data/corpus-index.json` are the Corpus and do ship.
-data/raw
+# The Corpus is not in the image at all: it is imported into Postgres rather
+# than mounted (SPEC-0006).
+data
 .auth
 .cache
 

@@ -40,24 +40,16 @@ COPY backend/pyproject.toml backend/README.md ./backend/
 COPY backend/src ./backend/src
 RUN pip install --no-deps -e ./backend
 
-# The Corpus and its precomputed index, if this build context has them. Both
-# are read-only at runtime, and shipping them is what lets a boot need neither a
-# scrape nor a model (ADR-0005, ADR-0018).
-#
-# The bracket is not a typo: `dat[a]` is a glob, so it copies the directory when
-# it exists and does nothing when it does not. `data/` is not in the repository
-# (data/README.md says why), so a build from a clean clone produces an image
-# that serves the API and the Notebook Adapter with no shipped Corpus — which is
-# a real way to run this. Mount or COPY one in, or point CORPUS_PATH at it.
-COPY dat[a] ./data
+# No Corpus is copied in, and there is nothing to copy: every Corpus belongs to
+# somebody and lives in Postgres (SPEC-0006). A boot needs no scrape, no model
+# and no `data/` directory — material arrives by import, and
+# `scripts/import_corpus.py` runs against a database rather than a mount.
 
 # Not root. Nothing here writes to the image at runtime.
 RUN useradd --create-home --uid 10001 cortex && chown -R cortex:cortex /app
 USER cortex
 
-ENV CORPUS_PATH=/app/data/corpus.json \
-    CORPUS_INDEX_PATH=/app/data/corpus-index.json \
-    SURFACE_DIR=/app/frontend/dist \
+ENV SURFACE_DIR=/app/frontend/dist \
     PORT=8000
 
 # Absent by default, and `create_app` skips the mount rather than failing when

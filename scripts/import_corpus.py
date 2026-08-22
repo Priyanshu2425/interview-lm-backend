@@ -57,6 +57,13 @@ def main() -> int:
         print(f"no Corpus at {path} — see data/README.md")
         return 1
     corpus = ingest(path)
+    # Tracks travel with the Modules: a Track is part of the structure the
+    # material arrived with, and the picker filters on it.
+    track_of = {
+        module.id: (track.key, track.title)
+        for track in corpus.tracks
+        for module in track.modules
+    }
     modules = list(corpus.modules)
     print(f"corpus: {len(modules)} Modules, {len(list(corpus.topics))} Topics")
     if args.dry_run:
@@ -80,7 +87,11 @@ def main() -> int:
 
         notebook_id = f"nb-{uuid.uuid4().hex[:12]}"
         service.create(
-            notebook_id, PLATFORM_OWNER, args.title, visibility=SHARED
+            notebook_id, PLATFORM_OWNER, args.title, visibility=SHARED,
+            # The import is a transport, not a source: this Library is the
+            # extract the material arrived as, and a Session has to be able to
+            # say so (PRD-0001 §13).
+            provenance=corpus.provenance.model_dump(),
         )
         print(f"created shared Corpus {notebook_id}")
 
@@ -108,11 +119,14 @@ def main() -> int:
             print(f"  {module.id}: no text, skipped")
             skipped += 1
             continue
+        key, title = track_of.get(module.id, ("", ""))
         added = service.import_structured(
             notebook_id,
             source_id=f"src-{module.id}",
             title=module.title,
             module_id=module.id,
+            track_key=key,
+            track_title=title,
             topics=given,
             as_operator=True,
         )

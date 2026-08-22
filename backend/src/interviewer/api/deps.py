@@ -1,63 +1,23 @@
 """Process-wide singletons.
 
-The Cortex Corpus ships with the image (ADR-0005). A notebook Corpus does not —
-it belongs to a Candidate, lives in the `content` schema, and is composed onto
-the served Corpus at read time so that one picker can show both.
+Every Corpus is somebody's and lives in the `content` schema (SPEC-0006). There
+is no Corpus loaded from disk any more and no base to compose onto: what the API
+serves is every shared Library plus the Libraries each Candidate uploaded, read
+back out of Postgres. `CORPUS_PATH` is an import source for
+`scripts/import_corpus.py` and is not read here (ISSUE-0037).
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from functools import lru_cache
-from pathlib import Path
 
-from interviewer.corpus.adapters.cortex import ingest
-from interviewer.corpus.compose import compose
-from interviewer.corpus.contract import Corpus, CorpusProvenance
+from interviewer.corpus.contract import Corpus
 from interviewer.corpus.loader import DossierLoader
 from interviewer.corpus.service import CorpusService
 
 
 log = logging.getLogger(__name__)
-
-
-def corpus_path() -> Path:
-    env = os.environ.get("CORPUS_PATH")
-    if env:
-        return Path(env)
-    return Path(__file__).resolve().parents[4] / "data" / "corpus.json"
-
-
-@lru_cache(maxsize=1)
-def get_base_corpus() -> Corpus:
-    """The Corpus that shipped, or an empty one when nothing shipped.
-
-    A deployment with no shipped Corpus is a real deployment rather than a
-    broken one: the Notebook Adapter turns a Candidate's own upload into a
-    conformant Corpus (ADR-0015), and that path needs nothing on disk here. The
-    repository carries no Corpus at all — `data/README.md` says why — so this is
-    the default rather than an edge case.
-
-    Empty rather than absent, so that everything downstream keeps its shape: the
-    picker lists no shipped Modules instead of failing, and a notebook composes
-    onto nothing exactly as it composes onto something.
-    """
-    path = corpus_path()
-    if not path.exists():
-        log.warning(
-            "no Corpus at %s — serving notebooks only. See data/README.md.", path
-        )
-        return Corpus(
-            provenance=CorpusProvenance(
-                source="none",
-                extracted_at="",
-                adapter="none",
-                adapter_version="1",
-            ),
-            tracks=(),
-        )
-    return ingest(path)
 
 
 @lru_cache(maxsize=1)
@@ -128,8 +88,13 @@ def _assert_width_matches(engine, embedder) -> None:
 
 @lru_cache(maxsize=1)
 def get_corpus() -> Corpus:
-    """Everything examinable: the shipped Corpus plus every notebook."""
-    return compose(get_base_corpus(), *get_notebook_service().all_corpora())
+    """Everything examinable: every Library this deployment stores.
+
+    Empty where nothing has been imported or uploaded yet, which is a real
+    deployment rather than a broken one — the first upload composes onto nothing
+    exactly as the second composes onto something.
+    """
+    return get_notebook_service().served_corpus()
 
 
 def refresh_corpus() -> None:
@@ -152,36 +117,23 @@ def refresh_corpus() -> None:
         w.summary.rebind(corpus)
     get_loader().rebind(corpus, retain=retain)
     get_corpus_service().rebind(corpus)
-
-
-def corpus_index_path() -> Path:
-    env = os.environ.get("CORPUS_INDEX_PATH")
-    if env:
-        return Path(env)
-    return Path(__file__).resolve().parents[4] / "data" / "corpus-index.json"
+    # Neighbours are read from the same rows the Corpus was rebuilt from, so
+    # they are re-read for the same reason and at the same moment.
+    get_related_topics().clear()
 
 
 @lru_cache(maxsize=1)
 def get_related_topics():
-    """Related Topics, or nothing at all.
+    """Related Topics, answered from the centroids stored at ingest.
 
-    Checked against the **base** Corpus rather than the composed one: the
-    artifact was built from what shipped, and a Candidate adding a notebook does
-    not make it stale. Notebook Topics simply have no neighbours, which is true.
+    No artifact, no fingerprint and no staleness: the vectors were written with
+    the Topics they describe, so they cannot disagree with them. ADR-0018 built
+    a precomputed file because the Corpus was a file; ADR-0021 records why that
+    reason went away.
     """
-    from interviewer.corpus.related import RelatedTopics, load
+    from interviewer.corpus.related import RelatedTopics
 
-    model = None
-    try:
-        model = get_embedder().model_name
-    except Exception:
-        # An embedder that cannot even be constructed is a reason to stop
-        # serving neighbours, not a reason to fail: this is a reading of the
-        # material and the Corpus is fully examinable without it.
-        pass
-    return RelatedTopics(
-        load(corpus_index_path()), get_base_corpus(), embedding_model=model
-    )
+    return RelatedTopics(get_notebook_service().store)
 
 
 @lru_cache(maxsize=1)

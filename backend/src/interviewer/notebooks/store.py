@@ -35,6 +35,8 @@ class SourceRecord:
     #: before they were kept (ISSUE-0033).
     object_key: str | None = None
     byte_length: int = 0
+    #: derived | given. Which branch of the pipeline made this Source's Topics.
+    structure: str = "derived"
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +200,7 @@ class NotebookStore:
                 media_type=r["media_type"],
                 object_key=r["object_key"],
                 byte_length=int(r["byte_length"] or 0),
+                structure=r["structure"],
             )
             for r in rows
         )
@@ -269,6 +272,7 @@ class NotebookStore:
         embedding_model: str = "",
         object_key: str | None = None,
         byte_length: int = 0,
+        structure: str = "derived",
     ) -> None:
         """Atomic per Source (ISSUE-0026): a Module appears whole or not at all."""
         with self._engine.begin() as c:
@@ -286,6 +290,7 @@ class NotebookStore:
                     stub_reason=source.stub_reason,
                     object_key=object_key,
                     byte_length=byte_length,
+                    structure=structure,
                 )
             )
             if frozen:

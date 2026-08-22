@@ -318,6 +318,127 @@ class NotebookService:
             figures=len(figures),
         )
 
+    def import_structured(
+        self,
+        notebook_id: str,
+        *,
+        source_id: str,
+        title: str,
+        topics,
+        module_id: str | None = None,
+        route: str = "credits",
+        as_operator: bool = False,
+    ) -> AddedSource:
+        """Import material that arrived with its own Topics, ids and order.
+
+        The same ingest as any other in every respect that costs money or can
+        half-succeed: gated before the first provider call, charged on what was
+        actually embedded, and written in one transaction so a Module appears
+        whole or not at all. What differs is the middle stage — nothing is
+        clustered and no id is minted (ISSUE-0034).
+
+        `module_id` is taken from the source too where one is given. Session
+        scope is keyed on it, so a shipped Module that keeps its id survives the
+        move off disk instead of becoming a new Module nobody's scope names.
+        """
+        from interviewer.corpus.adapters.notebook.structured import ingest_given
+
+        record = self._store.get(notebook_id)
+        if record is None:
+            raise LookupError(notebook_id)
+        if record.shared and not as_operator:
+            raise SharedCorpusIsNotYours(notebook_id)
+
+        given = list(topics)
+        # By content *and* by structure: two imports differing only in a Topic
+        # id are two different Corpora, and a hash over the prose alone would
+        # call them the same one.
+        content_hash = digest(
+            *(
+                part
+                for topic in sorted(given, key=lambda t: t.topic_id)
+                for part in (topic.topic_id, topic.title, topic.text)
+            )
+        )
+        existing = self._store.source_by_hash(notebook_id, content_hash)
+        if existing is not None:
+            source = next(s for s in record.sources if s.source_id == existing)
+            return AddedSource(
+                source_id=existing,
+                module_id=source.module_id,
+                state=source.state,
+                topics=0,
+                chunks=0,
+                dossier_tokens={},
+                deduplicated=True,
+                stub_reason=source.stub_reason,
+            )
+
+        order = self._store.next_source_order(notebook_id)
+        module = module_id or module_id_for(notebook_id, source_id)
+        text = "\n\n".join(topic.text for topic in given)
+        object_key, byte_length = self._keep(
+            notebook_id, text.encode(), media_type="text/markdown"
+        )
+        cost = estimate([text], embedder=self._embedder, route=route)
+        self._meter.gate(cost, candidate_id=record.candidate_id)
+
+        embedder = ReusingEmbedder(
+            self._embedder,
+            self._store.embeddings_by_hash(
+                notebook_id, embedding_model=self._model_name
+            ),
+        )
+        ingested = ingest_given(
+            notebook_id=notebook_id,
+            notebook_title=record.title,
+            source_id=source_id,
+            source_title=title,
+            module_id=module,
+            module_order=order,
+            topics=given,
+            embedder=embedder,
+        )
+        built = ingested.corpus.modules[0]
+        self._store.save_source_ingest(
+            notebook_id=notebook_id,
+            source=Source(source_id=source_id, title=title, text=text),
+            module_id=module,
+            order=order,
+            content_hash=content_hash,
+            chunks=ingested.chunks,
+            frozen=ingested.frozen,
+            topic_orders={t.id: t.order for t in built.topics},
+            topic_tokens={
+                t.id: sum(len(leaf.text or "") for leaf in t.leaves) // 4
+                for t in built.topics
+            },
+            embedding_model=self._model_name,
+            object_key=object_key,
+            byte_length=byte_length,
+            structure="given",
+        )
+        cost = estimate(
+            ["x" * (embedder.embedded_tokens * 4)],
+            embedder=self._embedder,
+            route=route,
+        )
+        self._meter.charge(
+            cost,
+            candidate_id=record.candidate_id,
+            notebook_id=notebook_id,
+            source_id=source_id,
+        )
+        return AddedSource(
+            source_id=source_id,
+            module_id=module,
+            state="ready",
+            topics=len(built.topics),
+            chunks=len(ingested.chunks),
+            dossier_tokens=ingested.report.dossier_tokens,
+            cost=cost,
+        )
+
     def _keep(
         self, notebook_id: str, payload: bytes, *, media_type: str
     ) -> tuple[str | None, int]:

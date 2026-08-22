@@ -105,6 +105,13 @@ Two consequences worth stating outright:
   `backend/requirements.txt`; regenerate it with `scripts/pin_requirements.py`
   after changing a dependency. The `embeddings` extra is deliberately not in the
   image — Related Topics reads a committed artifact and needs no model.
+- Structure is given or derived, and the Source says which (ISSUE-0034). Derived
+  is the existing path — a Candidate's file arrives with no divisions and the
+  clusterer mints them. Given is a structured import: Topic ids, order, titles,
+  leaf kinds and the Module id come from the source, and
+  `adapters/notebook/structured.py` imports no clusterer at all so a later edit
+  cannot quietly reach one. `scripts/import_corpus.py` is how the shipped
+  Corpus gets in, one Source per Module, resumable.
 - A feature is reached through its `index.ts`; ESLint enforces it.
 - Evidence outlives the material. Deleting a notebook retires its Topics and
   keeps every row they produced. `CASCADE` empties the schema and has never

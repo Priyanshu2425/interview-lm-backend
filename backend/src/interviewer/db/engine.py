@@ -186,6 +186,8 @@ _ADDED_COLUMNS = (
     # rather than pointing at bytes nobody kept.
     ("notebook_source", "object_key", "text"),
     ("notebook_source", "byte_length", "integer NOT NULL DEFAULT 0"),
+    # ISSUE-0034. Derived is what every existing Source was.
+    ("notebook_source", "structure", "text NOT NULL DEFAULT 'derived'"),
     ("notebook_chunk", "embedding_model", "text NOT NULL DEFAULT ''"),
     ("notebook_chunk", "modality", "text NOT NULL DEFAULT 'text'"),
     ("notebook_chunk", "object_key", "text"),

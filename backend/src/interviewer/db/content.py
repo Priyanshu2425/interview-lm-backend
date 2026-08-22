@@ -92,7 +92,16 @@ notebook_source = Table(
     # that is a different state from an object that has gone missing.
     Column("object_key", String, nullable=True),
     Column("byte_length", Integer, nullable=False, server_default="0"),
+    # derived | given. Derived is the existing path: a Candidate's file arrives
+    # with no divisions and the clusterer mints them. Given is a structured
+    # import — the source already drew its Topics, and re-deriving them would
+    # produce different ids meaning something different by every one
+    # (SPEC-0006 §Structure is given, or derived).
+    Column("structure", String, nullable=False, server_default="derived"),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
+    CheckConstraint(
+        "structure IN ('derived','given')", name="ck_source_structure"
+    ),
 )
 
 notebook_topic = Table(

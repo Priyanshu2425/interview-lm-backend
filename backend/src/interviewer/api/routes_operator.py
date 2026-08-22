@@ -139,3 +139,84 @@ def add_shared_source(
         raise HTTPException(404, "unknown notebook_id") from None
     refresh_corpus()
     return _added_out(added)
+
+
+class GivenLeafIn(BaseModel):
+    leaf_id: str
+    title: str = ""
+    text: str
+    #: content | prompt | ground_truth. Carried because Ground Truth decides a
+    #: Module's Grading Mode ceiling, and an import that dropped it would
+    #: downgrade every imported Module without reporting the loss.
+    kind: str = "content"
+    answers_leaf_id: str | None = None
+
+
+class GivenTopicIn(BaseModel):
+    topic_id: str
+    title: str
+    order: int
+    leaves: list[GivenLeafIn] = Field(default_factory=list)
+
+
+class ImportIn(BaseModel):
+    """One Module of authored material, with the divisions it arrived with."""
+
+    title: str = Field(min_length=1)
+    module_id: str | None = None
+    topics: list[GivenTopicIn] = Field(min_length=1)
+
+
+@router.post("/operator/corpora/{notebook_id}/import", status_code=201)
+def import_structured(
+    notebook_id: str,
+    body: ImportIn,
+    x_operator_token: str | None = Header(default=None),
+) -> dict:
+    """Import material that already carries its Topics, ids and order.
+
+    The one thing an import must not do is cluster: the ids it arrives with are
+    the join key for every row of Evidence and Topic Confidence, and re-deriving
+    them would produce a different set meaning something different by every one
+    (ISSUE-0034).
+    """
+    _guard(x_operator_token)
+    import uuid
+
+    from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
+
+    from .deps import get_notebook_service, refresh_corpus
+    from .routes_notebooks import _added_out
+
+    svc = get_notebook_service()
+    topics = [
+        GivenTopic(
+            topic_id=t.topic_id,
+            title=t.title,
+            order=t.order,
+            leaves=tuple(
+                GivenLeaf(
+                    leaf_id=leaf.leaf_id,
+                    title=leaf.title,
+                    text=leaf.text,
+                    kind=leaf.kind,
+                    answers_leaf_id=leaf.answers_leaf_id,
+                )
+                for leaf in t.leaves
+            ),
+        )
+        for t in body.topics
+    ]
+    try:
+        added = svc.import_structured(
+            notebook_id,
+            source_id=f"src-{uuid.uuid4().hex[:12]}",
+            title=body.title,
+            module_id=body.module_id,
+            topics=topics,
+            as_operator=True,
+        )
+    except LookupError:
+        raise HTTPException(404, "unknown notebook_id") from None
+    refresh_corpus()
+    return _added_out(added)

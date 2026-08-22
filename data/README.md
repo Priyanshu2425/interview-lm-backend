@@ -36,17 +36,24 @@ neighbours instead of wrong ones (ADR-0018).
 **Part of the test suite needs a Corpus**, and on a clean clone it says so
 rather than passing quietly. Measured, with `data/corpus.json` absent:
 
-    499 passed, 152 skipped, 17 failed, 26 errors
+    525 passed, 152 skipped, 17 failed
 
-The 152 skips are deliberate — they take the Corpus through the `corpus`
-fixture, which skips with a message naming this file. The failures and errors
-are not: those tests reach the shipped Corpus through the API's own dependency
-graph rather than through a fixture, so they raise a missing-file error instead.
+The 152 skips are deliberate: they take the Corpus through the `corpus` fixture,
+which skips with a message naming this file. The 17 failures are tests that
+assert on the *shipped* Corpus — how many Modules the picker lists, what a
+Session scoped to one contains — and reach it through the API's dependency graph
+rather than through that fixture, so nothing tells them to skip.
+
+They fail rather than error because a deployment with no Corpus is a supported
+state and behaves like one: `get_base_corpus` returns an empty Corpus, the
+picker lists no shipped Modules, and notebooks compose onto nothing exactly as
+they compose onto something.
 
 Point `CORPUS_PATH` at any conformant Corpus and the whole suite passes. Closing
-the gap properly means a small synthetic Corpus committed here — our own
+the last 17 properly means a small synthetic Corpus committed here — our own
 content, a handful of Topics — which would also give `corpus/conformance.py` a
-second Corpus to check itself against. It is not written yet.
+second Corpus to check itself against, and would let CI run the full suite on a
+clean clone. It is not written yet.
 
 ## Bringing your own
 

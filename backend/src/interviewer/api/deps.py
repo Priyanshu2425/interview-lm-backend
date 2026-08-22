@@ -7,15 +7,19 @@ the served Corpus at read time so that one picker can show both.
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
 
 from interviewer.corpus.adapters.cortex import ingest
 from interviewer.corpus.compose import compose
-from interviewer.corpus.contract import Corpus
+from interviewer.corpus.contract import Corpus, CorpusProvenance
 from interviewer.corpus.loader import DossierLoader
 from interviewer.corpus.service import CorpusService
+
+
+log = logging.getLogger(__name__)
 
 
 def corpus_path() -> Path:
@@ -27,8 +31,33 @@ def corpus_path() -> Path:
 
 @lru_cache(maxsize=1)
 def get_base_corpus() -> Corpus:
-    """The Corpus that shipped. One scrape, read once, never written."""
-    return ingest(corpus_path())
+    """The Corpus that shipped, or an empty one when nothing shipped.
+
+    A deployment with no shipped Corpus is a real deployment rather than a
+    broken one: the Notebook Adapter turns a Candidate's own upload into a
+    conformant Corpus (ADR-0015), and that path needs nothing on disk here. The
+    repository carries no Corpus at all — `data/README.md` says why — so this is
+    the default rather than an edge case.
+
+    Empty rather than absent, so that everything downstream keeps its shape: the
+    picker lists no shipped Modules instead of failing, and a notebook composes
+    onto nothing exactly as it composes onto something.
+    """
+    path = corpus_path()
+    if not path.exists():
+        log.warning(
+            "no Corpus at %s — serving notebooks only. See data/README.md.", path
+        )
+        return Corpus(
+            provenance=CorpusProvenance(
+                source="none",
+                extracted_at="",
+                adapter="none",
+                adapter_version="1",
+            ),
+            tracks=(),
+        )
+    return ingest(path)
 
 
 @lru_cache(maxsize=1)

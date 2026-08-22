@@ -16,7 +16,8 @@ from interviewer.corpus.adapters.notebook import (
     Chunk, FrozenTopic, Ingested, Notebook, Source,
 )
 from interviewer.db.content import (
-    notebook as notebook_t, notebook_chunk, notebook_source, notebook_topic,
+    PERSONAL, SHARED, notebook as notebook_t, notebook_chunk, notebook_source,
+    notebook_topic,
 )
 from interviewer.db.schema import corpus_version
 
@@ -39,6 +40,13 @@ class NotebookRecord:
     title: str
     embedding_model: str
     sources: tuple[SourceRecord, ...]
+    #: personal | shared. Defaulted rather than required, so every existing
+    #: caller keeps meaning what it meant.
+    visibility: str = PERSONAL
+
+    @property
+    def shared(self) -> bool:
+        return self.visibility == SHARED
 
 
 class NotebookStore:
@@ -52,7 +60,13 @@ class NotebookStore:
     # -- notebooks -----------------------------------------------------------
 
     def create(
-        self, notebook_id: str, candidate_id: str, title: str, embedding_model: str
+        self,
+        notebook_id: str,
+        candidate_id: str,
+        title: str,
+        embedding_model: str,
+        *,
+        visibility: str = PERSONAL,
     ) -> NotebookRecord:
         with self._engine.begin() as c:
             c.execute(
@@ -61,9 +75,13 @@ class NotebookStore:
                     candidate_id=candidate_id,
                     title=title,
                     embedding_model=embedding_model,
+                    visibility=visibility,
                 )
             )
-        return NotebookRecord(notebook_id, candidate_id, title, embedding_model, ())
+        return NotebookRecord(
+            notebook_id, candidate_id, title, embedding_model, (),
+            visibility=visibility,
+        )
 
     def get(self, notebook_id: str) -> NotebookRecord | None:
         with self._engine.begin() as c:
@@ -78,13 +96,37 @@ class NotebookStore:
                 title=row["title"],
                 embedding_model=row["embedding_model"],
                 sources=self._sources(c, notebook_id),
+                visibility=row["visibility"],
             )
 
     def for_candidate(self, candidate_id: str) -> list[NotebookRecord]:
+        """What this Candidate owns. Shared Corpora are not theirs and are not here.
+
+        Kept strictly to ownership because two different questions are asked of
+        this store — *who may write to it* and *what may they be examined on* —
+        and answering both from one method is how a shared Corpus ends up
+        writable by whoever listed it. `visible_to` answers the second.
+        """
+        return self._records(notebook_t.c.candidate_id == candidate_id)
+
+    def visible_to(self, candidate_id: str) -> list[NotebookRecord]:
+        """Everything this Candidate may be examined on: their own, plus shared.
+
+        Read-only for the shared half. Visibility is not permission to write,
+        and the guard for that reads `visibility` rather than this list.
+        """
+        return self._records(
+            sa.or_(
+                notebook_t.c.candidate_id == candidate_id,
+                notebook_t.c.visibility == SHARED,
+            )
+        )
+
+    def _records(self, where) -> list[NotebookRecord]:
         with self._engine.begin() as c:
             rows = c.execute(
                 sa.select(notebook_t)
-                .where(notebook_t.c.candidate_id == candidate_id)
+                .where(where)
                 .order_by(notebook_t.c.created_at, notebook_t.c.notebook_id)
             ).mappings().all()
             return [
@@ -94,6 +136,7 @@ class NotebookStore:
                     title=r["title"],
                     embedding_model=r["embedding_model"],
                     sources=self._sources(c, r["notebook_id"]),
+                    visibility=r["visibility"],
                 )
                 for r in rows
             ]
@@ -107,6 +150,23 @@ class NotebookStore:
                     )
                 )
             ]
+
+    def visibility_of(self, notebook_id: str) -> str | None:
+        with self._engine.begin() as c:
+            return c.execute(
+                sa.select(notebook_t.c.visibility).where(
+                    notebook_t.c.notebook_id == notebook_id
+                )
+            ).scalar_one_or_none()
+
+    def deletable(self, notebook_id: str) -> bool:
+        """Whether this Corpus may be retired by the Candidate who holds it.
+
+        Reads `visibility` and nothing else. Keying it on the owner id would
+        make a Candidate who happened to be called `platform` undeletable, and a
+        shared Corpus imported under an operator's own id deletable.
+        """
+        return self.visibility_of(notebook_id) != SHARED
 
     def owner_of(self, notebook_id: str) -> str | None:
         with self._engine.begin() as c:

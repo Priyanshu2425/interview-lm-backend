@@ -22,6 +22,7 @@ from interviewer.corpus.adapters.notebook.extract import extract
 from interviewer.corpus.adapters.notebook.sources import digest
 from interviewer.corpus.adapters.notebook.embedding import centroid_of
 from interviewer.corpus.contract import Corpus
+from interviewer.db.content import PERSONAL, SHARED
 
 from .corpus_view import corpus_for
 from .metering import IngestCost, IngestMeter, InsufficientBalance, estimate
@@ -29,6 +30,25 @@ from .reuse import ReusingEmbedder
 from .store import NotebookRecord, NotebookStore
 
 _log = logging.getLogger(__name__)
+
+
+class SharedCorpusIsNotYours(RuntimeError):
+    """A shared Corpus is read-only to every Candidate, and undeletable by them.
+
+    Named rather than a bare error because the surface renders the refusal from
+    the API's own code and message, and "you cannot do that" composed on the
+    client is how a message reaches somebody it was never about.
+    """
+
+    code = "corpus_is_shared"
+
+    def __init__(self, notebook_id: str) -> None:
+        super().__init__(
+            f"{notebook_id} is a shared Corpus: it is imported once and is "
+            "read-only to every Candidate, because the Topic ids in it are the "
+            "join key for everybody else's Evidence."
+        )
+        self.notebook_id = notebook_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,9 +120,17 @@ class NotebookService:
     def store(self) -> NotebookStore:
         return self._store
 
-    def create(self, notebook_id: str, candidate_id: str, title: str) -> NotebookRecord:
+    def create(
+        self,
+        notebook_id: str,
+        candidate_id: str,
+        title: str,
+        *,
+        visibility: str = PERSONAL,
+    ) -> NotebookRecord:
         return self._store.create(
-            notebook_id, candidate_id, title, embedding_model=self._model_name
+            notebook_id, candidate_id, title,
+            embedding_model=self._model_name, visibility=visibility,
         )
 
     def add_source(
@@ -117,15 +145,23 @@ class NotebookService:
         url: str = "",
         stub_reason: str | None = None,
         route: str = "credits",
+        as_operator: bool = False,
     ) -> AddedSource:
         """Ingest one Source. Clustering runs inside it and nowhere else.
 
         Extraction happens first and costs nothing, which is what lets a source
         carrying no text become a stub without ever reaching the embedder.
+
+        A shared Corpus is read-only to every Candidate, so writing into one
+        needs `as_operator`. The flag is here rather than only at the route for
+        the same reason the delete guard is: a rule that lives in a route is a
+        rule the next route has never heard of.
         """
         record = self._store.get(notebook_id)
         if record is None:
             raise LookupError(notebook_id)
+        if record.shared and not as_operator:
+            raise SharedCorpusIsNotYours(notebook_id)
 
         extracted = extract(
             text=text, data=data, media_type=media_type, url=url
@@ -480,8 +516,38 @@ class NotebookService:
                 out.append(corpus)
         return out
 
+    def comparable(self, notebook_id: str) -> bool:
+        """Whether a comparison may be drawn across this Corpus at all.
+
+        Shared only. A personal Corpus mints `topic_id`s nobody else holds, so
+        its cohort is one by construction — no rule is needed to stop a
+        comparison, and this says so rather than leaving the absence of a rule
+        to be noticed. ISSUE-0036 reads this before it reads any posterior.
+        """
+        return self._store.visibility_of(notebook_id) == SHARED
+
     def delete(self, notebook_id: str) -> None:
+        """Retire a Corpus and its material. Refuses a shared one.
+
+        The guard is here rather than at the route, and that placement is the
+        slice. ADR-0010 defined `content` as "the Candidate's, and deleted when
+        they say so"; a shared Corpus is not that. Deleting one retires the
+        `topic_id`s every other Candidate's Evidence points at, and nothing
+        would error — the damage surfaces later, as somebody asking why their
+        record looks thinner than it did. A refusal that lived only in the
+        absence of a route would last exactly until somebody wrote one.
+        """
+        self._refuse_if_shared(notebook_id)
         self._store.delete_notebook(notebook_id, objects=self._objects)
+
+    def delete_source(self, notebook_id: str, source_id: str) -> None:
+        """One Source out, and the same guard: a Source carries Topics too."""
+        self._refuse_if_shared(notebook_id)
+        self._store.delete_source(source_id)
+
+    def _refuse_if_shared(self, notebook_id: str) -> None:
+        if not self._store.deletable(notebook_id):
+            raise SharedCorpusIsNotYours(notebook_id)
 
 
 def _orders_and_tokens(

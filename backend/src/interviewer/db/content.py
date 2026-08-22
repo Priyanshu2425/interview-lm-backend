@@ -38,15 +38,36 @@ def _ts(name: str, **kw) -> Column:
     return Column(name, TIMESTAMP(timezone=True), **kw)
 
 
+#: A Corpus is owned by the platform or by a Candidate, and `candidate_id`
+#: carries the owner either way. This is the id a platform-owned one is written
+#: under — a sentinel for a NOT NULL column, and never the rule itself: every
+#: guard reads `visibility`, so a Candidate who happens to be called `platform`
+#: owns a personal Corpus like anybody else (SPEC-0006 §Ownership).
+PLATFORM_OWNER = "platform"
+
+#: personal — a Candidate's own uploads: theirs, private, deletable, and never
+#: compared to anyone, because their cohort is one by construction.
+#: shared — imported once by an operator, read-only to every Candidate, and the
+#: same `topic_id`s for all of them. That last part is the whole reason it
+#: exists: Topic Confidence is keyed on `topic_id`.
+PERSONAL = "personal"
+SHARED = "shared"
+
 notebook = Table(
     "notebook", content_metadata,
     Column("notebook_id", String, primary_key=True),
     Column("candidate_id", String, nullable=False),
     Column("title", String, nullable=False),
+    # Personal is the default, so a deployment that never creates a shared
+    # Corpus behaves exactly as it did before this column existed.
+    Column("visibility", String, nullable=False, server_default=PERSONAL),
     # Recorded, not assumed: a change of model re-embeds, and Topic membership
     # is carried across rather than recomputed (ISSUE-0022).
     Column("embedding_model", String, nullable=False),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
+    CheckConstraint(
+        f"visibility IN ('{PERSONAL}','{SHARED}')", name="ck_notebook_visibility"
+    ),
 )
 
 notebook_source = Table(

@@ -116,7 +116,9 @@ def _visible_notebook_tracks(candidate_id: str | None) -> set[str]:
     from interviewer.notebooks.corpus_view import track_key
 
     svc = get_notebook_service()
-    return {track_key(r.notebook_id) for r in svc.store.for_candidate(candidate_id)}
+    # Their own, plus every shared Corpus. Shared is the reason two Candidates
+    # can hold the same `topic_id` at all, so it has to reach the picker.
+    return {track_key(r.notebook_id) for r in svc.store.visible_to(candidate_id)}
 
 
 def _all_modules(track: str | None) -> list[ModuleOut]:

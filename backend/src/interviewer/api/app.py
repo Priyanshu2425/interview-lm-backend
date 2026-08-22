@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
+from .errors import install as install_refusals
 from .routes_candidate import router as candidate_router
 from .routes_corpus import router as corpus_router
 from .routes_notebooks import router as notebooks_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     _allow_origins(app)
+    install_refusals(app)
     app.include_router(corpus_router, prefix="/v1")
     app.include_router(sessions_router, prefix="/v1")
     app.include_router(candidate_router, prefix="/v1")

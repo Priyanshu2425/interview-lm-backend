@@ -12,9 +12,11 @@ import uuid
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from interviewer.notebooks import SharedCorpusIsNotYours
 from interviewer.notebooks.metering import InsufficientBalance
 
 from .deps import get_notebook_service, refresh_corpus
+from .errors import Refusal
 from .wiring import wiring
 
 router = APIRouter(tags=["notebooks"])
@@ -51,6 +53,10 @@ class NotebookOut(BaseModel):
     title: str
     embedding_model: str
     sources: list[SourceOut]
+    #: personal | shared. A shared Corpus is listed for every Candidate and is
+    #: read-only to all of them; there is no field here that would let one be
+    #: created, which is why a Candidate cannot make one by accident.
+    visibility: str = "personal"
 
 
 def _out(record) -> NotebookOut:
@@ -59,6 +65,7 @@ def _out(record) -> NotebookOut:
         candidate_id=record.candidate_id,
         title=record.title,
         embedding_model=record.embedding_model,
+        visibility=record.visibility,
         sources=[
             SourceOut(
                 source_id=s.source_id,
@@ -81,8 +88,13 @@ def create_notebook(body: NotebookIn) -> NotebookOut:
 
 @router.get("/notebooks", response_model=list[NotebookOut])
 def list_notebooks(candidate_id: str) -> list[NotebookOut]:
+    """This Candidate's Library: their own Corpora, plus every shared one.
+
+    Shared appears here because it is examinable, not because it is theirs —
+    every write path below reads `visibility` rather than this list.
+    """
     svc = get_notebook_service()
-    return [_out(r) for r in svc.store.for_candidate(candidate_id)]
+    return [_out(r) for r in svc.store.visible_to(candidate_id)]
 
 
 @router.post("/notebooks/{notebook_id}/sources", status_code=201)
@@ -102,6 +114,8 @@ def add_source(notebook_id: str, body: SourceIn) -> dict:
         )
     except LookupError:
         raise HTTPException(404, "unknown notebook_id") from None
+    except SharedCorpusIsNotYours as refused:
+        raise _shared(refused) from None
     except InsufficientBalance as short:
         # A refusal, not a quote: nothing was spent and nothing was stored.
         raise HTTPException(
@@ -188,6 +202,8 @@ async def add_file(
         )
     except LookupError:
         raise HTTPException(404, "unknown notebook_id") from None
+    except SharedCorpusIsNotYours as refused:
+        raise _shared(refused) from None
     except InsufficientBalance as short:
         raise HTTPException(
             402,
@@ -207,7 +223,10 @@ def delete_source(notebook_id: str, source_id: str) -> None:
         raise HTTPException(404, "unknown notebook_id")
     if source_id not in {s.source_id for s in record.sources}:
         raise HTTPException(404, "unknown source_id")
-    svc.store.delete_source(source_id)
+    try:
+        svc.delete_source(notebook_id, source_id)
+    except SharedCorpusIsNotYours as refused:
+        raise _shared(refused) from None
     refresh_corpus()
 
 
@@ -217,5 +236,16 @@ def delete_notebook(notebook_id: str) -> None:
     svc = get_notebook_service()
     if svc.store.get(notebook_id) is None:
         raise HTTPException(404, "unknown notebook_id")
-    svc.delete(notebook_id)
+    try:
+        svc.delete(notebook_id)
+    except SharedCorpusIsNotYours as refused:
+        raise _shared(refused) from None
     refresh_corpus()
+
+
+def _shared(refused: SharedCorpusIsNotYours) -> Refusal:
+    """409, because the Corpus is in a state this request cannot be applied to.
+
+    Not 403: nothing about the Candidate's credentials would make it succeed.
+    """
+    return Refusal(409, refused.code, str(refused))

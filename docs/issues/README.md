@@ -69,7 +69,7 @@ over time.
 
 | # | Slice | Type | Blocked by | State |
 |---|---|---|---|---|
-| 0032 | A Corpus has an owner, and a shared one cannot be deleted | AFK | — | open |
+| 0032 | A Corpus has an owner, and a shared one cannot be deleted | AFK | — | ✅ resolved |
 | 0033 | The document outlives its upload | AFK | — | open |
 | 0034 | A structured import keeps the Topics it arrived with | AFK | 0032 | open |
 | 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | open |

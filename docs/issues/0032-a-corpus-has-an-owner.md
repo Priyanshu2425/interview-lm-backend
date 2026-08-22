@@ -1,6 +1,6 @@
 # ISSUE-0032 — A Corpus has an owner, and a shared one cannot be deleted
 
-Status: open
+Status: resolved
 Type: AFK
 Source: SPEC-0006 §Ownership; ADR-0010; ISSUE-0027
 Covers: the split between shared and personal, and the guard that makes it safe
@@ -32,16 +32,50 @@ behaves exactly as today.
 
 ## Acceptance criteria
 
-- [ ] A Corpus carries an owner and a visibility, and existing rows migrate to personal
-- [ ] A Candidate may add Sources to their own Corpus and not to a shared one
-- [ ] Deleting a shared Corpus is refused with a named code the surface can render
-- [ ] The refusal is proved by a test, not left to the absence of a route
-- [ ] Deleting a personal Corpus behaves exactly as ISSUE-0027 already requires, Evidence surviving
-- [ ] An operator can create a shared Corpus and a Candidate cannot
-- [ ] A shared Corpus is visible to every Candidate and appears in the picker
-- [ ] Two Candidates examined on one shared Topic hold the same `topic_id`
-- [ ] A personal Corpus yields no comparison, and a test says so
+- [x] A Corpus carries an owner and a visibility, and existing rows migrate to personal
+- [x] A Candidate may add Sources to their own Corpus and not to a shared one
+- [x] Deleting a shared Corpus is refused with a named code the surface can render
+- [x] The refusal is proved by a test, not left to the absence of a route
+- [x] Deleting a personal Corpus behaves exactly as ISSUE-0027 already requires, Evidence surviving
+- [x] An operator can create a shared Corpus and a Candidate cannot
+- [x] A shared Corpus is visible to every Candidate and appears in the picker
+- [x] Two Candidates examined on one shared Topic hold the same `topic_id`
+- [x] A personal Corpus yields no comparison, and a test says so
 
 ## Blocked by
 
 - None — can start immediately
+
+## Where the guard lives
+
+At the service, not at the route. `NotebookService.delete` and `delete_source`
+refuse a shared Corpus themselves, and `add_source` needs `as_operator` to write
+into one — a rule that lives in a route is a rule the next route has never heard
+of. The tests assert the refusal by calling the service directly, because a
+constraint that holds only because nobody wrote the call lasts exactly until
+somebody writes it.
+
+It reads `visibility` and never the owner id. `PLATFORM_OWNER` is a sentinel for
+a NOT NULL column, so a Candidate who happens to be called `platform` owns a
+personal Corpus like anybody else — and that is under test.
+
+## One column, not two
+
+Owner and visibility could each have had a column, and they would have had to
+agree forever. `candidate_id` already carries the owner, so `visibility` is the
+only thing added: `personal | shared`, defaulted, check-constrained, and applied
+to existing rows by the same idempotent DDL that carries every other column
+added after its table shipped.
+
+## Named codes reach the surface
+
+`api/errors.py` adds a `Refusal` whose body is `{code, message}` at the top
+level, which is where `api-client.ts` has always looked. The Library renders the
+consequence by **not offering the control**: a disabled Remove on a shared
+Corpus still says the Candidate owns the material, and they do not.
+
+## What ISSUE-0034 will find waiting
+
+`comparable()` and the operator's `POST /operator/corpora/{id}/sources`. The
+first is the seam ISSUE-0036 reads before it reads a posterior; the second is
+how a structured import gets its material into a shared Corpus.

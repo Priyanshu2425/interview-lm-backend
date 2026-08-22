@@ -179,6 +179,9 @@ def _migrate_vector_columns(engine: Engine) -> None:
 #: Columns added to `notebook_chunk` after the table first shipped. Each is
 #: nullable or defaulted, so adding one to a populated table rewrites nothing.
 _ADDED_COLUMNS = (
+    # Existing rows migrate to personal, which is what they always were
+    # (SPEC-0006 §Ownership).
+    ("notebook", "visibility", "text NOT NULL DEFAULT 'personal'"),
     ("notebook_chunk", "embedding_model", "text NOT NULL DEFAULT ''"),
     ("notebook_chunk", "modality", "text NOT NULL DEFAULT 'text'"),
     ("notebook_chunk", "object_key", "text"),

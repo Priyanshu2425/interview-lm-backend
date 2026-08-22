@@ -55,29 +55,81 @@ way the vocabulary already is — the surface says Library, the API says corpus,
 and neither leaks into the other. This is the same discipline ADR-0007 applies to
 Cortex's own words.
 
-## Ownership: personal
+## Ownership: shared and personal
 
-**A Corpus belongs to a Candidate.** There is no shared one. The Scaler material
-is imported into a Candidate's own Corpus, and everyone who imports it gets
-their own copy.
+**A Corpus is owned by the platform or by a Candidate**, and the difference is
+visible in exactly two places: who may write to it, and whether it can produce a
+comparison.
 
-ADR-0010 is unchanged by this, which is the main argument for it: `content` stays
-"the Candidate's, and deleted when they say so", one lifecycle, no visibility
-rules, and ISSUE-0027's delete-and-retire path keeps working exactly as built.
+**Shared.** Imported once by an operator, read-only to every Candidate, and the
+same `topic_id`s for all of them. That last part is the whole reason it exists —
+Topic Confidence is keyed on `topic_id`, so a shared Corpus is what makes two
+Candidates' Mastery on the same Topic the same measurement rather than two
+unrelated ones. It is also cheaper: the import is paid once, not per signup.
 
-Two consequences, stated rather than discovered:
+**Personal.** A Candidate's own uploads, exactly as notebooks work today. Theirs,
+private, deletable, and never compared to anyone — their cohort is one, by
+construction.
 
-**Mastery is not comparable between Candidates.** Each import mints its own
-`topic_id`s, and Topic Confidence is keyed on them. Two people who studied the
-same material have no Topic in common, so no cross-Candidate reading — cohort
-averages, "how do I compare" — is possible without a shared Corpus. That is a
-real limitation of this choice and it is the one that would be expensive to
-reverse later, because Evidence accumulates against the ids.
+ADR-0010 defined `content` as "the Candidate's, and deleted when they say so",
+and a shared Corpus is not that. Two things follow and neither is optional:
 
-**Every Candidate pays the import.** 71 Topics is roughly 298k tokens: about six
-cents at Gemini's price through OpenRouter, per Candidate, once. Storage is
-~460 chunks each. Neon's free 0.5GB holds on the order of a couple of hundred
-Candidates' worth before it is a question.
+- an owner and a visibility on the Corpus, and
+- **a delete guard**. ISSUE-0027's retire path applies to a Candidate's own
+  Corpus and must refuse a shared one — otherwise one Candidate can retire the
+  Topics every other Candidate's Evidence is keyed on. This is the single most
+  destructive thing the new model makes possible, and it is a constraint rather
+  than a code path.
+
+**The Scaler material is the first shared Corpus.** Recorded as a deliberate
+decision of the project owner, taken with the redistribution question in view
+and not by omission.
+
+Candidates publishing their own Corpora to others is out of scope. Nothing here
+forecloses it, and everything about moderation, consent and takedown that it
+would require is unwritten.
+
+## Comparison: per Topic, never as a rank
+
+A Candidate can see where they stand against everyone else examined on the same
+shared Topic. What they cannot see is a position in a list, because that needs a
+number this product refuses to produce.
+
+> **PRODUCT.md, Principle 4** — *Refuse the number you cannot justify. No
+> difficulty label, no fused Coverage-and-Mastery percentage.*
+
+A leaderboard needs one figure per Candidate. Ranking on Mastery alone puts
+someone who answered two questions perfectly above someone who answered two
+hundred at ninety percent; ranking on Coverage alone rewards volume over
+understanding; fusing them is the refusal, verbatim. So the comparison happens
+**inside a Topic**, where Mastery means one thing and needs no fusing:
+
+> On *Attention Mechanisms*, you are above the median of 340 Candidates.
+
+Three rules hold it honest, and two of them are existing rules applied again
+rather than new ones.
+
+**Only tested Candidates are in the cohort.** A Candidate whose Band on that
+Topic is `UNTESTED` is not counted as zero — counting them would be exactly the
+fabrication *untested is not zero* exists to prevent, and it would drag every
+median down in proportion to how many people had not got there yet. The gate is
+`Band.tells()`, already written and already under test.
+
+**A Cohort Floor, beside the Evidence Floor.** Below a threshold of tested
+Candidates, no percentile is shown: it reads *not enough Candidates yet* and no
+number, which is the same shape and the same reasoning as *Untested*. A
+percentile over four people is noise wearing a decimal point. It also settles
+the privacy question — at n=2 a percentile discloses the other person's standing,
+and the floor is what stops it.
+
+**Coverage is compared as Coverage.** "Examined on 45 of 71 Topics, more than
+78% of Candidates" is a second, separate reading. It is never combined with the
+first into a position, and no function returns the combination.
+
+**No new storage.** `core.topic_confidence` is already `(candidate_id, topic_id,
+alpha, beta)`, so a percentile is a query against Evidence that already exists —
+filtered to one `topic_id`, restricted to rows the Evidence Floor admits. The
+shared Corpus is what makes the `topic_id`s line up; nothing else is needed.
 
 ## Where the documents live
 
@@ -154,14 +206,27 @@ Session setup is exactly where a delay is least welcome.
 the work — a resumed import re-embeds nothing it has already stored, because
 chunks are content-addressed (ISSUE-0026).
 
-## Open questions for review
+## Settled since the first draft
 
-1. **Is losing cross-Candidate comparison acceptable?** It is the expensive one
-   to reverse. A shared Corpus with personal ones alongside would keep it, at
-   the cost of a second lifecycle in a schema built for one.
-2. **Does redistributing the Scaler material to every user need a decision?**
-   Excluding it from a public repository was one question; serving it to every
-   Candidate who signs up is a different and larger one.
-3. **Does a Candidate see the Scaler Library as a starter, or upload their own
-   from empty?** The first is a better product and the second avoids question 2
-   entirely.
+1. **Ownership is shared *and* personal**, not personal-only. Cross-Candidate
+   comparison was the reason, and it is the thing that would have been expensive
+   to reverse once Evidence had accumulated against per-Candidate ids.
+2. **Comparison is per-Topic percentile**, not a leaderboard. Principle 4 stands
+   unamended.
+3. **The Scaler material is the first shared Corpus**, decided by the project
+   owner with the redistribution question in view.
+
+## Still open
+
+1. **What is the Cohort Floor?** The Evidence Floor has a defined value derived
+   from the posterior; this one needs the same treatment rather than a guessed
+   constant. It is the difference between a percentile that means something and
+   a decimal point over five people.
+2. **Import still takes half a minute**, and now it is an operator's job for the
+   shared Corpus and a Candidate's for their own. The shared case makes option A
+   easier — an operator can wait — but a Candidate uploading a 200-page PDF
+   cannot.
+3. **Does a percentile move a Candidate's behaviour the wrong way?** Being told
+   you are below the median on a Topic is information; being told it before you
+   have been examined on it is a nudge, and this product does not recommend what
+   to study next (FUTURE-PIPELINE defers that for want of calibration data).

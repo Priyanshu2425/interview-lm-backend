@@ -42,6 +42,11 @@ re-opened one.
   and reported after each Topic.
 - **Say Coverage.** Cortex owns the word *Progress* and means "classes opened";
   where its own number is meant, say *Cortex Progress*.
+- **A Candidate is compared inside a Topic, never ranked.** A rank needs one
+  figure per person, and the only figures available are Coverage and Mastery —
+  so a leaderboard is the fused percentage under another name. Comparison is a
+  percentile within one Topic, over Candidates the Evidence Floor admits, above
+  a Cohort Floor (SPEC-0006). No function returns a Candidate's position.
 
 ## The surface holds no invariant
 

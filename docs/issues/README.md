@@ -61,6 +61,21 @@ FUTURE-PIPELINE §Cross-Topic similarity.
 | 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | open |
 | 0031 | Related Topics on the surface | **HITL** | 0030 | open |
 
+### A Corpus is assembled, not shipped
+
+Source: SPEC-0006. Turns the Corpus from a build artifact into something a
+Candidate assembles: documents in, chunked and embedded into Postgres, added to
+over time.
+
+| # | Slice | Type | Blocked by | State |
+|---|---|---|---|---|
+| 0032 | A Corpus has an owner, and a shared one cannot be deleted | AFK | — | open |
+| 0033 | The document outlives its upload | AFK | — | open |
+| 0034 | A structured import keeps the Topics it arrived with | AFK | 0032 | open |
+| 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | open |
+| 0036 | Where you stand on a Topic | **HITL** | 0034 | open |
+| 0037 | Retire the disk path | AFK | 0034, 0036 | open |
+
 ## Shape of the graph
 
 The spine is `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007`, and it is a spine
@@ -156,6 +171,28 @@ sits a product question — a list of related Topics next to a score reads as
 "study these next", which is Topic recommendation, which does not exist and is
 deferred for want of calibration data. Related Topics is a claim about the
 material, not about the Candidate.
+
+## Shape of the SPEC-0006 set
+
+`0032` and `0033` start immediately and touch none of each other's ground —
+ownership is a schema question, source storage is an object-store question.
+Everything else waits on one of them.
+
+The ordering is a safety property twice over. `0032` comes first because the
+delete guard is what stops a Candidate retiring Topic ids that other
+Candidates' Evidence is keyed on, and that guard should exist before there is
+anything shared to delete. `0037` comes last because the disk path is the
+working system until the database path has been proven by the five slices in
+front of it — removing it earlier would mean debugging the replacement with no
+fallback.
+
+`0036` is HITL for the reason `0025` and `0031` are: the reading is mechanical,
+the placement is not. A rank shown beside a score reads as "study these next",
+which is Topic recommendation — deferred for want of calibration data, and a
+claim about a person the measurement cannot support.
+
+`0037` is where the repository becomes honest. It is the slice after which a
+clean clone has no missing Corpus, because there is no shipped Corpus to miss.
 
 Both HITL slices are built up to their decision and no further. `0025` records
 citations on Evidence, resolves them to spans with locators, and serves them in

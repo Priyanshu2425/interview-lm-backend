@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Topic scored — Cortex Interviewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body>
+<!--
+THESIS: A score is only trustworthy if you can see who produced it, against what,
+and what it moved. Refuses the category default: a bare percentage and a pat on
+the head.
+OWN-WORLD: back to daylight — leaving the ink surface IS leaving the examination.
+STORY: what you scored, why, who graded it, what it cost, and what one answer
+did to a distribution that was mostly prior five minutes ago.
+FIRST VIEWPORT: the score with its rationale, the provenance chip directly under
+it, then the posterior before and after.
+FORM: brief-pinned world.
+-->
+<div class="app">
+  <header class="topbar">
+    <a class="mark" href="../index.html">
+      <svg class="mark__glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="6" fill="#0041c9"/>
+        <path d="M7 15.5c1.2 1.1 2.6 1.6 4.2 1.6 2.3 0 3.6-.9 3.6-2.3 0-1.3-1-1.9-3.3-2.4l-1.3-.3C8 11.6 6.9 10.5 6.9 8.7c0-2.2 1.9-3.7 4.7-3.7 1.6 0 3 .4 4.1 1.3" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>
+      <span class="mark__name">Cortex Interviewer</span>
+    </a>
+    <div class="topbar__spacer"></div>
+    <span class="chip chip--neutral">11 min left</span>
+  </header>
+
+  <div class="main"><div class="centre"><div class="page">
+
+    <div class="stack" style="--gap:8px">
+      <span class="synthetic">Sample result</span>
+      <div class="t-label" style="margin-top:8px">Topic scored</div>
+      <h1 class="t-display">Attention Mechanisms, Transformers &amp; BERT</h1>
+      <p class="muted t-sm">Module 6 · Natural Language Processing · 3 turns, one score</p>
+    </div>
+
+    <!-- the score, and immediately who made it -->
+    <section class="section">
+      <div class="panel">
+        <div class="panel__bd">
+          <div class="spread" style="align-items:flex-start;gap:20px">
+            <div>
+              <div class="t-label">Score for this Topic</div>
+              <div class="num" style="font-size:2.75rem;font-weight:500;letter-spacing:-.03em;line-height:1.05;margin-top:2px">0.55</div>
+              <div class="t-sm muted" style="margin-top:2px">Answered after one hint</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <span class="chip chip--gt">Full weight · 1.0</span>
+              <div class="t-sm muted" style="margin-top:8px">Graded against<br>Cortex's Answer Key</div>
+            </div>
+          </div>
+
+          <hr class="hr" style="margin:18px 0">
+
+          <div class="t-label">Why</div>
+          <p class="t-body" style="margin-top:8px;max-width:64ch">
+            You landed the mechanism in the end. Large <span class="mono mono-inline">d<sub>k</sub></span>
+            drives the dot products up, softmax saturates, gradients vanish. But
+            the first answer named the wrong reason (normalising the weights to
+            sum to one, which softmax does regardless). You reached the right
+            chain after a probe and a hint, and you never connected it to
+            training stability without being led there.
+          </p>
+
+          <div class="row row--wrap" style="margin-top:16px;gap:8px">
+            <span class="tag">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1.4 10.4 3.3V6c0 2.3-1.8 4.1-4.4 4.9C3.4 10.1 1.6 8.3 1.6 6V3.3L6 1.4Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              Judge · blind to the conversation
+            </span>
+            <span class="tag">DeepSeek</span>
+            <span class="tag">rubric v3</span>
+            <span class="tag mono">visit_8f2c…a91</span>
+            <span class="tag num">21 Cr</span>
+          </div>
+          <p class="t-sm muted" style="margin-top:10px;max-width:62ch">
+            The grader never saw the conversation, only the question, your answer,
+            and the Answer Key behind it. It has no memory of you being articulate.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- what it moved: the posterior ridge, before and after -->
+    <section class="section">
+      <div class="section__hd">
+        <h2 class="t-h2">What that did to this Topic</h2>
+        <p class="t-sm muted" style="margin-top:4px;max-width:60ch">
+          Your record for a Topic is a distribution, not a number. The width is how
+          sure we are; the dashed line is the centre. One answer moves it a little.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="panel__bd">
+          <div style="display:grid;gap:22px" class="ridge-pair">
+            <div>
+              <div class="spread" style="margin-bottom:8px">
+                <span class="t-label">Before this Topic</span>
+                <span class="band band--untested"><span class="band__mark"></span>Untested</span>
+              </div>
+              <div class="ridge" data-alpha="1" data-beta="1" data-h="58"></div>
+              <div class="ridge__caption">
+                <span>weak</span>
+                <span class="mono">α 1.0 · β 1.0 — the prior</span>
+                <span>strong</span>
+              </div>
+              <p class="t-sm muted" style="margin-top:8px">
+                Flat means <em>unknown</em>, not <em>bad</em>. You had never been
+                asked about this.
+              </p>
+            </div>
+
+            <div>
+              <div class="spread" style="margin-bottom:8px">
+                <span class="t-label">After this Topic</span>
+                <span class="band band--hedged"><span class="band__mark"></span>Early signal</span>
+              </div>
+              <div class="ridge" data-alpha="1.55" data-beta="1.45" data-from-alpha="1" data-from-beta="1" data-h="58"></div>
+              <div class="ridge__caption">
+                <span>weak</span>
+                <span class="mono">α 1.55 · β 1.45 — one graded answer</span>
+                <span>strong</span>
+              </div>
+              <p class="t-sm muted" style="margin-top:8px">
+                Still wide. The curve you just watched move is the whole update:
+                one graded answer, and the 80% interval is barely narrower than
+                the prior it started from.
+              </p>
+            </div>
+          </div>
+
+          <hr class="hr" style="margin:20px 0 16px">
+
+          <div class="readings">
+            <div class="reading">
+              <div class="reading__label">Coverage of this Topic</div>
+              <div class="reading__value">1.0</div>
+              <div class="reading__note">effective Topic Visits</div>
+            </div>
+            <div class="reading">
+              <div class="reading__label">Mastery of this Topic</div>
+              <div class="reading__value" style="font-size:1rem;font-weight:600;font-family:var(--sans);letter-spacing:0">Not yet reportable</div>
+              <div class="reading__note">one answer is an early signal</div>
+            </div>
+          </div>
+          <p class="t-sm muted" style="margin-top:12px;max-width:62ch">
+            These are two different facts and they are never merged into one figure.
+            Coverage says how much you've been examined; Mastery says how well.
+            A single percentage that fuses them means nothing.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- the Answer Key, released only now -->
+    <section class="section">
+      <div class="section__hd spread">
+        <h2 class="t-h2">The Answer Key</h2>
+        <span class="chip chip--neutral">Released after grading</span>
+      </div>
+      <div class="panel">
+        <div class="panel__bd">
+          <p class="t-sm muted" style="margin:0 0 12px">
+            From Cortex — <em>Assignment: Pillar 3 — Assessment</em>, Q1.
+          </p>
+          <p class="t-body" style="margin:0;max-width:64ch">
+            <strong>B</strong> — Large <span class="mono mono-inline">d<sub>k</sub></span>
+            → large dot products → softmax gradients near zero → vanishing;
+            scaling by <span class="mono mono-inline">√d<sub>k</sub></span>
+            keeps scores in a manageable range.
+          </p>
+          <div class="notice notice--info" style="margin-top:16px">
+            <svg class="notice__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4.2M8 4.7v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <div>
+              <div class="notice__title">Why this one counts more</div>
+              <div class="notice__body">
+                Cortex ships a worked solution for this Topic, so your answer was
+                marked against the course rather than against a model's opinion.
+                26 Topics across Modules 1–6 work this way. Elsewhere, questions
+                are written and marked from the Topic's own text — a real
+                examination, carrying less weight.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="actionbar">
+    <a class="btn btn--quiet" href="04-session-summary.html">End Session</a>
+    <a class="btn" style="flex:1" href="02-topic-visit.html">Next Topic</a>
+  </div>
+  </div></div>
+</div>
+
+<style>
+@media (min-width:768px){ .ridge-pair{grid-template-columns:1fr 1fr;gap:28px} }
+</style>
+<script src="../assets/app.js"></script>
+</body>
+</html>

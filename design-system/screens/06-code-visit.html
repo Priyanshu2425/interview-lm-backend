@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code Visit (future) — Cortex Interviewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body>
+<!--
+THESIS: The code editor is not a nicer input box — it is a fourth Grading Mode.
+A test run is deterministic evidence, and DSA currently produces the weakest
+evidence in the system. This screen designs the seam, including the part that
+isn't solved: a test run is not an Answer Turn.
+OWN-WORLD: same Scaler system; violet marks every affordance that is designed
+but not built, so a shipped control is never confused with a proposed one.
+STORY: the Candidate writes code against a real DSA Topic, runs tests as often
+as they like, and submits once — deliberately a separate act.
+FIRST VIEWPORT: desktop — the question left, the editor overlay over the
+exchange. Mobile — an honest explanation of why this one isn't there.
+FORM: brief-pinned world; the overlay is the desktop affordance the user asked for.
+-->
+<div class="app">
+
+  <header class="topbar on-ink">
+    <a class="iconbtn" href="../index.html" aria-label="Back">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div style="min-width:0">
+      <div class="topbar__title">Binary Search Algorithm</div>
+      <div class="topbar__sub">DSA · Module 2 · Sorting and Searching</div>
+    </div>
+    <div class="topbar__spacer"></div>
+    <span class="chip chip--future">Future surface</span>
+  </header>
+
+  <div class="main">
+
+    <aside class="rail on-ink" aria-label="Session">
+      <div style="padding:18px 16px;border-bottom:1px solid var(--ink-3)">
+        <div class="t-label">Grading Mode today</div>
+        <div style="color:#fff;font-weight:600;margin-top:6px;font-size:.875rem">Model judgment</div>
+        <div class="t-sm" style="color:#8fa6c9;margin-top:6px;line-height:1.45">
+          Weight <span class="mono">0.5</span>, the lowest the system assigns.
+          The DSA Track carries no worked solutions, and 31 of its Classes are
+          recordings with no text behind them.
+        </div>
+      </div>
+      <div style="padding:18px 16px">
+        <div class="t-label" style="color:#a8a4ee">With this surface</div>
+        <div style="color:#c9c6f2;font-weight:600;margin-top:6px;font-size:.875rem">Executable</div>
+        <div class="t-sm" style="color:#8fa6c9;margin-top:6px;line-height:1.45">
+          A test run is a fact, not an opinion. This is the single largest
+          available upgrade to evidence quality in the product, and it lands as
+          a fourth mode, not a rewrite.
+        </div>
+      </div>
+    </aside>
+
+    <div class="centre">
+      <div class="exchange on-ink">
+        <div class="exchange__scroll">
+          <div class="exchange__inner">
+
+            <div class="visit-hd">
+              <div class="row row--wrap" style="gap:8px;margin-bottom:9px">
+                <span class="chip chip--model"><span class="chip__dot"></span>Graded on model judgment · weight 0.5</span>
+                <span class="synthetic">Sample exchange</span>
+              </div>
+              <div class="visit-hd__topic">Binary Search Algorithm</div>
+              <div class="visit-hd__module">Module 2 · Sorting and Searching Algorithms</div>
+            </div>
+
+            <div class="q__meta t-label">Question</div>
+            <p class="q t-question">
+              Given a rotated sorted array with no duplicates, find a target in
+              O(log n). Walk me through how you decide which half to discard, then
+              write it.
+            </p>
+
+            <div class="turn">
+              <div class="a">
+                <div class="a__who">Your answer</div>
+                <p style="margin:0">One half is always sorted. I compare the target
+                  against that half's range. If it falls inside, I search there,
+                  otherwise the other half.</p>
+              </div>
+            </div>
+
+            <div class="turn">
+              <div class="turn__kind turn__kind--followup">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3.5h8M2 6h8M2 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                Follow-up
+              </div>
+              <p class="turn__body" style="margin:0">
+                Good. Now write it, and be careful with the boundary comparison
+                when the pivot sits exactly at <span class="mono mono-inline">mid</span>.
+              </p>
+            </div>
+
+            <div class="turn">
+              <div class="notice notice--future" style="background:rgba(76,70,214,.14);border-color:#4c46d6;color:#c9c6f2">
+                <svg class="notice__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5.6 4 2 8l3.6 4M10.4 4 14 8l-3.6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div>
+                  <div class="notice__title">A code answer is expected here</div>
+                  <div class="notice__body">
+                    Run the tests as many times as you like. Running is not
+                    answering. The Topic is scored when you submit, and not before.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer__inner row">
+            <button class="btn btn--future only-desktop" data-open-overlay="editor">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5.6 4 2 8l3.6 4M10.4 4 14 8l-3.6 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Open editor
+            </button>
+            <span class="composer__hint only-mobile" style="flex:1">
+              The editor is a desktop surface. See below.
+            </span>
+            <span class="composer__hint only-desktop" style="margin-left:8px">
+              Tests run in the editor. Submitting closes the Topic.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- mobile: say plainly why this isn't here, rather than shipping a bad version -->
+      <div class="only-mobile" style="padding:20px 16px 40px;background:var(--tint)">
+        <div class="panel">
+          <div class="panel__bd">
+            <span class="chip chip--future">Desktop surface</span>
+            <h2 class="t-h2" style="margin-top:12px">Code answers need a keyboard</h2>
+            <p class="t-body muted" style="margin-top:8px">
+              We aren't shipping a phone-sized code editor. A cramped one produces
+              worse code than the Candidate can actually write, and the score would
+              then measure the input method rather than the answer — which is
+              exactly the failure this whole product is built to avoid.
+            </p>
+            <p class="t-body muted" style="margin-top:10px">
+              On a phone, DSA Topics are examined by conversation: explain the
+              approach, the invariant, the complexity. That still produces
+              Evidence — at the weight conversation earns.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="rail rail--right on-ink" aria-label="Topics">
+      <div style="padding:16px 16px 8px" class="spread">
+        <h2 class="t-label" style="margin:0">Topics this Session</h2>
+        <span class="chip chip--neutral">1 of 6</span>
+      </div>
+      <div class="visits">
+        <button class="visit visit--done">
+          <span class="visit__n"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.4 4 7.4 10 1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="visit__body">
+            <span class="visit__topic">Sorting Algorithms</span>
+            <span class="visit__meta">
+              <span class="visit__score" style="color:#ffc834">0.58</span>
+              <span>·</span><span>Model judgment</span>
+            </span>
+          </span>
+        </button>
+        <button class="visit visit--open" aria-current="true">
+          <span class="visit__n">2</span>
+          <span class="visit__body">
+            <span class="visit__topic">Binary Search Algorithm</span>
+            <span class="visit__meta"><span style="color:#57adff;font-weight:600">Open · code expected</span></span>
+          </span>
+        </button>
+        <button class="visit visit--todo">
+          <span class="visit__n">—</span>
+          <span class="visit__body">
+            <span class="visit__topic">Hash Tables — Efficient Key-Value Mapping</span>
+            <span class="visit__meta"><span>Chosen when this Topic closes</span></span>
+          </span>
+        </button>
+        <button class="visit visit--todo">
+          <span class="visit__n">—</span>
+          <span class="visit__body">
+            <span class="visit__topic">Dynamic Programming Fundamentals</span>
+            <span class="visit__meta"><span>Chosen when this Topic closes</span></span>
+          </span>
+        </button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- the editor: an overlay over the exchange, never a replacement for it -->
+<div class="overlay" id="editor">
+  <div class="sheet sheet--ink on-ink" style="max-width:1000px" role="dialog" aria-modal="true" aria-label="Code editor">
+    <div class="sheet__hd">
+      <div class="row" style="min-width:0">
+        <span class="chip chip--future">Future surface</span>
+        <span class="t-h3" style="color:#fff;margin-left:4px">Rotated array search</span>
+      </div>
+      <div class="row">
+        <span class="chip chip--ink mono">python 3.11</span>
+        <button class="iconbtn" data-close-overlay aria-label="Close editor" data-autofocus>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="sheet__bd" style="padding:0">
+      <div class="code" style="border-radius:0;padding:18px 20px;max-height:none"><span class="k">def</span> <span class="f">search</span>(nums, target):
+    lo, hi = <span class="s">0</span>, len(nums) - <span class="s">1</span>
+    <span class="k">while</span> lo &lt;= hi:
+        mid = (lo + hi) // <span class="s">2</span>
+        <span class="k">if</span> nums[mid] == target:
+            <span class="k">return</span> mid
+        <span class="c"># one half is always sorted — work out which</span>
+        <span class="k">if</span> nums[lo] &lt;= nums[mid]:
+            <span class="k">if</span> nums[lo] &lt;= target &lt; nums[mid]:
+                hi = mid - <span class="s">1</span>
+            <span class="k">else</span>:
+                lo = mid + <span class="s">1</span>
+        <span class="k">else</span>:
+            <span class="k">if</span> nums[mid] &lt; target &lt;= nums[hi]:
+                lo = mid + <span class="s">1</span>
+            <span class="k">else</span>:
+                hi = mid - <span class="s">1</span>
+    <span class="k">return</span> -<span class="s">1</span></div>
+
+      <div style="padding:16px 20px;border-top:1px solid var(--ink-3)">
+        <div class="spread" style="margin-bottom:10px">
+          <span class="t-label">Test run · 3rd this Topic</span>
+          <span class="chip chip--ink">4 passing · still not an answer</span>
+        </div>
+        <div class="stack" style="--gap:6px">
+          <div class="row t-sm"><span style="color:var(--success);width:16px">✓</span>
+            <span class="mono" style="color:#cfe0f7">[4,5,6,7,0,1,2], target 0 → 4</span></div>
+          <div class="row t-sm"><span style="color:var(--success);width:16px">✓</span>
+            <span class="mono" style="color:#cfe0f7">[4,5,6,7,0,1,2], target 3 → -1</span></div>
+          <div class="row t-sm"><span style="color:var(--success);width:16px">✓</span>
+            <span class="mono" style="color:#cfe0f7">[1], target 0 → -1</span></div>
+          <div class="row t-sm"><span style="color:var(--success);width:16px">✓</span>
+            <span class="mono" style="color:#cfe0f7">[3,1], target 1 → 1</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet__ft" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div class="notice notice--future" style="background:rgba(76,70,214,.16);border-color:#4c46d6;color:#c9c6f2">
+        <svg class="notice__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4.2M8 4.7v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <div>
+          <div class="notice__title">Unsolved: running is not answering</div>
+          <div class="notice__body">
+            The graph waits for one event: the moment your answer is complete and
+            may be graded. Typing has no such moment, and a green test run is not
+            one either: passing tests say the code works, not that you are done
+            thinking about it.
+            So submission stays a separate, deliberate act. A surface that can't
+            say when a turn ended can't be plugged into this system, and that is
+            the reason this screen is a design and not a build.
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn--quiet-onink">Run tests</button>
+        <span class="composer__hint" style="flex:1;margin-left:4px">3 runs · all green · none of them scored</span>
+        <button class="btn btn--future">Submit answer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

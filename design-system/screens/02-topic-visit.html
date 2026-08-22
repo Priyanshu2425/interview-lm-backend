@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Topic Visit — Cortex Interviewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/app.css">
+</head>
+<body>
+<!--
+THESIS: One Topic Visit is one observation examined closely, not a quiz of
+independent questions — so the whole thread visibly resolves into a single score.
+Refuses the category default: a chat log of scored message bubbles.
+OWN-WORLD: Scaler ink ground for the examination; question set larger than
+anything else on screen; no bubbles, no avatar, no face.
+STORY: the Candidate answers, is probed, takes a hint, and can see exactly what
+that will and won't cost them.
+FIRST VIEWPORT: mobile — Topic header, question, thread, composer, nothing else.
+Desktop — Session scope left, exchange centre, Visit list right.
+FORM: brief-pinned world; right rail inherited from the supplied reference.
+-->
+<div class="app">
+
+  <header class="topbar on-ink">
+    <a class="iconbtn" href="01-session-setup.html" aria-label="Leave Session">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div style="min-width:0">
+      <div class="topbar__title">Attention, Transformers &amp; BERT</div>
+      <div class="topbar__sub">Topic 3 of this Session · 11 min left</div>
+    </div>
+    <div class="topbar__spacer"></div>
+    <button class="iconbtn" data-open-overlay="sheet-state" aria-label="Session and cost detail">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.5"/><path d="M8 7.2v4M8 4.8v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <div class="main">
+
+    <!-- LEFT RAIL — desktop only: what this Session is -->
+    <aside class="rail on-ink" aria-label="Session">
+      <div style="padding:18px 16px;border-bottom:1px solid var(--ink-3)">
+        <div class="t-label">Session</div>
+        <div style="color:#fff;font-weight:600;margin-top:6px;font-size:.875rem">
+          NLP · Data Foundations
+        </div>
+        <div class="t-sm" style="color:#8fa6c9;margin-top:4px">
+          10 Topics in scope · 30 min chosen
+        </div>
+      </div>
+      <div style="padding:18px 16px;border-bottom:1px solid var(--ink-3)">
+        <div class="t-label">Time</div>
+        <div class="num" style="color:#fff;font-size:1.5rem;margin-top:6px;letter-spacing:-.02em">11:04</div>
+        <div class="t-sm" style="color:#8fa6c9;margin-top:6px;line-height:1.45">
+          When this runs out the Session ends <em>after</em> the Topic you're on,
+          never inside it.
+        </div>
+      </div>
+      <div style="padding:18px 16px">
+        <div class="t-label">This Session so far</div>
+        <div class="row" style="margin-top:10px;justify-content:space-between">
+          <span class="t-sm" style="color:#8fa6c9">Topics examined</span>
+          <span class="num t-sm" style="color:#fff">2</span>
+        </div>
+        <div class="row" style="margin-top:7px;justify-content:space-between">
+          <span class="t-sm" style="color:#8fa6c9">Spent</span>
+          <span class="num t-sm" style="color:#fff">41 Cr</span>
+        </div>
+        <div class="row" style="margin-top:7px;justify-content:space-between">
+          <span class="t-sm" style="color:#8fa6c9">Provider</span>
+          <span class="t-sm" style="color:#fff">DeepSeek</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTRE — the examination -->
+    <div class="centre">
+      <div class="exchange on-ink">
+        <div class="exchange__scroll">
+          <div class="exchange__inner">
+
+            <div class="visit-hd">
+              <div class="row row--wrap" style="gap:8px;margin-bottom:9px">
+                <span class="chip chip--gt"><span class="chip__dot"></span>Graded against an Answer Key</span>
+                <span class="synthetic">Sample exchange</span>
+              </div>
+              <div class="visit-hd__topic">Attention Mechanisms, Transformers &amp; BERT</div>
+              <div class="visit-hd__module">Module 6 · Natural Language Processing</div>
+            </div>
+
+            <!-- opening question — the surface, not a bubble -->
+            <div class="q__meta t-label">Question</div>
+            <p class="q t-question">
+              In scaled dot-product attention, why is <span class="mono mono-inline">QKᵀ</span>
+              divided by <span class="mono mono-inline">√d<sub>k</sub></span>? Talk me
+              through what goes wrong if you leave it out.
+            </p>
+
+            <!-- Answer Turn 1 -->
+            <div class="turn">
+              <div class="a">
+                <div class="a__who">Your answer</div>
+                <p style="margin:0">It normalises the scores so the attention weights
+                  sum to one, so the softmax behaves properly across the sequence.</p>
+              </div>
+            </div>
+
+            <!-- probe -->
+            <div class="turn">
+              <div class="turn__kind turn__kind--probe">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.4"/><path d="M6 8.4V5.6M6 3.7v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                Probing
+              </div>
+              <p class="turn__body" style="margin:0">
+                The softmax already guarantees the weights sum to one, with or without
+                the divisor. So that can't be what the scaling is for. Try again:
+                what happens to the <em>size</em> of those dot products as
+                <span class="mono mono-inline">d<sub>k</sub></span> grows?
+              </p>
+            </div>
+
+            <!-- Answer Turn 2 -->
+            <div class="turn">
+              <div class="a">
+                <div class="a__who">Your answer</div>
+                <p style="margin:0">They get bigger, I think, because you're summing over
+                  more dimensions. So the numbers going into softmax get large.</p>
+              </div>
+            </div>
+
+            <!-- hint, and the cost of taking it stated plainly -->
+            <div class="turn">
+              <div class="turn__kind turn__kind--hint">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v1.4M2.5 2.5l1 1M1 6h1.4M10 2.5l-1 1M11 6H9.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M4.2 7.6a2.4 2.4 0 1 1 3.6 0c-.4.5-.6.8-.6 1.4H4.8c0-.6-.2-.9-.6-1.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+                Hint
+              </div>
+              <p class="turn__body" style="margin:0">
+                Right. Now finish the chain. Large inputs to softmax, then what?
+                Think about the shape of the softmax curve out in its tails, and
+                what that does to the gradient during training.
+              </p>
+              <p class="t-sm" style="color:#8fa6c9;margin:10px 0 0">
+                Taking a hint doesn't void the question. It's a real answer worth
+                roughly half, and that lands in the score, not in how much this
+                Topic counts for.
+              </p>
+            </div>
+
+            <!-- the thread resolves to ONE score. ADR-0004, made visible. -->
+            <div class="resolve">
+              <div class="resolve__note">
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 4h4.5a3.5 3.5 0 0 1 3.5 3.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 9.2 10 11.2 12 9.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span><strong style="color:#c9dcf5">3 turns so far.</strong>
+                  They resolve into one score for this Topic: probing a concept three
+                  times is one observation examined closely, not three results.</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- composer: the Answer Turn is a submit event -->
+        <div class="composer">
+          <div class="composer__inner">
+            <label class="sr" for="answer">Your answer</label>
+            <textarea class="composer__field" id="answer" placeholder="Answer in your own words — you can think out loud."></textarea>
+            <div class="composer__bar">
+              <button class="btn btn--quiet-onink btn--sm" data-open-overlay="sheet-stuck">I'm stuck</button>
+              <span class="composer__hint only-desktop">⌘↵ to submit</span>
+              <button class="btn btn--onink" style="margin-left:auto" data-submit-turn>Submit answer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT RAIL — desktop: the Visit list, inherited from the reference -->
+    <aside class="rail rail--right on-ink" aria-label="Topics in this Session">
+      <div style="padding:16px 16px 8px" class="spread">
+        <h2 class="t-label" style="margin:0">Topics this Session</h2>
+        <span class="chip chip--neutral">2 of 10</span>
+      </div>
+      <div class="visits">
+
+        <button class="visit visit--done">
+          <span class="visit__n"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.4 4 7.4 10 1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="visit__body">
+            <span class="visit__topic">Text Preprocessing, Sentiment &amp; Word Embeddings</span>
+            <span class="visit__meta">
+              <span class="visit__score" style="color:#6fd6a4">0.82</span>
+              <span>·</span><span>Answer Key</span><span>·</span><span class="num">19 Cr</span>
+            </span>
+          </span>
+        </button>
+
+        <button class="visit visit--done">
+          <span class="visit__n"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.4 4 7.4 10 1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="visit__body">
+            <span class="visit__topic">Probability Foundations and Exploratory Data Analysis</span>
+            <span class="visit__meta">
+              <span class="visit__score" style="color:#ffc834">0.41</span>
+              <span>·</span><span>Answer Key</span><span>·</span><span class="num">22 Cr</span>
+            </span>
+          </span>
+        </button>
+
+        <button class="visit visit--open" aria-current="true">
+          <span class="visit__n">3</span>
+          <span class="visit__body">
+            <span class="visit__topic">Attention Mechanisms, Transformers &amp; BERT</span>
+            <span class="visit__meta">
+              <span style="color:#57adff;font-weight:600">Open · 3 turns</span>
+              <span>·</span><span>not yet scored</span>
+            </span>
+          </span>
+        </button>
+
+        <div class="t-label" style="padding:16px 12px 6px">Not yet visited</div>
+
+        <button class="visit visit--todo">
+          <span class="visit__n">—</span>
+          <span class="visit__body">
+            <span class="visit__topic">RNNs, LSTMs &amp; Sequence Models</span>
+            <span class="visit__meta"><span>Chosen when this Topic closes</span></span>
+          </span>
+        </button>
+        <button class="visit visit--todo">
+          <span class="visit__n">—</span>
+          <span class="visit__body">
+            <span class="visit__topic">NumPy — Numerical Computing Foundation</span>
+            <span class="visit__meta"><span>Chosen when this Topic closes</span></span>
+          </span>
+        </button>
+        <button class="visit visit--todo">
+          <span class="visit__n">—</span>
+          <span class="visit__body">
+            <span class="visit__topic">Pandas — Data Manipulation and Analysis</span>
+            <span class="visit__meta"><span>Chosen when this Topic closes</span></span>
+          </span>
+        </button>
+
+        <p class="t-sm" style="padding:12px;line-height:1.45;color:#8fa6c9">
+          The next Topic isn't picked in advance. It's drawn from your posteriors
+          once this one is scored, so an unasked Topic and a shaky one both stay
+          in the running.
+        </p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Session + cost detail — the mobile home for everything secondary -->
+<div class="overlay" id="sheet-state">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Session detail">
+    <div class="sheet__hd">
+      <h2 class="t-h3">This Session</h2>
+      <button class="iconbtn" data-close-overlay aria-label="Close" data-autofocus>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet__bd">
+      <div class="readings">
+        <div class="reading">
+          <div class="reading__label">Time left</div>
+          <div class="reading__value">11:04</div>
+          <div class="reading__note">Ends after this Topic</div>
+        </div>
+        <div class="reading">
+          <div class="reading__label">Spent so far</div>
+          <div class="reading__value">41 Cr</div>
+          <div class="reading__note">Balance 4,139 · DeepSeek</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="t-label">Grading this Topic</div>
+        <div class="notice notice--info" style="margin-top:8px">
+          <svg class="notice__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6 13.6 4v4c0 3-2.3 5.4-5.6 6.4C4.7 13.4 2.4 11 2.4 8V4L8 1.6Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <div>
+            <div class="notice__title">Graded against an Answer Key</div>
+            <div class="notice__body">
+              This question came from an Assignment that ships with a worked
+              solution, so your answer is marked against Cortex's own material
+              rather than the interviewer's judgment. Evidence from this Topic
+              carries full weight.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="t-label">Topics examined</div>
+        <div class="stack" style="--gap:8px;margin-top:8px">
+          <div class="panel panel--flat"><div class="panel__bd" style="padding:12px 14px">
+            <div class="spread">
+              <span class="t-sm">Text Preprocessing, Sentiment &amp; Word Embeddings</span>
+              <span class="num t-sm" style="color:var(--success);font-weight:600">0.82</span>
+            </div>
+            <div class="t-sm muted" style="margin-top:4px">Judge · DeepSeek · Answer Key</div>
+          </div></div>
+          <div class="panel panel--flat"><div class="panel__bd" style="padding:12px 14px">
+            <div class="spread">
+              <span class="t-sm">Probability Foundations and EDA</span>
+              <span class="num t-sm" style="color:var(--warning);font-weight:600">0.41</span>
+            </div>
+            <div class="t-sm muted" style="margin-top:4px">Judge · DeepSeek · Answer Key</div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet__ft">
+      <button class="btn btn--quiet" data-close-overlay>Keep going</button>
+      <button class="btn btn--quiet" style="margin-left:auto">End after this Topic</button>
+    </div>
+  </div>
+</div>
+
+<!-- stuck -->
+<div class="overlay" id="sheet-stuck">
+  <div class="sheet" style="max-width:520px" role="dialog" aria-modal="true" aria-label="Stuck">
+    <div class="sheet__hd">
+      <h2 class="t-h3">Stuck on this one?</h2>
+      <button class="iconbtn" data-close-overlay aria-label="Close" data-autofocus>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet__bd stack" style="--gap:10px">
+      <button class="opt"><span>
+        <span class="opt__title">Give me another hint</span>
+        <span class="opt__sub">Costs you some score, not the whole question.</span>
+      </span></button>
+      <button class="opt"><span>
+        <span class="opt__title">I genuinely don't know this</span>
+        <span class="opt__sub">Scores what you gave and moves on. One blank Topic
+          shouldn't eat the Session.</span>
+      </span></button>
+      <p class="t-sm muted" style="margin-top:4px">
+        You won't be shown the Answer Key until this Topic is scored.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+</body>
+</html>

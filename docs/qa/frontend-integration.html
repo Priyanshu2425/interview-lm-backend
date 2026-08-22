@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frontend + backend integration QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#0041c9;--ground:#f6faff;--paper:#fff;--raise:#eef4fd;--code-bg:#021028;
+  --line:#d7dee8;--line-soft:#e6ecf5;--rule:#021028;
+  --text:#0f1c37;--muted:#5c6d88;--faint:#7d8ca4;
+  --pass:#1c7a50;--pass-bg:#e4f4ec;--fail:#c00219;--fail-bg:#fdecee;
+  --ui:#0041c9;--ui-bg:#e6eeff;--db:#7d5400;--db-bg:#fdf3dd;
+  --sans:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --primary:#78b0ff;--ground:#060d1c;--paper:#0c1526;--raise:#132038;--code-bg:#010812;
+  --line:#26364f;--line-soft:#1b2a44;--rule:#8fa6c9;
+  --text:#dbe5f5;--muted:#93a5c2;--faint:#77899f;
+  --pass:#6fd6a4;--pass-bg:#0f2c20;--fail:#ff9aab;--fail-bg:#2d1219;
+  --ui:#78b0ff;--ui-bg:#101f38;--db:#ffc861;--db-bg:#2e2410;
+}}
+:root[data-theme="dark"]{
+  --primary:#78b0ff;--ground:#060d1c;--paper:#0c1526;--raise:#132038;--code-bg:#010812;
+  --line:#26364f;--line-soft:#1b2a44;--rule:#8fa6c9;
+  --text:#dbe5f5;--muted:#93a5c2;--faint:#77899f;
+  --pass:#6fd6a4;--pass-bg:#0f2c20;--fail:#ff9aab;--fail-bg:#2d1219;
+  --ui:#78b0ff;--ui-bg:#101f38;--db:#ffc861;--db-bg:#2e2410;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);font-family:var(--sans);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,p,ol,ul,li{margin:0}
+.mono,code{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:940px;margin:0 auto;padding:36px 18px 100px}
+@media(min-width:760px){.wrap{padding:54px 32px 120px}}
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--primary);margin-bottom:10px}
+h1{font-size:clamp(27px,4.4vw,37px);font-weight:700;letter-spacing:-.026em;
+  line-height:1.08;margin-bottom:12px;text-wrap:balance}
+.lede{color:var(--muted);max-width:66ch}
+.lede+.lede{margin-top:10px}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.key{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+  background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:5px 12px}
+.kd{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.bar{position:sticky;top:0;z-index:30;background:var(--ground);padding:14px 0 12px;
+  border-bottom:1px solid var(--line);margin:24px 0 0}
+.bar__row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.meter{flex:1;min-width:170px;height:8px;border-radius:99px;background:var(--line-soft);
+  overflow:hidden;display:flex}
+.meter i{height:100%;transition:width .25s ease}
+.meter .p{background:var(--pass)}.meter .f{background:var(--fail)}
+.tally{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap}
+.tally b{color:var(--text)}
+.mini{font-size:12px;padding:5px 11px;border-radius:6px;border:1px solid var(--line);
+  background:var(--paper);color:var(--muted)}
+.mini:hover{border-color:var(--primary);color:var(--text)}
+.sec{margin-top:40px}
+.sec__hd{display:flex;align-items:baseline;gap:11px;padding-bottom:9px;
+  border-bottom:2px solid var(--rule);margin-bottom:2px;flex-wrap:wrap}
+.sec__n{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--primary);
+  letter-spacing:.1em}
+.sec__t{font-size:17px;font-weight:600;letter-spacing:-.014em;flex:1;min-width:180px}
+.sec__c{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.sec__note{color:var(--muted);font-size:13.5px;margin:11px 0 4px;max-width:72ch}
+.it{border-bottom:1px solid var(--line-soft)}
+.it__hd{display:flex;gap:12px;align-items:flex-start;width:100%;background:none;
+  border:0;text-align:left;padding:14px 4px;border-radius:6px}
+.it__hd:hover{background:var(--raise)}
+.box{width:20px;height:20px;flex-shrink:0;margin-top:1px;border-radius:5px;
+  border:1.5px solid var(--line);background:var(--paper);display:grid;place-items:center}
+.box svg{opacity:0}
+.it[data-s=pass] .box{background:var(--pass);border-color:var(--pass)}
+.it[data-s=fail] .box{background:var(--fail);border-color:var(--fail)}
+.it[data-s=pass] .box svg,.it[data-s=fail] .box svg{opacity:1}
+.it__body{flex:1;min-width:0}
+.it__t{display:block;font-weight:600;font-size:14.5px;letter-spacing:-.006em}
+.it[data-s=pass] .it__t::after{content:" ✓";color:var(--pass);font-weight:700}
+.it__why{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.it__meta{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-top:1px}
+.tag{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding:3px 7px;border-radius:4px;background:var(--raise);
+  color:var(--faint);white-space:nowrap}
+.tag--key{background:var(--fail-bg);color:var(--fail)}
+.chev{width:15px;height:15px;color:var(--faint);transition:transform .18s ease;flex-shrink:0}
+.it[data-open="1"] .chev{transform:rotate(90deg)}
+.panel{display:none;padding:2px 4px 22px 44px}
+.it[data-open="1"] .panel{display:block}
+.panel ol{list-style:none;counter-reset:step;padding:0;display:flex;flex-direction:column;gap:15px}
+.panel li{counter-increment:step;position:relative;padding-left:32px}
+.panel li::before{content:counter(step);position:absolute;left:0;top:1px;width:21px;height:21px;
+  border-radius:50%;font-family:var(--mono);font-size:10.5px;font-weight:600;
+  display:grid;place-items:center;background:var(--raise);color:var(--primary)}
+.panel li[data-k=db]::before{background:var(--db-bg);color:var(--db)}
+.where{display:inline-block;font-family:var(--mono);font-size:9.5px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px;
+  margin-bottom:5px}
+.where--ui{background:var(--ui-bg);color:var(--ui)}
+.where--db{background:var(--db-bg);color:var(--db)}
+.step{font-size:14px}
+pre{margin:8px 0 0;background:var(--code-bg);color:#cfe0f7;border-radius:7px;
+  padding:11px 13px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;
+  line-height:1.6;position:relative}
+.copy{position:absolute;top:7px;right:7px;font-size:10px;font-family:var(--mono);
+  padding:3px 7px;border-radius:4px;border:1px solid #2b3d5c;background:#0f1c37;
+  color:#8fa6c9;opacity:0;transition:opacity .14s}
+pre:hover .copy,.copy:focus{opacity:1}
+.expect{margin-top:10px;padding:10px 13px;border-radius:7px;background:var(--pass-bg);
+  border:1px solid color-mix(in srgb,var(--pass) 30%,transparent);font-size:13px}
+.expect b{color:var(--pass)}
+code{background:var(--raise);padding:1px 5px;border-radius:4px;font-size:.88em;
+  color:var(--primary);word-break:break-word}
+.verdict{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;align-items:center}
+.vb{font-size:12.5px;padding:6px 13px;border-radius:6px;border:1px solid var(--line);
+  background:var(--paper);color:var(--muted);font-weight:600}
+.vb:hover{border-color:var(--primary)}
+.vb--pass[aria-pressed=true]{background:var(--pass);border-color:var(--pass);color:#fff}
+.vb--fail[aria-pressed=true]{background:var(--fail);border-color:var(--fail);color:#fff}
+.note{flex:1;min-width:200px;padding:7px 11px;border-radius:6px;border:1px solid var(--line);
+  background:var(--paper);color:var(--text);font:inherit;font-size:13px}
+footer{margin-top:58px;padding-top:20px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--faint);max-width:74ch}
+@media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Scaler Cortex Interviewer</div>
+  <h1>Frontend + backend integration QA</h1>
+  <p class="lede">Thirty-six checks driven through the real interface, against the
+    real API and a real database. Click any row for its steps; mark it pass or
+    fail. Marks and notes are saved in this browser.</p>
+  <p class="lede">Many checks pair a <b>screen</b> step with a <b>database</b>
+    step. That pairing is the point: the UI can render a plausible number that
+    the record does not contain, and only the second step catches it.</p>
+
+  <div class="legend">
+    <span class="key"><span class="kd" style="background:var(--ui)"></span>Do this in the browser</span>
+    <span class="key"><span class="kd" style="background:var(--db)"></span>Confirm it in the database</span>
+    <span class="key"><span class="kd" style="background:var(--fail)"></span>Key — stop and report if it fails</span>
+  </div>
+
+  <div class="bar"><div class="bar__row">
+    <div class="meter"><i class="p" id="mp" style="width:0"></i><i class="f" id="mf" style="width:0"></i></div>
+    <div class="tally" id="tally"></div>
+    <button class="mini" id="expandAll">Open all</button>
+    <button class="mini" id="collapseAll">Close all</button>
+    <button class="mini" id="reset">Reset</button>
+  </div></div>
+
+  <div id="plan"></div>
+
+  <footer>
+    Assumes the API and the surface on <code>127.0.0.1:8000</code> and Postgres on
+    <code>55432</code>, per <span class="mono">backend/README.md</span>. Automated
+    coverage is <span class="mono">backend/tests</span> (462) and
+    <span class="mono">frontend/tests/run.mjs</span> (44); this plan is what those
+    cannot check — a human reading the screen and deciding whether it tells the truth.
+  </footer>
+</div>
+<script>
+const DB = "docker exec cortex-pg psql -U cortex -t -c";
+const PLAN = [
+{n:"00",t:"Bring the whole thing up",note:"Frontend and backend are one origin: the API serves the surface.",items:[
+ {id:"a1",t:"The stack starts and the surface is served by the API",why:"SPEC-0003 §1a — one origin, so no CORS",steps:[
+   {k:"ui",s:"Start Postgres and the API.",cmd:"docker start cortex-pg 2>/dev/null || docker run -d --name cortex-pg \\\n  -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex -e POSTGRES_DB=cortex \\\n  -p 55432:5432 postgres:16-alpine\n.venv/bin/uvicorn interviewer.api.app:app --port 8000"},
+   {k:"ui",s:"Open the surface and confirm it is served from the same origin as the API.",cmd:"open http://127.0.0.1:8000/"},
+   {k:"ui",s:"Open the browser console and keep it open for the whole pass."}],
+  expect:"The setup screen renders. <b>No CORS error and no failed asset</b> in the console — the surface is static files served by FastAPI, not a second server."},
+ {id:"a2",t:"Give yourself Credits to test with",why:"PRD-0005 §36 — a grant follows a cleared payment",steps:[
+   {k:"ui",s:"Read the candidate id this browser was issued.",cmd:"// paste in the browser console\nlocalStorage.getItem('candidate_id')"},
+   {k:"ui",s:"Grant Credits to that id.",cmd:"// in the console, with the id from step 1\nawait fetch('/v1/credits/grants',{method:'POST',\n  headers:{'content-type':'application/json'},\n  body:JSON.stringify({candidate_id:localStorage.getItem('candidate_id'),\n    credits:90000,payment_ref:'qa-'+Date.now()})}).then(r=>r.json())"}],
+  expect:"A ledger entry comes back. Reload and the balance appears on <code>/credits.html</code>."},
+]},
+{n:"01",t:"Session setup",note:"The screen computes nothing — every count comes from the Corpus.",items:[
+ {id:"b1",t:"Module counts on screen match what the API returns",why:"PRD-0001 §25 — no count is hard-coded",key:true,steps:[
+   {k:"ui",s:"On the setup screen, note the Topic and Answer Key counts on each AIML Module."},
+   {k:"db",s:"Ask the API for the same list.",cmd:"curl -s 'localhost:8000/v1/corpus/modules?track=aiml' \\\n | jq -r '.[] | \"\\(.title): \\(.topic_count) topics, \\(.ground_truth_topic_count) keys\"'"}],
+  expect:"They match exactly — <b>5/7/7/7/6/5/9/11 Topics</b> and <b>4/5/5/5/4/3/0/0</b> Answer Keys. A mismatch means the surface is inventing numbers."},
+ {id:"b2",t:"Start is genuinely disabled with nothing chosen",why:"a control that looks disabled but works is worse than none",steps:[
+   {k:"ui",s:"With no Modules selected, try to click Start Session."},
+   {k:"ui",s:"Try it from the keyboard: Tab to the button and press Enter."}],
+  expect:"<b>Nothing happens either way</b>, and the URL does not change. The button is a real <code>disabled</code> control, not a styled div."},
+ {id:"b3",t:"Choosing Modules updates the scope from the server",why:"PRD-0001 §23 — the readout is not browser arithmetic",steps:[
+   {k:"ui",s:"Select Data Foundations, then also Natural Language Processing."},
+   {k:"ui",s:"Watch the 'In scope' panel and the Answer Key note."}],
+  expect:"<b>2 Modules · 10 Topics</b>, and a note that <b>7 Topics carry Answer Keys</b>. Deselect one and both update."},
+ {id:"b4",t:"A Module with no Answer Keys is selectable and says so",why:"PRD-0001 §26 — absence is a mode, not a failure",key:true,steps:[
+   {k:"ui",s:"Deselect everything, then select only 'Basics of GenAI and AI agents'."}],
+  expect:"It selects normally, shows <b>9 Topics</b>, and the note says questions will be marked against Topic text. It must not be greyed out or rejected."},
+ {id:"b5",t:"No difficulty control exists, and no price is quoted",why:"the Corpus records no difficulty; the total is not knowable",steps:[
+   {k:"ui",s:"Read the whole screen, including the provider section."}],
+  expect:"<b>No difficulty picker, label or slider anywhere.</b> Provider prices are described as what previous Topics actually cost, and the screen states the Session total cannot be quoted in advance."},
+]},
+{n:"02",t:"The exchange",note:"The screen the product exists for.",items:[
+ {id:"c1",t:"Starting a Session opens a real Topic Visit",why:"the surface and the record must agree from the first moment",key:true,steps:[
+   {k:"ui",s:"Select one Module and start. Note the Topic title and the Grading Mode chip."},
+   {k:"db",s:"Confirm the Visit exists and is open.",cmd:DB+" \\\n\"select topic_id, state, grading_mode from core.topic_visit \\\n order by opened_at desc limit 1;\""}],
+  expect:"One row, <b>state = open</b>, and its Grading Mode matches the chip on screen. The first Topic follows curriculum order — for AIML Module 1 that is <b>NumPy</b>."},
+ {id:"c2",t:"Submitting an answer shows the request running",why:"PRD-0003 — the composer is never disabled by a timer",steps:[
+   {k:"ui",s:"Type an answer and submit it."},
+   {k:"ui",s:"Watch the composer and the button during the request."}],
+  expect:"The composer disables, the button reads <b>Sending…</b>, and a 'Reading your answer…' line appears. Everything re-enables when the response lands."},
+ {id:"c3",t:"A probe or hint continues the same Topic",why:"PRD-0003 §7 — a half-answer is probed, not marked down",steps:[
+   {k:"ui",s:"Answer vaguely, e.g. 'it makes the numbers nicer'."},
+   {k:"ui",s:"If a probe or hint comes back, answer again."},
+   {k:"db",s:"Check the turn count on that Visit.",cmd:DB+" \\\n\"select turn_count, state from core.topic_visit order by opened_at desc limit 1;\""}],
+  expect:"The thread grows within <b>one</b> Topic — the header does not change. When it closes, <code>turn_count</code> matches the number of answers you gave, and there is still only one Visit."},
+ {id:"c4",t:"Many turns still produce exactly one Evidence row",why:"ADR-0004 — one Visit is one observation examined closely",key:true,steps:[
+   {k:"db",s:"Compare Visits to Evidence rows.",cmd:DB+" \\\n\"select v.state, count(*) visits, count(e.evidence_id) evidence \\\n from core.topic_visit v left join core.evidence e \\\n on e.topic_visit_id=v.topic_visit_id group by 1;\""}],
+  expect:"Every <b>graded</b> Visit has exactly <b>one</b> Evidence row, whatever its turn count. Open and abandoned Visits have <b>zero</b>."},
+ {id:"c5",t:"Asking for a hint gets a hint",why:"PRD-0003 §8 — a Session is practice, not an exam you fail in silence",steps:[
+   {k:"ui",s:"On a new Topic, answer with 'I'm stuck, can I get a hint?'"}],
+  expect:"A <b>hint</b>, not a probe — and a line saying taking one does not void the question: it costs some score, not the whole Topic."},
+]},
+{n:"03",t:"The scored Topic",note:"A score is only trustworthy if you can see who produced it.",items:[
+ {id:"d1",t:"Score, reasoning and provenance appear together",why:"PRD-0003 §13 — who graded it is never hidden",key:true,steps:[
+   {k:"ui",s:"Answer until a Topic closes. Read the result panel."},
+   {k:"db",s:"Compare against the stored row.",cmd:DB+" \\\n\"select score, grading_mode, weight, grader_kind, provider, rubric_version \\\n from core.evidence order by created_at desc limit 1;\""}],
+  expect:"The screen shows a score, a rationale, <b>grader, provider and rubric version</b>, and the cost. Every one matches the database. A score with no provenance on screen is a failure."},
+ {id:"d2",t:"The posterior is drawn from the stored alpha and beta",why:"ISSUE-0016 — the surface draws, it does not derive",key:true,steps:[
+   {k:"ui",s:"Read the α and β printed under the curve."},
+   {k:"db",s:"Read them from the record.",cmd:DB+" \\\n\"select alpha, beta from core.topic_confidence order by updated_at desc limit 1;\""}],
+  expect:"<b>Identical values.</b> If the browser has computed its own, there are two implementations of the Evidence Floor and they will drift."},
+ {id:"d3",t:"One answer shows no Mastery number",why:"PRD-0002 §4 — a reading based on one answer is hedged",key:true,steps:[
+   {k:"ui",s:"On the first Topic of a fresh Candidate, read the two readings under the curve."}],
+  expect:"Coverage shows a figure. Mastery reads <b>Not yet reportable</b> — not 0, not 0.50, not a blank. A number here would be a guess presented as a fact."},
+ {id:"d4",t:"Coverage and Mastery are never one figure",why:"PRD-0002 §3",key:true,steps:[
+   {k:"ui",s:"Read the result panel and search the page for a combined score.",cmd:"// in the console\n/overall|combined|percent complete|total score/i.test(document.body.innerText)"}],
+  expect:"Two separate readings, and the console prints <b>false</b>."},
+ {id:"d5",t:"No Answer Key is on screen before grading",why:"PRD-0003 §14 — the question is worth asking",key:true,steps:[
+   {k:"ui",s:"With a question open and unanswered, search the page source for grading material.",cmd:"// in the console, before answering\ndocument.body.innerHTML.includes('AUTHORITATIVE ANSWER')"}],
+  expect:"<b>false.</b> Grading material must not be in the DOM, even hidden, before the Topic is scored."},
+]},
+{n:"04",t:"Interruption and retry",note:"The part a user meets on a bad connection, and where a permanent write is at risk.",items:[
+ {id:"e1",t:"A double submit produces one answer",why:"ADR-0011 — the idempotency key is the whole reason it is a request",key:true,steps:[
+   {k:"ui",s:"Type an answer, then click Submit twice as fast as you can."},
+   {k:"db",s:"Count the Visits and Evidence rows for this Session.",cmd:DB+" \\\n\"select (select count(*) from core.topic_visit) visits, \\\n (select count(*) from core.evidence) evidence;\""}],
+  expect:"One answer in the thread, and the counts advance by <b>at most one</b>. Two Evidence rows from one answer would be a doubled permanent write."},
+ {id:"e2",t:"A refresh mid-Session returns to the same question",why:"PRD-0003 §15 — the Answer Turn is already a park",key:true,steps:[
+   {k:"ui",s:"With a question on screen and unanswered, note it, then reload the page."}],
+  expect:"The <b>same question and the same Topic</b> come back. A new question would mean the Visit was silently abandoned."},
+ {id:"e3",t:"An answer given during a network drop is not lost",why:"PRD-0003 §16 — the exchange is stored before grading",key:true,steps:[
+   {k:"ui",s:"Open devtools → Network → set throttling to Offline."},
+   {k:"ui",s:"Type an answer and submit. Wait for it to fail."},
+   {k:"ui",s:"Set throttling back to Online and reload the page."}],
+  expect:"Either the same question returns, or the answer is graded and the Topic closes. <b>Never a silently discarded answer</b>, and never a duplicate score."},
+ {id:"e4",t:"A parked Session says what to do about it",why:"PRD-0003 §41 — failure is a resumable state, not a lost thread",steps:[
+   {k:"ui",s:"Stop the API (Ctrl-C), submit an answer, then restart the API."},
+   {k:"ui",s:"Read the message, then use its Resume action."}],
+  expect:"A message naming what happened and a <b>Resume</b> button that works. It must not blame the Candidate or offer a top-up for a connection problem."},
+]},
+{n:"05",t:"Summary and the record",note:"What the system claims to know, and what it refuses to claim.",items:[
+ {id:"f1",t:"Coverage counts against the whole Corpus",why:"PRD-0002 §2",steps:[
+   {k:"ui",s:"Finish or end a Session and open the summary."},
+   {k:"db",s:"Count the Topics examined for this Candidate.",cmd:DB+" \\\n\"select count(*) from core.topic_confidence;\""}],
+  expect:"Coverage reads <b>N of 71</b>, and N matches the row count. The examined and untested figures sum to 71."},
+ {id:"f2",t:"Untested Topics carry no number anywhere",why:"PRD-0002 §1 — untested is unknown, not zero",key:true,steps:[
+   {k:"ui",s:"Find a Topic in the table labelled Untested.",cmd:"// in the console\n[...document.querySelectorAll('.band--untested')]\n  .map(b=>b.parentElement.textContent).filter(t=>/\\d\\.\\d\\d/.test(t))"}],
+  expect:"The label reads <b>Untested</b> with no figure beside it, and the console prints an <b>empty array</b>."},
+ {id:"f3",t:"The untested section is real, not decorative",why:"the product's central claim",steps:[
+   {k:"ui",s:"Read the 'never been asked about' section and its per-Module counts."}],
+  expect:"Real Module names with real remaining counts, and whether each carries Answer Keys. The figures must reconcile with Coverage."},
+ {id:"f4",t:"The weakest list excludes untested Topics",why:"PRD-0002 §6 — unknown is not weak",key:true,steps:[
+   {k:"ui",s:"Read 'Where you look weakest', if it is shown."}],
+  expect:"Every row has a real centre figure. An Untested Topic appearing here — even ranked last — is a failure."},
+ {id:"f5",t:"The summary reads correctly in English",why:"the copy is read by someone deciding what to study",steps:[
+   {k:"ui",s:"Read the opening sentence and the Mastery reading aloud."}],
+  expect:"Plural agreement holds ('1 was marked', not '1 were'). If nothing is solid or weak yet, Mastery says so in words rather than showing <b>0 · 0</b>."},
+]},
+{n:"06",t:"Credits and BYOK",note:"The honesty rule: never send someone to fix the wrong thing.",items:[
+ {id:"g1",t:"The balance renders with its definition",why:"PRD-0005 §2",steps:[
+   {k:"ui",s:"Open /credits.html and read the balance panel."},
+   {k:"db",s:"Sum the ledger.",cmd:DB+" \\\n\"select sum(delta_credits) from core.credit_ledger;\""}],
+  expect:"The figures match, and the screen states a Credit is one US cent of provider cost."},
+ {id:"g2",t:"A Topic that cost money but was never graded is visible",why:"spend and Evidence are independent facts",steps:[
+   {k:"ui",s:"Start a Session, do not answer, then open /credits.html."}],
+  expect:"A debit for that Topic appears even though no score exists. The ledger tells the truth about spend regardless of grading."},
+ {id:"g3",t:"A raw vendor key is refused",why:"ADR-0008 — OpenRouter keys only",key:true,steps:[
+   {k:"ui",s:"Paste an Anthropic-style key into the BYOK field and submit.",cmd:"sk-ant-api03-anything"},
+   {k:"ui",s:"Then a Google-style one.",cmd:"AIzaSyExample"}],
+  expect:"Both refused, with a message naming OpenRouter. There must be no way to make the field accept a vendor credential."},
+ {id:"g4",t:"BYOK shows an em dash, never a zero",why:"PRD-0005 §14 — zero reads as 'it was free'",key:true,steps:[
+   {k:"ui",s:"Attach a well-formed key.",cmd:"sk-or-v1-0123456789abcdef0123456789abcdef"},
+   {k:"ui",s:"Read the balance and the credits-spent reading."}],
+  expect:"Both read <b>—</b>. A <code>0</code> anywhere here is a failure."},
+ {id:"g5",t:"No BYOK view mentions Credits running out",why:"PRD-0005 §16 — the message must send you to the right place",key:true,steps:[
+   {k:"ui",s:"With a key attached, search the page for the word.",cmd:"// in the console\n/credits? (ran out|exhausted|remaining)/i.test(document.body.innerText)"}],
+  expect:"<b>false.</b> A BYOK Candidate spends no Credits, so telling them theirs ran out sends them to fix something that is not broken."},
+ {id:"g6",t:"The key itself never appears on screen",why:"ADR-0013 — plaintext lives in one process",key:true,steps:[
+   {k:"ui",s:"Search the page and storage for the key you pasted.",cmd:"// in the console\ndocument.body.innerHTML.includes('sk-or-v1-0123') ||\n  JSON.stringify(localStorage).includes('sk-or-')"}],
+  expect:"<b>false.</b> Only a fingerprint is shown. Seeing the key anywhere outside the vault is a stop-the-line failure."},
+]},
+{n:"07",t:"Operator console",note:"Separate access, and the readings that catch a bug before it costs money.",items:[
+ {id:"h1",t:"The console refuses a Candidate",why:"operator access is separate",key:true,steps:[
+   {k:"ui",s:"Open /operator.html and try a wrong token."},
+   {k:"ui",s:"Then the real one.",cmd:"dev-operator-token"}],
+  expect:"The wrong token is refused and not stored. The right one opens the console."},
+ {id:"h2",t:"Pool headroom leads, with its alert state",why:"PRD-0005 §39 — the only figure that can strand a Candidate",steps:[
+   {k:"ui",s:"Read the headroom panel."},
+   {k:"db",s:"Compute it yourself.",cmd:DB+" \\\n\"select (select coalesce(sum(delta_credits),0) from core.pool_ledger) \\\n - (select coalesce(sum(delta_credits),0) from core.credit_ledger) as headroom;\""}],
+  expect:"They match. If you granted Credits without topping up the pool, headroom is negative and the alert is on — which is correct, not a bug."},
+ {id:"h3",t:"Unpriced calls are visible and distinct from free ones",why:"a metering bug that would otherwise hide as zero",steps:[
+   {k:"ui",s:"Read the unpriced call rate and the per-Provider table."}],
+  expect:"A rate is shown per Provider, and the console states that no normaliser is applied to any figure."},
+ {id:"h4",t:"BYOK and MCP Sessions read an em dash",why:"PRD-0005 §43",steps:[
+   {k:"ui",s:"Read the Sessions table after running at least one BYOK Session."}],
+  expect:"Their Credits and Refunded columns show <b>—</b>. A zero would read as a Session that cost nothing."},
+]},
+{n:"08",t:"Responsive, keyboard, themes",note:"What the automated suite cannot judge.",items:[
+ {id:"i1",t:"Mobile is purely question and answer",why:"the examination carries nothing else",steps:[
+   {k:"ui",s:"Set the viewport to 390px and open a Session."}],
+  expect:"Header, exchange, composer. <b>The composer is visible without scrolling</b>, and cost and Grading Mode are behind the sheet."},
+ {id:"i2",t:"Nothing scrolls sideways at any width",why:"craft floor",steps:[
+   {k:"ui",s:"Visit every screen at 390, 768 and 1440.",cmd:"// in the console on each screen\ndocument.documentElement.scrollWidth > innerWidth"}],
+  expect:"<b>false</b> everywhere. Dense tables scroll inside their own container and show the hint."},
+ {id:"i3",t:"A whole Session is possible from the keyboard",why:"the Answer Turn is a submit event",key:true,steps:[
+   {k:"ui",s:"Without touching the mouse: choose scope, start, answer, take a hint, reach the summary."}],
+  expect:"Every control reachable, focus always visible, and focus returns to the composer after each turn."},
+ {id:"i4",t:"Both themes hold",why:"the viewer's theme has three states",steps:[
+   {k:"ui",s:"Switch the OS to dark mode and revisit every screen."}],
+  expect:"Text legible on both grounds, band colours still distinguishable, and no element rendering one theme's text on the other's background."},
+ {id:"i5",t:"No state is carried by colour alone",why:"PRODUCT.md names the bands specifically",key:true,steps:[
+   {k:"ui",s:"Apply a greyscale filter and read the summary and the ledger.",cmd:"// in the console\ndocument.documentElement.style.filter='grayscale(1)'"}],
+  expect:"Every band still readable from its <b>word</b>. Every ledger row still identifiable from its label rather than its tint."},
+]},
+];
+const KEY="cortex-int-qa-v1";
+let state={};try{state=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){state={}}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const root=document.getElementById("plan");let total=0;
+PLAN.forEach(sec=>{total+=sec.items.length;
+ const el=document.createElement("section");el.className="sec";
+ el.innerHTML=`<div class="sec__hd"><span class="sec__n">${sec.n}</span>
+   <h2 class="sec__t">${esc(sec.t)}</h2><span class="sec__c" data-count="${sec.n}"></span></div>
+   ${sec.note?`<p class="sec__note">${esc(sec.note)}</p>`:""}`;
+ sec.items.forEach(it=>{
+  const d=document.createElement("div");d.className="it";
+  d.dataset.id=it.id;d.dataset.sec=sec.n;d.dataset.s=state[it.id]?.s||"todo";d.dataset.open="0";
+  const steps=it.steps.map(s=>`<li data-k="${s.k||'ui'}">
+    <span class="where where--${s.k||'ui'}">${(s.k||'ui')==='db'?'Database':'Browser'}</span>
+    <div class="step">${s.s?esc(s.s):""}</div>
+    ${s.cmd?`<pre><button class="copy">copy</button><code>${esc(s.cmd)}</code></pre>`:""}</li>`).join("");
+  d.innerHTML=`<button class="it__hd" type="button">
+    <span class="box"><svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.4 4 7.4 10 1.4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="it__body"><span class="it__t">${esc(it.t)}</span><span class="it__why">${esc(it.why)}</span></span>
+    <span class="it__meta">${it.key?'<span class="tag tag--key">key</span>':""}
+      <svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+   <div class="panel"><ol>${steps}</ol>
+     <div class="expect"><b>Expected:</b> ${it.expect}</div>
+     <div class="verdict">
+       <button class="vb vb--pass" data-v="pass" aria-pressed="false">Pass</button>
+       <button class="vb vb--fail" data-v="fail" aria-pressed="false">Fail</button>
+       <input class="note" placeholder="Note — what you saw, anything odd"></div></div>`;
+  el.appendChild(d);});
+ root.appendChild(el);});
+function paint(){let p=0,f=0;const per={};
+ document.querySelectorAll(".it").forEach(d=>{const s=d.dataset.s,k=d.dataset.sec;
+  per[k]=per[k]||{p:0,n:0};per[k].n++;if(s==="pass"){p++;per[k].p++}if(s==="fail")f++;
+  d.querySelectorAll(".vb").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===s)));});
+ document.getElementById("mp").style.width=(p/total*100)+"%";
+ document.getElementById("mf").style.width=(f/total*100)+"%";
+ document.getElementById("tally").innerHTML=`<b>${p}</b> passed · <b>${f}</b> failed · <b>${total-p-f}</b> to go`;
+ document.querySelectorAll("[data-count]").forEach(e=>{const c=per[e.dataset.count];if(c)e.textContent=`${c.p}/${c.n}`});}
+root.addEventListener("click",e=>{
+ const hd=e.target.closest(".it__hd");
+ if(hd){const it=hd.closest(".it");it.dataset.open=it.dataset.open==="1"?"0":"1";return}
+ const vb=e.target.closest(".vb");
+ if(vb){const it=vb.closest(".it"),v=vb.dataset.v;
+  it.dataset.s=it.dataset.s===v?"todo":v;
+  state[it.dataset.id]={...(state[it.dataset.id]||{}),s:it.dataset.s};save();paint();return}
+ const cp=e.target.closest(".copy");
+ if(cp){navigator.clipboard?.writeText(cp.parentElement.querySelector("code").textContent);
+  cp.textContent="copied";setTimeout(()=>cp.textContent="copy",1200)}});
+root.addEventListener("input",e=>{const n=e.target.closest(".note");if(!n)return;
+ const id=n.closest(".it").dataset.id;state[id]={...(state[id]||{}),note:n.value};save()});
+document.querySelectorAll(".it").forEach(d=>{const st=state[d.dataset.id];
+ if(st?.note)d.querySelector(".note").value=st.note});
+document.getElementById("expandAll").onclick=()=>document.querySelectorAll(".it").forEach(d=>d.dataset.open="1");
+document.getElementById("collapseAll").onclick=()=>document.querySelectorAll(".it").forEach(d=>d.dataset.open="0");
+document.getElementById("reset").onclick=()=>{if(!confirm("Clear every mark and note?"))return;
+ state={};save();document.querySelectorAll(".it").forEach(d=>{d.dataset.s="todo";d.querySelector(".note").value=""});paint()};
+paint();
+</script>
+</body>
+</html>

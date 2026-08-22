@@ -1,0 +1,36 @@
+# Local environment
+.venv/
+node_modules/
+.auth/
+.DS_Store
+
+# Secrets. `.env.example` is the documented set and is tracked; a real .env
+# never is.
+.env
+.env.*
+!.env.example
+
+# Scrape intermediates. `data/corpus.json` and the markdown it references are
+# the Corpus and are tracked; the raw pages they were extracted from are not.
+data/raw/
+
+# Build output. The API mounts frontend/dist, and a deployment builds it —
+# committing it would mean a stale surface shipping silently.
+frontend/dist/
+
+# `frontend/` is its own git repository (AGENTS.md, ADR-0009). It is deliberately
+# not a submodule here: the surface talks to the backend over HTTP only, and
+# tying the two histories together would imply a coupling that does not exist.
+frontend/
+
+# Model weights are published to S3 by scripts/publish_model.py and cached
+# locally. `data/corpus-index.json` IS tracked — it is a build artifact meant to
+# ship, and reviewing its diff is how a Corpus change gets noticed (ADR-0018).
+.cache/
+*.safetensors
+
+# Python build noise
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

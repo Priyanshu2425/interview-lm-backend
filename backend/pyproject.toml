@@ -1,0 +1,43 @@
+[project]
+name = "interviewer"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+# Declared here because the Notebook Adapter cannot do its job without them:
+# a PDF is the source type Candidates actually have, and an upload is how it
+# arrives. The rest of the runtime is installed by the deployment.
+dependencies = [
+  "pypdf>=5",
+  "python-multipart>=0.0.9",
+  # Vectors are a column type, not an array of floats: the citation lookup is
+  # an index scan and the width is checked by the database (ADR-0017).
+  "pgvector>=0.3",
+]
+
+# The model that ships, and the S3 it is published to. Optional because the
+# default deployment runs the lexical stand-in, and because 2.5GB of wheels
+# should not be the price of running the test suite.
+[project.optional-dependencies]
+embeddings = [
+  "torch>=2.4",
+  "transformers>=4.49",
+  "pillow>=10",
+  "boto3>=1.34",
+  "huggingface-hub>=0.26",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+  "error::DeprecationWarning",
+  # starlette's TestClient warns about httpx; not our code to fix
+  "ignore:Using `httpx` with `starlette.testclient`:",
+]

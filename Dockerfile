@@ -1,29 +1,16 @@
 # The API, and the surface it serves when they share an origin.
 #
-# Two stages. The first builds the React surface; the second runs Python and
-# copies the build in. Splitting them keeps Node out of the running image —
-# 300MB of node_modules that exist only to produce a directory of static files.
+# API only, and that follows from `frontend/` being its own git repository
+# (ADR-0009): a clone of this one has no surface to build, so an image that
+# insisted on building one could not be built at all.
 #
-# The surface is built here *and* can be hosted separately (ADR-0020). Both work:
-# with ALLOWED_ORIGINS unset the API serves the copy baked in below, and with it
-# set the API serves its routes while a CDN serves the surface. Building it
-# either way costs one stage and means the image is never useless on its own.
-
-# --- the surface ------------------------------------------------------------
-FROM node:22-alpine AS surface
-WORKDIR /surface
-
-# `frontend/` is its own git repository, so a build context that includes it is
-# a deliberate act (see .dockerignore). If it is absent the stage still
-# succeeds and produces nothing, and the API simply has no surface to mount.
-COPY frontend/package*.json ./
-RUN npm ci --no-audit --no-fund
-COPY frontend/ ./
-# Baked in at build time, so a surface always knows which API it was built
-# against. Empty means same-origin, which is what this image does by default.
-ARG VITE_API_URL=""
-ENV VITE_API_URL=$VITE_API_URL
-RUN npm run build
+# The surface is deployed separately and reaches this API cross-origin
+# (ADR-0020). For a single-origin deployment the API still mounts whatever
+# `SURFACE_DIR` points at, so a built surface can be mounted in at run time or
+# copied in by an image that extends this one:
+#
+#   FROM cortex-interviewer
+#   COPY dist /app/frontend/dist
 
 # --- the API ----------------------------------------------------------------
 FROM python:3.12-slim AS api
@@ -63,7 +50,6 @@ RUN pip install --no-deps -e ./backend
 # that serves the API and the Notebook Adapter with no shipped Corpus — which is
 # a real way to run this. Mount or COPY one in, or point CORPUS_PATH at it.
 COPY dat[a] ./data
-COPY --from=surface /surface/dist ./frontend/dist
 
 # Not root. Nothing here writes to the image at runtime.
 RUN useradd --create-home --uid 10001 cortex && chown -R cortex:cortex /app
@@ -73,6 +59,10 @@ ENV CORPUS_PATH=/app/data/corpus.json \
     CORPUS_INDEX_PATH=/app/data/corpus-index.json \
     SURFACE_DIR=/app/frontend/dist \
     PORT=8000
+
+# Absent by default, and `create_app` skips the mount rather than failing when
+# the directory is not there.
+RUN mkdir -p /app/frontend
 
 EXPOSE 8000
 

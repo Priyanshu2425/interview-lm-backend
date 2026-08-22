@@ -50,10 +50,13 @@ from the API's own `code` and `message`. It still computes no band, no posterior
 and no Coverage figure. Where it is *served from* is a deployment fact and was
 never an architectural one — which is precisely why this is reversible at all.
 
-The image still builds and serves the surface itself. With `ALLOWED_ORIGINS`
-unset it is the original single-origin deployment, and that path stays tested:
-running the container with no CORS configuration serves the API and the surface
-together, as before.
+Single-origin is still reachable, but not out of this image. `frontend/` is its
+own repository (ADR-0009), so a clone of the backend has no surface to build and
+an image that insisted on building one could not be built at all — which is the
+practical reason the container is API-only rather than an architectural one. The
+API still mounts whatever `SURFACE_DIR` names, so a built surface can be mounted
+at run time or copied in by an image extending this one, and with
+`ALLOWED_ORIGINS` unset that is the original arrangement exactly.
 
 ## Why not keep same-origin
 

@@ -1,6 +1,6 @@
 # ISSUE-0031 — Related Topics on the surface
 
-Status: open
+Status: **machine half done** — the API is ready, the placement is not chosen
 Type: **HITL**
 Source: ISSUE-0029; DESIGN.md; AGENTS.md §"The surface holds no invariant"
 Covers: where sideways exploration appears to a Candidate, and whether it should
@@ -67,4 +67,31 @@ way:
 
 ## Blocked by
 
-- ISSUE-0030 — a surface that can show a stale reading before staleness is legible is a surface that shows a wrong one
+- ~~ISSUE-0030~~ — **no longer applicable.** That dependency existed because a
+  precomputed artifact could go out of date against the Corpus it described.
+  ISSUE-0037 deleted the artifact: neighbours are the stored centroids of the
+  Topics themselves, written in the same transaction, so there is no stale
+  reading a surface could show (ADR-0021). The remaining block is the placement
+  decision, which was always the real one.
+
+## What is ready
+
+Everything on the server side, and it was ready before this issue was written:
+
+- `GET /v1/corpus/topics/{topic_id}/related` returns up to five neighbours,
+  **ranked by the server**, each carrying `module_id` and `same_module` so the
+  two kinds can be told apart without the client deciding which to show.
+- A Topic with no neighbours returns `[]`, and so does a Topic whose Corpus this
+  deployment does not hold. They are indistinguishable from outside on purpose:
+  the surface renders nothing in both cases and nothing is honest in both.
+- Nothing is embedded at request time, and a test asserts it.
+
+What is missing is a screen, and inventing one is the trap this issue exists to
+stop in front of.
+
+## The question, unchanged and still unanswered
+
+Which of A, B and C above — and the answer has to carry the reason, because the
+difference between them is not visual. Related Topics is a claim about the
+**material**; a list of Topics beside a score is a claim about the **person**.
+Placement is what decides which of the two a Candidate reads.

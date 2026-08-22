@@ -48,7 +48,7 @@ Sources: SPEC `2026-08-21-notebook-adapter-design`, ADR-0015, ADR-0005 (amended)
 | 0025 | Citation: the span that grounded the question | **HITL** | 0021 | machine half done |
 | 0026 | The embedding provider, and the BYOK gap | **HITL** | 0021 | machine half done |
 | 0027 | Notebook lifecycle: upload, delete, retire | AFK | 0025 | ✅ resolved |
-| 0028 | Image-only sources become Modules | **HITL** | 0026 | open |
+| 0028 | Image-only sources become Modules | **HITL** | 0026 | open — deliberately unstarted |
 
 ### Related Topics — the shipped Corpus, embedded
 
@@ -58,8 +58,8 @@ FUTURE-PIPELINE §Cross-Topic similarity.
 | # | Slice | Type | Blocked by | State |
 |---|---|---|---|---|
 | 0029 | The shipped Corpus, embedded, and Related Topics served | AFK | — | ✅ resolved |
-| 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | ✅ resolved |
-| 0031 | Related Topics on the surface | **HITL** | 0030 | open |
+| 0030 | A stale Corpus index is visible, not silent | AFK | 0029 | ✅ resolved, then retired by 0037 |
+| 0031 | Related Topics on the surface | **HITL** | — | machine half done |
 
 ### A Corpus is assembled, not shipped
 
@@ -153,6 +153,12 @@ index **harmless** — no neighbours rather than wrong ones — and `0030` makes
 not ship first and be fixed second. `0031` waits on `0030` because a surface
 that can render a stale reading before staleness is detectable is a surface that
 renders a wrong one.
+
+`0030` was resolved and then **retired by `0037`**, which is not waste: it made a
+state legible for as long as that state could occur, and `0037` removed the
+thing that could occur. The order was the safety property — a thing that can
+silently lie must not ship first and be fixed second — and the fix that finally
+landed was deleting the liar.
 
 `0029` reverses a recorded decision. FUTURE-PIPELINE says of cross-Topic
 similarity, in as many words, "Do not pre-build it." That instruction was right

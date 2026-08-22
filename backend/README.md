@@ -10,6 +10,24 @@ python3 -m venv .venv && .venv/bin/pip install -e backend
 docker run -d --name cortex-pg -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex \
   -e POSTGRES_DB=cortex -p 55432:5432 pgvector/pgvector:pg16
 
+### Hosted Postgres
+
+Any Postgres with pgvector works — Neon, Supabase, RDS. Two things the code
+handles for you, and one you have to do.
+
+Handled: a pooled endpoint (Neon spells it `-pooler`) has prepared statements
+switched off, because a transaction pooler hands the next statement a different
+backend. And the LangGraph checkpointer is pointed at the *direct* endpoint,
+because it pipelines — `GRAPH_DATABASE_URL` overrides if your provider names
+that endpoint differently.
+
+Yours to do: nothing, if the role may `CREATE EXTENSION vector`. `create_content`
+installs it on boot, along with the schema and the HNSW index, since there is no
+alembic in this project (ADR-0017).
+
+    DATABASE_URL="postgresql+psycopg://user:pw@ep-x-pooler.region.aws.neon.tech/cortex?sslmode=require"
+
+
 .venv/bin/python -m pytest backend/tests -q          # 462 tests
 .venv/bin/uvicorn interviewer.api.app:app --port 8000 # the API
 ```

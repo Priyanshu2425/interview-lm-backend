@@ -25,13 +25,62 @@ from .schema import (
 
 DEFAULT_DSN = "postgresql+psycopg://cortex:cortex@127.0.0.1:55432/cortex"
 
+#: How a hosted Postgres names its transaction-pooled endpoint. Neon's
+#: convention, and the marker we use to decide whether prepared statements are
+#: safe — see `make_engine`.
+POOLER_MARKER = "-pooler"
+
 
 def dsn() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DSN)
 
 
+def is_pooled(url: str) -> bool:
+    """Whether this endpoint puts a transaction pooler in front of Postgres."""
+    return POOLER_MARKER in (sa.engine.make_url(url).host or "")
+
+
+def connect_args_for(url: str) -> dict:
+    """Driver arguments this endpoint needs, as a value that can be tested.
+
+    Separate from `make_engine` because it is a policy rather than plumbing:
+    behind a transaction pooler, prepared statements are unsafe, and that is a
+    decision worth stating somewhere a test can read it.
+    """
+    if not is_pooled(url):
+        # They are a real speed-up. Giving them up everywhere would be a tax
+        # paid by every deployment to protect the ones behind a pooler.
+        return {}
+    return {"prepare_threshold": None}
+
+
 def make_engine(url: str | None = None, **kw) -> Engine:
-    return sa.create_engine(url or dsn(), future=True, **kw)
+    """An Engine that survives a Postgres which is allowed to go away.
+
+    Two defaults exist for hosted Postgres and cost nothing locally.
+
+    `pool_pre_ping` because a serverless database suspends its compute when
+    idle, and every connection sitting in the pool is dead when it wakes. Without
+    it the first request after a quiet period fails, once, with a stale-socket
+    error that looks nothing like the cause.
+
+    Prepared statements are disabled behind a transaction pooler. PgBouncer in
+    transaction mode hands the same client a different backend between
+    statements, so a statement prepared on one is missing on the next — and it
+    fails later, under load, on a query that worked a thousand times.
+    """
+    target = url or dsn()
+    kw.setdefault("pool_pre_ping", True)
+    # Long-lived connections to a suspending database are a liability rather
+    # than a saving; recycle well inside any idle timeout.
+    kw.setdefault("pool_recycle", 300)
+    required = connect_args_for(target)
+    if required:
+        connect_args = dict(kw.pop("connect_args", {}))
+        for key, value in required.items():
+            connect_args.setdefault(key, value)
+        kw["connect_args"] = connect_args
+    return sa.create_engine(target, future=True, **kw)
 
 
 def create_core(engine: Engine) -> None:
@@ -189,6 +238,10 @@ def _migrate_constraints(engine: Engine) -> None:
             )
 
 
+def _index_memory() -> str:
+    return os.environ.get("INDEX_BUILD_MEM", "128MB")
+
+
 def _create_vector_indexes(engine: Engine) -> None:
     """One HNSW index, over both modalities, because they share a space.
 
@@ -197,7 +250,13 @@ def _create_vector_indexes(engine: Engine) -> None:
     an index build into a disk sort.
     """
     with engine.begin() as c:
-        c.execute(text("SET LOCAL maintenance_work_mem = '256MB'"))
+        # Best effort. A small managed instance may refuse the value or not have
+        # the memory to honour it, and an index that builds slowly is a much
+        # smaller problem than a boot that fails.
+        try:
+            c.execute(text(f"SET LOCAL maintenance_work_mem = '{_index_memory()}'"))
+        except Exception:  # pragma: no cover - depends on the host's limits
+            pass
         c.execute(
             text(
                 f"CREATE INDEX IF NOT EXISTS ix_chunk_embedding_hnsw "
@@ -214,17 +273,44 @@ def _create_vector_indexes(engine: Engine) -> None:
         )
 
 
+def graph_dsn(engine: Engine) -> str:
+    """Where the checkpointer connects, and in which schema it lands.
+
+    Two things this has to get right, and the first one used to be wrong.
+
+    **The search_path must actually arrive.** A hosted connection string already
+    carries query parameters — `sslmode`, `channel_binding` — so appending
+    `?options=...` produced a second `?` and the option was parsed as part of
+    the previous value. The checkpointer then created its tables in `public`,
+    silently, and `drop_graph` dropped nothing: ADR-0010's separation gone, with
+    no error anywhere.
+
+    **A pooled endpoint is the wrong endpoint for this client.** LangGraph's
+    saver uses pipelining and prepared statements, which is exactly what a
+    transaction pooler cannot keep straight. `GRAPH_DATABASE_URL` overrides;
+    otherwise the pooler marker is dropped from the host, which is how the
+    direct endpoint is named.
+    """
+    override = os.environ.get("GRAPH_DATABASE_URL")
+    url = sa.engine.make_url(override) if override else engine.url
+    if not override and POOLER_MARKER in (url.host or ""):
+        url = url.set(host=url.host.replace(POOLER_MARKER, ""))
+    # Merged into the query rather than concatenated onto it, so an existing
+    # parameter cannot swallow it.
+    query = dict(url.query)
+    query["options"] = f"-csearch_path={GRAPH}"
+    url = url.set(query=query, drivername="postgresql")
+    return url.render_as_string(hide_password=False)
+
+
 def create_graph(engine: Engine) -> None:
     """Apply the `graph` tree — the checkpointer's own setup."""
     from langgraph.checkpoint.postgres import PostgresSaver
 
-    raw = engine.url.render_as_string(hide_password=False).replace(
-        "postgresql+psycopg://", "postgresql://"
-    )
     with engine.begin() as c:
         c.execute(text(f"CREATE SCHEMA IF NOT EXISTS {GRAPH}"))
-    with PostgresSaver.from_conn_string(raw + "?options=-csearch_path%3D" + GRAPH) as s:
-        s.setup()
+    with PostgresSaver.from_conn_string(graph_dsn(engine)) as saver:
+        saver.setup()
 
 
 def drop_graph(engine: Engine) -> None:

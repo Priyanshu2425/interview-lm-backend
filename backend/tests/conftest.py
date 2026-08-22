@@ -1,10 +1,11 @@
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "backbone" / "src"))
+sys.path.insert(0, str(REPO / "backend" / "src"))
 
 from interviewer.corpus.adapters.cortex import ingest  # noqa: E402
 from interviewer.corpus.loader import DossierLoader  # noqa: E402
@@ -12,7 +13,21 @@ from interviewer.corpus.loader import DossierLoader  # noqa: E402
 
 @pytest.fixture(scope="session")
 def corpus_path() -> Path:
-    return REPO / "data" / "corpus.json"
+    """Where the shipped Corpus lives, when there is one.
+
+    It is not in this repository — `data/README.md` says why — so the tests that
+    need it say so and skip, rather than failing with a file-not-found that
+    looks like a bug in the code they were about to exercise. Everything that
+    does not need it still runs: the embedder, the chunker, the confidence
+    maths, and the whole notebook pipeline on its own fixtures.
+    """
+    path = Path(os.environ.get("CORPUS_PATH") or REPO / "data" / "corpus.json")
+    if not path.exists():
+        pytest.skip(
+            f"no Corpus at {path} — see data/README.md. Set CORPUS_PATH to point "
+            "at one, or run the tests that do not need it."
+        )
+    return path
 
 
 @pytest.fixture(scope="session")
@@ -26,8 +41,6 @@ def loader(corpus):
 
 
 # -- database fixtures -------------------------------------------------------
-
-import os  # noqa: E402
 
 from interviewer.db.engine import create_core, create_graph, make_engine  # noqa: E402
 

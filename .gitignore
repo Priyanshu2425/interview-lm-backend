@@ -10,9 +10,16 @@ node_modules/
 .env.*
 !.env.example
 
-# Scrape intermediates. `data/corpus.json` and the markdown it references are
-# the Corpus and are tracked; the raw pages they were extracted from are not.
-data/raw/
+# The Corpus is not published. `data/` holds Scaler Cortex course material —
+# 387 markdown files and the manifest over them — which is theirs rather than
+# ours, so this repository carries the code that examines a Corpus and not the
+# Corpus itself. `data/README.md` says what belongs here and how to produce it.
+#
+# `corpus-index.json` is excluded for the same reason at one remove: it is
+# derived from that material and carries every Topic title. Nothing breaks
+# without it — Related Topics simply serves no neighbours (ADR-0018).
+data/*
+!data/README.md
 
 # Build output. The API mounts frontend/dist, and a deployment builds it —
 # committing it would mean a stale surface shipping silently.

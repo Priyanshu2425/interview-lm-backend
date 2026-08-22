@@ -34,6 +34,12 @@ running the same command again. `--dry-run` reports what would be imported and
 writes nothing. `CORPUS_PATH` is where this reads from and is not read by the
 API.
 
+**Restart the API afterwards.** The script writes to Postgres from its own
+process, and a running API holds the composed Corpus in memory — it rebuilds
+that when *it* ingests something, and it has no way to notice somebody else did.
+An import is a deployment step, so a restart is the honest place to put that
+rather than a route that exists to invalidate a cache.
+
 ## Running without it
 
 **A notebook is a complete Corpus.** The Notebook Adapter (ADR-0015) turns an

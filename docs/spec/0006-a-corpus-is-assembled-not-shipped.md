@@ -106,8 +106,24 @@ understanding; fusing them is the refusal, verbatim. So the comparison happens
 
 > On *Attention Mechanisms*, you are above the median of 340 Candidates.
 
-Three rules hold it honest, and two of them are existing rules applied again
-rather than new ones.
+**An exact rank, with ties shared.** Within one Topic, Mastery is a single
+number and ordering it fuses nothing, so `#7 of 340` is available and Principle 4
+is untouched. What is *not* available is separating two Candidates the
+mathematics cannot separate: Mastery is the mean of a Beta posterior and carries
+a spread, so 0.82 and 0.81 may be the same measurement twice. Where posteriors
+overlap, Candidates share a position — `#7= of 340` — and where they are
+genuinely apart, the rank is exact.
+
+This costs nothing to compute: the posterior is already stored per Candidate per
+Topic, and the same spread that decides whether a Topic reads *Untested* decides
+whether two Candidates are distinguishable. It is one rule applied twice.
+
+The alternative was an unconditional rank, and it would have claimed an ordering
+the data does not have — and shuffled a Candidate's position when other people
+took a Session, on a day they did nothing.
+
+Three further rules hold it honest, and two of them are existing rules applied
+again rather than new ones.
 
 **Only tested Candidates are in the cohort.** A Candidate whose Band on that
 Topic is `UNTESTED` is not counted as zero — counting them would be exactly the
@@ -116,11 +132,19 @@ median down in proportion to how many people had not got there yet. The gate is
 `Band.tells()`, already written and already under test.
 
 **A Cohort Floor, beside the Evidence Floor.** Below a threshold of tested
-Candidates, no percentile is shown: it reads *not enough Candidates yet* and no
-number, which is the same shape and the same reasoning as *Untested*. A
-percentile over four people is noise wearing a decimal point. It also settles
-the privacy question — at n=2 a percentile discloses the other person's standing,
-and the floor is what stops it.
+Candidates, no rank is shown: it reads *not enough Candidates yet* and no
+number, which is the same shape and the same reasoning as *Untested*.
+
+With exact ranks the argument is mostly privacy rather than meaning. `#1 of 2`
+discloses the other Candidate's standing completely, and `#3 of 4` nearly so —
+a rank over a handful of people is a statement about them as much as about you.
+
+**Provisionally 10, and it needs revisiting with real data.** Unlike the Evidence
+Floor, this number is not derived from anything: it is a privacy judgement, and
+ten is the smallest cohort in which one person's position does not describe
+everyone else's. It should be reviewed once there are enough Candidates to know
+how thinly they spread across 71 Topics — a floor that is never reached is the
+same as a feature that does not exist.
 
 **Coverage is compared as Coverage.** "Examined on 45 of 71 Topics, more than
 78% of Candidates" is a second, separate reading. It is never combined with the
@@ -202,9 +226,24 @@ atomic per Source, so this needs resume rather than hope.
 scopes to it. Fastest start, but the first Session on each Module pays, and
 Session setup is exactly where a delay is least welcome.
 
-**Recommendation: A**, with the atomic-per-Source guarantee already built doing
-the work — a resumed import re-embeds nothing it has already stored, because
-chunks are content-addressed (ISSUE-0026).
+**Decided: B, with no resume.** The import runs in the background while the
+surface polls for progress — and the polling is not only for the progress bar.
+An idle Render instance spins down, and any inbound request resets that timer,
+so the progress poll keeps the server alive for as long as somebody is watching.
+That is a side effect of a request we need anyway rather than a keep-alive built
+for its own sake, which matters: the free tier allows about one instance running
+full time, so deliberately holding it awake would spend the allowance on nothing.
+
+An import that dies is not resumed. It does not need to be, because ingest is
+already **atomic per Source** (ISSUE-0026): a Module appears only after extract,
+embed, cluster, label, freeze, dossier build and validate all succeed, so a
+killed import leaves no partial Module, no orphaned chunks and no ledger entry.
+There is nothing half-finished to recover — the Candidate uploads again, and the
+second attempt is a first attempt.
+
+The cost of that choice is one re-embedding: a 200-page PDF is on the order of
+100k tokens, about two cents. Resume machinery to save two cents is machinery
+that has to be correct forever to avoid a cost nobody notices.
 
 ## Settled since the first draft
 
@@ -216,17 +255,24 @@ chunks are content-addressed (ISSUE-0026).
 3. **The Scaler material is the first shared Corpus**, decided by the project
    owner with the redistribution question in view.
 
+## Settled since the second draft
+
+4. **Rank is exact, and ties are shared.** Ordering within one Topic fuses
+   nothing, so the number is available; overlapping posteriors share a position,
+   so it never claims a difference the measurement does not support.
+5. **Import runs in the background and is not resumed.** Atomicity already
+   guarantees nothing partial survives, and re-uploading costs about two cents.
+6. **No comparison on a Topic a Candidate has not been examined on.** There is no
+   measurement of them to compare, and showing the cohort's figures there is a
+   study recommendation wearing a statistic — which FUTURE-PIPELINE defers for
+   want of calibration data.
+
 ## Still open
 
-1. **What is the Cohort Floor?** The Evidence Floor has a defined value derived
-   from the posterior; this one needs the same treatment rather than a guessed
-   constant. It is the difference between a percentile that means something and
-   a decimal point over five people.
-2. **Import still takes half a minute**, and now it is an operator's job for the
-   shared Corpus and a Candidate's for their own. The shared case makes option A
-   easier — an operator can wait — but a Candidate uploading a 200-page PDF
-   cannot.
-3. **Does a percentile move a Candidate's behaviour the wrong way?** Being told
-   you are below the median on a Topic is information; being told it before you
-   have been examined on it is a nudge, and this product does not recommend what
-   to study next (FUTURE-PIPELINE defers that for want of calibration data).
+1. **The Cohort Floor is a guess at 10.** It is a privacy judgement rather than
+   a derived number, and it should be revisited once there is data on how
+   thinly Candidates spread across 71 Topics.
+2. **A stalled background import looks identical to a slow one.** Nothing partial
+   is written, so there is no corruption — but a Candidate watching a progress
+   bar that has stopped needs to be told, and how long is too long is unknown
+   until real documents have been through it.

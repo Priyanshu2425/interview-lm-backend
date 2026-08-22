@@ -226,24 +226,40 @@ atomic per Source, so this needs resume rather than hope.
 scopes to it. Fastest start, but the first Session on each Module pays, and
 Session setup is exactly where a delay is least welcome.
 
-**Decided: B, with no resume.** The import runs in the background while the
-surface polls for progress — and the polling is not only for the progress bar.
+**Decided: B, with the upload separated from the ingestion.** The import runs in
+the background while the surface polls for progress — and the polling is not only
+for the progress bar.
 An idle Render instance spins down, and any inbound request resets that timer,
 so the progress poll keeps the server alive for as long as somebody is watching.
 That is a side effect of a request we need anyway rather than a keep-alive built
 for its own sake, which matters: the free tier allows about one instance running
 full time, so deliberately holding it awake would spend the allowance on nothing.
 
-An import that dies is not resumed. It does not need to be, because ingest is
-already **atomic per Source** (ISSUE-0026): a Module appears only after extract,
-embed, cluster, label, freeze, dossier build and validate all succeed, so a
-killed import leaves no partial Module, no orphaned chunks and no ledger entry.
-There is nothing half-finished to recover — the Candidate uploads again, and the
-second attempt is a first attempt.
+**The upload outlives the ingestion.** A Source exists as soon as its bytes do:
+the file lands in the object store, the row is written, and the document appears
+in the Library at once, marked as not yet ingested. Ingestion starts by itself.
 
-The cost of that choice is one re-embedding: a 200-page PDF is on the order of
-100k tokens, about two cents. Resume machinery to save two cents is machinery
-that has to be correct forever to avoid a cost nobody notices.
+This is not a weakening of ISSUE-0026's atomicity. It is the distinction
+ISSUE-0023 already drew and this design finally uses — a stub is "a Module that
+exists, is visible, and states why it carries nothing", and
+`notebook_source.state` is already `ready | stub`. An un-ingested document is
+another state on that column rather than a new concept. A Module still appears
+only when every stage has succeeded, so there is still no partial Module, no
+orphan Topic, no chunk belonging to nothing and no double charge.
+
+The states are **uploaded → ingesting → ready**, with **failed** beside them.
+
+**A killed worker needs no timeout to detect.** The worker runs in-process, so
+none survives a restart: any row still marked `ingesting` when the process starts
+is stale by definition and is reset at boot. A worker that stalls inside a live
+process is the harder case, and it reports elapsed time and last progress rather
+than being guessed at.
+
+**Retry re-ingests; it does not re-upload.** The bytes are already stored, so a
+failed document offers a Retry that costs the embedding again — a 200-page PDF is
+about two cents — and nothing else. Starting over rather than resuming is
+deliberate: resuming would mean chunks belonging to no Module, a class of partial
+state worth considerably more than the two cents it saves.
 
 ## Settled since the first draft
 

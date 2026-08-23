@@ -47,6 +47,15 @@ services:
         sync: false
       # No region. R2 signs everything `auto`, so it is a constant in the code
       # rather than a variable with one legal setting.
+      # Wraps every BYOK key's data key. Generated once, here, and then left
+      # alone: it is not a rotating secret, it is the only thing that can read
+      # what Candidates attached. Losing it does not break the deployment — it
+      # makes every stored key permanently undecryptable, with the rows intact
+      # and nothing able to read them. `rotate_kek` re-wraps without touching
+      # ciphertext, which is how this is changed on purpose rather than by
+      # accident.
+      - key: BYOK_KEK
+        generateValue: true
       # Identity is Gatehouse's (ADR-0026). The issuer is configuration and not
       # a constant because a development Gatehouse issues under its own name;
       # the audience is our tenant slug, which is permanent and is what stops a

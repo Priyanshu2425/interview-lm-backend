@@ -229,7 +229,9 @@ def test_a_stalled_worker_reports_elapsed_time_and_last_progress(
         "nb-stall", source_id="src-1", title="Notes", text=PROSE * 40
     )
     svc.store.begin_ingest(uploaded.source_id)
-    source = client.get("/v1/notebooks/nb-stall").json()["sources"][0]
+    # The Library is cand-bg's, so it is cand-bg who can read it.
+    owner = signed_in_client("cand-bg")
+    source = owner.get("/v1/notebooks/nb-stall").json()["sources"][0]
     assert source["state"] == "ingesting"
     assert source["elapsed_seconds"] is not None
     assert source["since_progress_seconds"] is not None

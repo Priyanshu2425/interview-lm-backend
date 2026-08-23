@@ -14,6 +14,12 @@ import pytest
 #
 # Cleared here, before anything imports the engine module or binds a DSN.
 # `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the deliberate way past it.
+# Keys wrapped in a test are read back in the same process and never again,
+# so the suite opts in to a per-process key-encryption key rather than carrying
+# a secret. A deployment that did this would lose every BYOK key at restart,
+# which is why it has to be asked for.
+os.environ.setdefault("BYOK_KEK_EPHEMERAL", "1")
+
 if os.environ.get("INTERVIEW_LM_TEST_ALLOW_REMOTE_DB") != "1":
     for _var in ("DATABASE_URL", "GRAPH_DATABASE_URL", "INTERVIEW_LM_DATABASE_URL"):
         os.environ.pop(_var, None)

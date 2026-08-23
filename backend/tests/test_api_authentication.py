@@ -129,3 +129,82 @@ def test_no_route_takes_a_candidate_id_from_the_caller():
         for method, op in ops.items():
             names = {p["name"] for p in op.get("parameters", [])}
             assert "candidate_id" not in names, f"{method.upper()} {path}"
+
+
+# --- a resource id is not a credential --------------------------------------
+#
+# Closing `candidate_id` left the other half open: routes that take a session
+# or notebook id and nothing else. Those ids are opaque but they are not
+# secrets — each comes back in the response that created it and travels
+# wherever that response goes.
+
+
+def _a_session(client, monkeypatch=None):
+    modules = client.get("/v1/corpus/modules", params={"track": "aiml"}).json()
+    client.post("/v1/credits/grants", headers=OPERATOR, json={
+        "candidate_id": "cand_owner", "credits": 90_000, "payment_ref": "p1"})
+    r = client.post("/v1/sessions", json={
+        "module_ids": [modules[0]["module_id"]], "duration_seconds": 1800})
+    assert r.status_code == 201, r.text
+    return r.json()["session_id"]
+
+
+@pytest.mark.parametrize("method,suffix", [
+    ("get", ""),
+    ("get", "/spend"),
+    ("get", "/summary"),
+    ("post", "/end"),
+    ("post", "/resume"),
+    ("post", "/turns"),
+])
+def test_a_session_is_not_reachable_by_another_candidate(
+    served_corpus, method, suffix
+):
+    owner = signed_in_client("cand_owner")
+    session_id = _a_session(owner)
+
+    stranger = signed_in_client("cand_stranger")
+    call = getattr(stranger, method)
+    path = f"/v1/sessions/{session_id}{suffix}"
+    r = call(path, json={"answer": "a"}) if method == "post" else call(path)
+
+    # 404, not 403: "not yours" and "no such Session" are one answer, or the
+    # difference between them enumerates real ids.
+    assert r.status_code == 404, f"{method.upper()} {path} answered {r.status_code}"
+
+    # And the owner is unaffected by the attempt.
+    assert owner.get(f"/v1/sessions/{session_id}").status_code == 200
+
+
+def test_a_notebook_is_not_reachable_by_another_candidate(clean_db, real_notes):
+    owner = signed_in_client("cand_owner")
+    notebook_id = owner.post("/v1/notebooks", json={"title": "Mine"}).json()["notebook_id"]
+    owner.post(f"/v1/notebooks/{notebook_id}/sources",
+               json={"title": "Notes", "text": real_notes})
+
+    stranger = signed_in_client("cand_stranger")
+    assert stranger.get(f"/v1/notebooks/{notebook_id}").status_code == 404
+    assert stranger.post(f"/v1/notebooks/{notebook_id}/sources",
+                         json={"title": "Theirs", "text": "x"}).status_code == 404
+    assert stranger.delete(f"/v1/notebooks/{notebook_id}").status_code == 404
+
+    # Still there, and still the owner's.
+    assert owner.get(f"/v1/notebooks/{notebook_id}").status_code == 200
+
+
+def test_a_shared_corpus_stays_readable_by_everyone(clean_db):
+    """Reachable is not the same as writable: shared is what shared means.
+
+    A shared Corpus is the operator's to make — there is no field on the
+    Candidate's route that would create one (ISSUE-0032).
+    """
+    owner = signed_in_client("cand_owner")
+    created = owner.post("/v1/operator/corpora", json={"title": "Shared"},
+                         headers=OPERATOR)
+    assert created.status_code == 201, created.text
+    notebook_id = created.json()["notebook_id"]
+
+    stranger = signed_in_client("cand_stranger")
+    assert stranger.get(f"/v1/notebooks/{notebook_id}").status_code == 200
+    # and cannot be written to by anybody — the service refuses it, not the route
+    assert stranger.delete(f"/v1/notebooks/{notebook_id}").status_code in (403, 409)

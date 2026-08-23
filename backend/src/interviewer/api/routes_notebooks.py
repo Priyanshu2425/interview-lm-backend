@@ -128,21 +128,38 @@ def list_notebooks(candidate_id: str = Depends(current_candidate)) -> list[Noteb
     return [_out(r) for r in svc.store.visible_to(candidate_id)]
 
 
+def _reachable(notebook_id: str, candidate_id: str):
+    """The Library, if this Candidate may see it. A 404 either way.
+
+    Shared is reachable by everyone, which is what shared means — the service
+    still refuses to let anyone write to one (`SharedCorpusIsNotYours`). A
+    personal Library is reachable by its owner and by nobody else, and "not
+    yours" and "no such id" are the same answer: a notebook id comes back from
+    `POST /notebooks` and travels, so the difference between the two answers is
+    a way to learn which ids are real.
+    """
+    record = get_notebook_service().store.get(notebook_id)
+    if record is None:
+        raise HTTPException(404, "unknown notebook_id")
+    if record.visibility != "shared" and record.candidate_id != candidate_id:
+        raise HTTPException(404, "unknown notebook_id")
+    return record
+
+
 @router.get("/notebooks/{notebook_id}", response_model=NotebookOut)
-def read_notebook(notebook_id: str) -> NotebookOut:
+def read_notebook(notebook_id: str,
+                  candidate_id: str = Depends(current_candidate)) -> NotebookOut:
     """One Library, with each document's state and progress.
 
     This is what the surface polls while an ingest runs. It is a plain read of
     rows the worker is updating, so it costs nothing and cannot itself stall.
     """
-    record = get_notebook_service().store.get(notebook_id)
-    if record is None:
-        raise HTTPException(404, "unknown notebook_id")
-    return _out(record)
+    return _out(_reachable(notebook_id, candidate_id))
 
 
 @router.post("/notebooks/{notebook_id}/sources", status_code=201)
-def add_source(notebook_id: str, body: SourceIn) -> dict:
+def add_source(notebook_id: str, body: SourceIn,
+               candidate_id: str = Depends(current_candidate)) -> dict:
     """Keep the document and list it. Ingestion starts by itself.
 
     Returns as soon as the bytes are durable and the row is written, because a
@@ -150,6 +167,7 @@ def add_source(notebook_id: str, body: SourceIn) -> dict:
     an upload that outlives its ingestion is what makes a failure survivable
     (ISSUE-0035).
     """
+    _reachable(notebook_id, candidate_id)
     svc = get_notebook_service()
     route = _route_for(notebook_id)
     try:
@@ -243,6 +261,7 @@ async def add_file(
     notebook_id: str,
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
+    candidate_id: str = Depends(current_candidate),
 ) -> dict:
     """A PDF as it actually arrives: as a file.
 
@@ -250,6 +269,7 @@ async def add_file(
     stub Module rather than an error. It is listed, it states its reason, and it
     never reaches the embedder, so a notebook of scans costs nothing.
     """
+    _reachable(notebook_id, candidate_id)
     svc = get_notebook_service()
     data = await file.read()
     media_type = file.content_type or "application/octet-stream"
@@ -274,7 +294,8 @@ async def add_file(
 
 
 @router.post("/notebooks/{notebook_id}/sources/{source_id}/retry", status_code=202)
-def retry_source(notebook_id: str, source_id: str) -> dict:
+def retry_source(notebook_id: str, source_id: str,
+                 candidate_id: str = Depends(current_candidate)) -> dict:
     """Re-ingest a failed document. It is never re-uploaded.
 
     The bytes are already stored, so a retry costs the embedding again — about
@@ -285,6 +306,7 @@ def retry_source(notebook_id: str, source_id: str) -> dict:
     A Source that is already `ready` cannot be claimed, which is what stops a
     retry billing twice for one document.
     """
+    _reachable(notebook_id, candidate_id)
     svc = get_notebook_service()
     record = svc.store.get(notebook_id)
     if record is None:
@@ -306,12 +328,11 @@ def retry_source(notebook_id: str, source_id: str) -> dict:
 
 
 @router.delete("/notebooks/{notebook_id}/sources/{source_id}", status_code=204)
-def delete_source(notebook_id: str, source_id: str) -> None:
+def delete_source(notebook_id: str, source_id: str,
+                  candidate_id: str = Depends(current_candidate)) -> None:
     """One Source out. Its Topics retire; every other Module is untouched."""
     svc = get_notebook_service()
-    record = svc.store.get(notebook_id)
-    if record is None:
-        raise HTTPException(404, "unknown notebook_id")
+    record = _reachable(notebook_id, candidate_id)
     if source_id not in {s.source_id for s in record.sources}:
         raise HTTPException(404, "unknown source_id")
     try:
@@ -322,11 +343,11 @@ def delete_source(notebook_id: str, source_id: str) -> None:
 
 
 @router.delete("/notebooks/{notebook_id}", status_code=204)
-def delete_notebook(notebook_id: str) -> None:
+def delete_notebook(notebook_id: str,
+                    candidate_id: str = Depends(current_candidate)) -> None:
     """Content goes. Evidence stays, and its Topics retire (ISSUE-0027)."""
     svc = get_notebook_service()
-    if svc.store.get(notebook_id) is None:
-        raise HTTPException(404, "unknown notebook_id")
+    _reachable(notebook_id, candidate_id)
     try:
         svc.delete(notebook_id)
     except SharedCorpusIsNotYours as refused:

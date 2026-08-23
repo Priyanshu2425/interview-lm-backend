@@ -74,11 +74,27 @@ def start(body: StartIn, candidate_id: str = Depends(current_candidate)) -> dict
             "payment_route": route, **first.payload}
 
 
+def _owned(session_id: str, candidate_id: str) -> dict:
+    """The Session, if it is this Candidate's. A 404 either way.
+
+    A session id is opaque but it is not a secret: it comes back from
+    `POST /sessions` and travels wherever that response goes. So the check is
+    ownership, not existence — and the two answers are one answer, because the
+    difference between "no such Session" and "not yours" is a way to learn
+    which ids are real.
+    """
+    row = wiring().sessions.get(session_id)
+    if not row or row["candidate_id"] != candidate_id:
+        raise HTTPException(404, "unknown session")
+    return row
+
+
 @router.post("/sessions/{session_id}/turns", response_model=TurnOut)
 def turn(
     session_id: str,
     body: TurnIn,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    candidate_id: str = Depends(current_candidate),
 ) -> TurnOut:
     """Long-running: returns when the graph next parks.
 
@@ -86,8 +102,7 @@ def turn(
     browser refresh all converge on one Answer Turn.
     """
     w = wiring()
-    if not w.sessions.get(session_id):
-        raise HTTPException(404, "unknown session")
+    _owned(session_id, candidate_id)
 
     def run():
         r = w.runner.submit(session_id, body.answer)
@@ -97,11 +112,10 @@ def turn(
 
 
 @router.get("/sessions/{session_id}")
-def get_session(session_id: str) -> dict:
+def get_session(session_id: str,
+                candidate_id: str = Depends(current_candidate)) -> dict:
     w = wiring()
-    row = w.sessions.get(session_id)
-    if not row:
-        raise HTTPException(404, "unknown session")
+    row = _owned(session_id, candidate_id)
     pending = w.runner.pending(session_id)
     return {
         "session_id": session_id,
@@ -126,8 +140,10 @@ def get_session(session_id: str) -> dict:
 
 
 @router.post("/sessions/{session_id}/resume")
-def resume(session_id: str) -> dict:
+def resume(session_id: str,
+           candidate_id: str = Depends(current_candidate)) -> dict:
     w = wiring()
+    _owned(session_id, candidate_id)
     out = w.runner.resume_after_interruption(session_id)
     if out is None:
         raise HTTPException(409, "nothing to resume")
@@ -135,12 +151,10 @@ def resume(session_id: str) -> dict:
 
 
 @router.post("/sessions/{session_id}/end")
-def end(session_id: str) -> dict:
+def end(session_id: str, candidate_id: str = Depends(current_candidate)) -> dict:
     """Soft: the current Topic Visit completes first."""
     w = wiring()
-    row = w.sessions.get(session_id)
-    if not row:
-        raise HTTPException(404, "unknown session")
+    row = _owned(session_id, candidate_id)
     open_visit = w.deps.visits.unresolved(session_id)
     if open_visit:
         return {
@@ -153,13 +167,12 @@ def end(session_id: str) -> dict:
 
 
 @router.get("/sessions/{session_id}/spend")
-def spend(session_id: str) -> dict:
+def spend(session_id: str,
+          candidate_id: str = Depends(current_candidate)) -> dict:
     """A running total, so a Candidate can end early if it is costing more than
     they expected."""
     w = wiring()
-    row = w.sessions.get(session_id)
-    if not row:
-        raise HTTPException(404, "unknown session")
+    row = _owned(session_id, candidate_id)
     visits = w.deps.visits.for_session(session_id)
     byok = row["payment_route"] != "credits"
     return {
@@ -182,11 +195,10 @@ def spend(session_id: str) -> dict:
 
 
 @router.get("/sessions/{session_id}/summary")
-def summary(session_id: str) -> dict:
+def summary(session_id: str,
+            candidate_id: str = Depends(current_candidate)) -> dict:
     w = wiring()
-    row = w.sessions.get(session_id)
-    if not row:
-        raise HTTPException(404, "unknown session")
+    row = _owned(session_id, candidate_id)
     from dataclasses import asdict
 
     return asdict(w.summary.for_session(row))

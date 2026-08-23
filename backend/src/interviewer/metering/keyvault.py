@@ -38,15 +38,76 @@ class KeyManagementService(Protocol):
     def unwrap(self, wrapped: bytes) -> bytes: ...
 
 
-class LocalKms:
-    """A stand-in for tests and local development.
+def _fernet_key(material: bytes) -> bytes:
+    """A Fernet key from whatever the platform generated.
 
-    Deliberately not a production path: it holds the key-encryption key in
-    process, which is exactly the single-secret failure ADR-0013 rejects.
+    Fernet wants url-safe base64 of exactly 32 bytes. A secret manager asked
+    for "a random value" gives you a random value — Render's `generateValue`,
+    a password manager, a line somebody typed — and none of those are that
+    shape. Rejecting them would mean the operator has to know to run
+    `Fernet.generate_key()`, and the failure for not knowing is a boot loop.
+
+    So a key already of that shape is used as it is, and anything else is
+    hashed to the right one. The mapping is fixed, so the same secret always
+    produces the same key and a restart reads back what the last process wrote.
+    """
+    import base64
+    import hashlib
+
+    try:
+        if len(base64.urlsafe_b64decode(material)) == 32:
+            return material
+    except Exception:
+        pass
+    return base64.urlsafe_b64encode(hashlib.sha256(material).digest())
+
+
+class EphemeralKek(RuntimeError):
+    """No key-encryption key is configured, and one was about to be invented."""
+
+
+class LocalKms:
+    """The key-encryption key, held in this process.
+
+    Still not what ADR-0013 asks for — a managed KMS keeps the key-encryption
+    key somewhere this process cannot read it, and this is a single secret in an
+    environment variable. It is the difference between one failure and two,
+    though, and the second one is the one that bites:
+
+    A generated key is **per process**. Every BYOK key attached before a restart
+    stays in the table and becomes permanently unreadable after it, because the
+    key that wrapped its data key existed only in the memory of a process that
+    has exited. The Candidate's row is there, the ciphertext is there, and
+    nothing can decrypt it. On a host that restarts on idle — a free tier — that
+    is every key, every day, and it fails at the moment somebody starts a
+    Session rather than at the moment the key was attached.
+
+    So a key is read from the environment, and generating one is something a
+    deployment has to ask for. `rotate_kek` re-wraps without touching
+    ciphertext, which is what makes changing this routine.
     """
 
-    def __init__(self, kek: bytes | None = None) -> None:
-        self._f = Fernet(kek or Fernet.generate_key())
+    ENV = "BYOK_KEK"
+
+    def __init__(self, kek: bytes | None = None, *, env: dict | None = None) -> None:
+        import os
+
+        env = os.environ if env is None else env
+        material = kek or (env.get(self.ENV) or "").strip().encode() or None
+        if material is None:
+            if (env.get("BYOK_KEK_EPHEMERAL") or "") == "1":
+                # Tests and a laptop, where nothing outlives the process anyway.
+                material = Fernet.generate_key()
+            else:
+                raise EphemeralKek(
+                    f"{self.ENV} is not set. A generated key lives in this "
+                    "process only, so every BYOK key attached before the next "
+                    "restart becomes permanently undecryptable — the row "
+                    "survives and nothing can read it. Set it to a Fernet key "
+                    "(`Fernet.generate_key()`), or set BYOK_KEK_EPHEMERAL=1 to "
+                    "accept losing them at restart."
+                )
+        self._f = Fernet(_fernet_key(material))
 
     def wrap(self, dek: bytes) -> bytes:
         return self._f.encrypt(dek)

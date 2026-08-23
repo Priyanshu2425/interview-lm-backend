@@ -171,3 +171,47 @@ def test_a_key_is_revocable_only_by_the_candidate_holding_it(vault, clean_db):
     assert vault.active(CAND) is not None
     assert vault.revoke(CAND, mine.key_id) is True
     assert vault.active(CAND) is None
+
+
+# --- the key-encryption key outlives the process ----------------------------
+
+def test_a_key_attached_before_a_restart_is_readable_after_one():
+    """The defect this closes: a generated key lived in one process, so every
+    row it wrapped stayed in the table and became permanently unreadable."""
+    from interviewer.metering.keyvault import LocalKms
+
+    secret = {"BYOK_KEK": "a3f9c2b18e7d4a6f9c0b5e2d8a1f7c34"}
+    before = LocalKms(env=secret)
+    wrapped = before.wrap(b"a data key")
+
+    after = LocalKms(env=secret)          # a new process, same secret
+    assert after.unwrap(wrapped) == b"a data key"
+
+
+def test_a_different_secret_cannot_read_it():
+    from interviewer.metering.keyvault import LocalKms
+
+    wrapped = LocalKms(env={"BYOK_KEK": "one"}).wrap(b"a data key")
+    with pytest.raises(Exception):
+        LocalKms(env={"BYOK_KEK": "another"}).unwrap(wrapped)
+
+
+def test_generating_a_key_is_something_a_deployment_has_to_ask_for():
+    """Silently inventing one is what made the keys unreadable."""
+    from interviewer.metering.keyvault import EphemeralKek, LocalKms
+
+    with pytest.raises(EphemeralKek, match="BYOK_KEK"):
+        LocalKms(env={})
+    assert LocalKms(env={"BYOK_KEK_EPHEMERAL": "1"}) is not None
+
+
+def test_whatever_the_platform_generated_is_a_usable_key():
+    """Fernet wants base64 of 32 bytes; a secret manager gives you a random
+    value. Refusing it would make not knowing that a boot loop."""
+    from cryptography.fernet import Fernet
+
+    from interviewer.metering.keyvault import LocalKms
+
+    for secret in (Fernet.generate_key().decode(), "x" * 40, "correct horse battery staple"):
+        a, b = LocalKms(env={"BYOK_KEK": secret}), LocalKms(env={"BYOK_KEK": secret})
+        assert b.unwrap(a.wrap(b"k")) == b"k"

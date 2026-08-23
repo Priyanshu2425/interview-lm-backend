@@ -69,29 +69,50 @@ a provider subject to a `candidate_id` and holds no credential and no address.
 A second identity store drifts, and the drift arrives as a Candidate who can
 sign in but is nobody.
 
-## The consequence nobody would predict: the surface loses `*.pages.dev`
+## Where the surface is served decides how the session is carried
 
 Gatehouse's refresh token is `httpOnly`, `Secure`, `SameSite=Lax`, scoped to
-`/auth`. `SameSite=Lax` means **the auth host must be same-site with the origin
-it serves**. `auth.buildspacelabs.com` is same-site with `*.buildspacelabs.com`
-and with nothing else.
+`/auth`. `SameSite=Lax` means the cookie is sent only when the surface's origin
+and the auth host are the **same site**. That is a fact about cookies, and it
+decides the mechanism rather than the permission: any domain may consume
+Gatehouse.
 
-So a surface deployed to `interview-lm.pages.dev` cannot sign anybody in.
-`pages.dev` is a public suffix, so that host is a genuinely different site from
-the auth host — and no auth host on `pages.dev` fixes it, because two
-`*.pages.dev` names are cross-site from each other too.
+| Surface served at | Session |
+|---|---|
+| `interview-lm.buildspacelabs.com` | the cookie, and nothing to configure |
+| `interview-lm.pages.dev` | not the cookie — something same-site with the surface must mediate |
 
-The failure is the expensive kind: sign-in appears to work, returns a token, and
-the member is signed out by their next reload — on Safari and not on Chrome,
-with nothing logged anywhere.
+`pages.dev` is on the Public Suffix List, so `interview-lm.pages.dev` and any
+`*.pages.dev` auth host are different *sites* to a browser. There is nowhere to
+put an auth host that is same-site with it.
 
-**The surface is therefore served from a custom domain under
-`buildspacelabs.com`.** Cloudflare Pages serves it; the domain is what matters,
-not the host. This is a constraint on ADR-0020's cross-origin deployment, not a
-reversal of it: the API stays on its own origin and is still reached
-cross-origin with `ALLOWED_ORIGINS` naming the surface. The API is a resource
-server that verifies a bearer token, so no cookie reaches it and the same-site
-rule does not constrain where it lives.
+The one route open to a public-suffix host is a backend of its own: it calls
+Gatehouse server-to-server, reads `gh_refresh` off the `Set-Cookie` header,
+keeps it, and sets its own first-party session cookie. The browser never talks
+to Gatehouse, and the refresh token never reaches JavaScript — the strongest
+option available.
+
+**This API cannot be that backend.** `onrender.com` is a public suffix too, so
+the API is cross-site with a `pages.dev` surface exactly as Gatehouse is: a
+session cookie it set would not be sent either. Mediating would mean Pages
+Functions, same-origin with the surface — a second backend, in a second
+language, for a session this project can have for free.
+
+**So the surface is served from `interview-lm.buildspacelabs.com`.** One CNAME,
+no code. Cloudflare Pages still serves it; the domain is what matters, not the
+host.
+
+This constrains ADR-0020 rather than reversing it. The API stays on its own
+origin and is still reached cross-origin with `ALLOWED_ORIGINS` naming the
+surface: it is a resource server that verifies a bearer token, no cookie reaches
+it, and the same-site rule does not bind it.
+
+The failure this avoids is the expensive kind — sign-in appears to work, returns
+a token, and the member is signed out by their next reload, on Safari and not on
+Chrome, with nothing logged. And it is not caught upstream: `preflight
+--tenants` compares the last two labels, so it reads `a.pages.dev` and
+`auth.pages.dev` as one site and approves them. It fails open on exactly this
+case.
 
 ## Consequence
 
@@ -114,6 +135,14 @@ member, and Gatehouse holds no operators.
 | auth host | `auth.buildspacelabs.com` |
 | front end | `https://interview-lm.buildspacelabs.com` |
 | origins | `https://interview-lm.buildspacelabs.com`, and `http://localhost:5173` in development |
+
+The tenant that matters is the one in **production**: the application consumes
+`https://auth.buildspacelabs.com`, so that is the Gatehouse its row has to
+exist in. A tenant created only on a laptop signs nobody in — the deployed
+service has never heard of the slug and refuses every request naming it with
+`400 Unknown application`. The local tenant is a separate, optional thing for
+developing against a Gatehouse on a laptop, carrying the same slug so there is
+one code path rather than two.
 
 The slug is permanent: it is the `aud` of every token ever minted for us, and a
 retired tenant keeps its slug forever so nothing can reuse it. The other four

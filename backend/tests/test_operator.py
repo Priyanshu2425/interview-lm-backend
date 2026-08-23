@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 from interviewer.api import idempotency
@@ -103,14 +104,14 @@ def test_byok_and_mcp_sessions_render_null_not_zero(clean_db, svc, deps):
 def test_the_console_states_that_no_normaliser_is_applied(clean_db):
     wiring.cache_clear()
     idempotency.reset()
-    c = TestClient(create_app())
+    c = signed_in_client()
     body = c.get("/v1/operator/providers", headers=HDR).json()
     assert body["normaliser"] is None
 
 
 def test_operator_access_is_authenticated_separately(clean_db):
     wiring.cache_clear()
-    c = TestClient(create_app())
+    c = signed_in_client()
     assert c.get("/v1/operator/pool").status_code == 401
     assert c.get("/v1/operator/pool", headers={"x-operator-token": "wrong"}).status_code == 401
     assert c.get("/v1/operator/pool", headers=HDR).status_code == 200
@@ -118,6 +119,6 @@ def test_operator_access_is_authenticated_separately(clean_db):
 
 def test_a_candidate_token_does_not_reach_the_operator_console(clean_db):
     wiring.cache_clear()
-    c = TestClient(create_app())
+    c = signed_in_client()
     assert c.get("/v1/operator/sessions",
                  headers={"x-operator-token": "candidate"}).status_code == 401

@@ -431,3 +431,27 @@ def served_corpus(content_db, shipped_template):
     deps.refresh_corpus()
     yield SHIPPED
     deps.refresh_corpus()
+
+
+# --- signed in -------------------------------------------------------------
+#
+# Every Candidate-scoped endpoint resolves the Candidate from a Gatehouse token
+# (ADR-0026), so a client that presents none is refused before the route runs.
+# These tests are not about authentication — `test_token_verification.py` and
+# `test_api_authentication.py` are — so they sign in by overriding the one
+# dependency, and say so at the call site rather than carrying a fake token.
+#
+# The default subject is the id the fixtures already use.
+SIGNED_IN_CANDIDATE = "cand_test"
+
+
+def signed_in_client(candidate_id: str = SIGNED_IN_CANDIDATE):
+    """A TestClient whose requests arrive already authenticated."""
+    from fastapi.testclient import TestClient
+
+    from interviewer.api.app import create_app
+    from interviewer.api.auth import current_candidate
+
+    application = create_app()
+    application.dependency_overrides[current_candidate] = lambda: candidate_id
+    return TestClient(application)

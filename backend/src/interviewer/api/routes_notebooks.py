@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from interviewer.notebooks import (
@@ -20,13 +20,15 @@ from interviewer.notebooks.metering import InsufficientBalance
 from . import ingest_worker
 from .deps import get_notebook_service, refresh_corpus
 from .errors import Refusal
+from .auth import current_candidate
 from .wiring import wiring
 
 router = APIRouter(tags=["notebooks"])
 
 
 class NotebookIn(BaseModel):
-    candidate_id: str
+    """No candidate_id. A Corpus belongs to whoever uploaded it (ISSUE-0032)."""
+
     title: str = Field(min_length=1)
 
 
@@ -108,14 +110,15 @@ def _out(record) -> NotebookOut:
 
 
 @router.post("/notebooks", status_code=201, response_model=NotebookOut)
-def create_notebook(body: NotebookIn) -> NotebookOut:
+def create_notebook(body: NotebookIn,
+                    candidate_id: str = Depends(current_candidate)) -> NotebookOut:
     svc = get_notebook_service()
-    record = svc.create(f"nb-{uuid.uuid4().hex[:12]}", body.candidate_id, body.title)
+    record = svc.create(f"nb-{uuid.uuid4().hex[:12]}", candidate_id, body.title)
     return _out(record)
 
 
 @router.get("/notebooks", response_model=list[NotebookOut])
-def list_notebooks(candidate_id: str) -> list[NotebookOut]:
+def list_notebooks(candidate_id: str = Depends(current_candidate)) -> list[NotebookOut]:
     """This Candidate's Library: their own Corpora, plus every shared one.
 
     Shared appears here because it is examinable, not because it is theirs —

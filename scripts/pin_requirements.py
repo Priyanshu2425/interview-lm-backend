@@ -29,6 +29,14 @@ RUNTIME = [
     "langchain-core",
     "pydantic", "pydantic-core", "httpx", "cryptography", "tenacity",
     "numpy", "scipy", "pypdf", "python-multipart",
+    # The object store is on the upload path since ISSUE-0033, so this is
+    # runtime rather than part of the `embeddings` extra it predates. It was
+    # once hand-written into requirements.txt and absent from this list, which
+    # meant the documented regeneration command silently removed it — and the
+    # symptom is an upload refused in production, nowhere near the change.
+    "boto3", "botocore",
+    # Verifying a Gatehouse token (ADR-0026).
+    "pyjwt",
 ]
 
 HEADER = """\

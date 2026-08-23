@@ -16,6 +16,7 @@ the other is a bill.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 
 from interviewer.embeddings.errors import EmbeddingUnavailable
 
@@ -354,7 +355,7 @@ def test_the_refusal_reaches_the_surface_with_a_code(content_db, clean_db, monke
     deps.get_object_store.cache_clear()
     monkeypatch.setattr(deps, "get_object_store", lambda: Unreachable())
     try:  # noqa: SIM105 — the caches are the thing being restored
-        client = TestClient(create_app())
+        client = signed_in_client()
         notebook_id = client.post(
             "/v1/notebooks", json={"candidate_id": "cand-503", "title": "Notes"}
         ).json()["notebook_id"]

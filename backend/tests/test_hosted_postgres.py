@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import sqlalchemy as sa
 
+from conftest import signed_in_client
 from interviewer.db.engine import (
     GRAPH, connect_args_for, graph_dsn, is_pooled, make_engine,
 )
@@ -120,7 +121,7 @@ def test_no_cors_headers_when_nothing_is_configured(monkeypatch):
 
     monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
     assert allowed_origins() == []
-    client = TestClient(create_app())
+    client = signed_in_client()
     response = client.get("/v1/health", headers={"Origin": "https://elsewhere.test"})
     assert response.headers.get("access-control-allow-origin") is None
 
@@ -131,7 +132,7 @@ def test_a_named_origin_is_allowed_and_may_send_credentials(monkeypatch):
     from interviewer.api.app import create_app
 
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
-    client = TestClient(create_app())
+    client = signed_in_client()
     response = client.get(
         "/v1/health", headers={"Origin": "https://cortex.pages.dev"}
     )
@@ -145,7 +146,7 @@ def test_an_origin_nobody_named_is_not_allowed(monkeypatch):
     from interviewer.api.app import create_app
 
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
-    client = TestClient(create_app())
+    client = signed_in_client()
     response = client.get("/v1/health", headers={"Origin": "https://evil.test"})
     assert response.headers.get("access-control-allow-origin") is None
 

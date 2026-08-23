@@ -112,7 +112,7 @@ def test_rotating_the_key_encryption_key_leaves_ciphertext_untouched(vault, clea
 
 def test_revoking_deletes_ciphertext_and_keeps_the_fingerprint(vault, clean_db):
     attached = vault.attach(CAND, KEY)
-    vault.revoke(attached.key_id)
+    vault.revoke(CAND, attached.key_id)
 
     with clean_db.connect() as c:
         row = c.execute(sa.select(S.byok_key)).first()._mapping
@@ -130,7 +130,7 @@ def test_removing_a_key_falls_back_to_credits_without_touching_the_record(
     ledger = CreditLedger(clean_db)
     ledger.grant(CAND, 5000, "p")
     a = vault.attach(CAND, KEY)
-    vault.revoke(a.key_id)
+    vault.revoke(CAND, a.key_id)
     assert ledger.balance(CAND) == 5000
 
 
@@ -161,3 +161,13 @@ def test_grading_never_moves_to_the_client():
     assert "class Judge" in text
     # the Judge takes a ModelClient it is given; it has no client-side path
     assert "requests" not in text and "httpx" not in text
+
+
+def test_a_key_is_revocable_only_by_the_candidate_holding_it(vault, clean_db):
+    """A key id is opaque and is not a secret: it comes back in the response
+    that attached it and travels wherever that response goes."""
+    mine = vault.attach(CAND, KEY)
+    assert vault.revoke("cand_somebody_else", mine.key_id) is False
+    assert vault.active(CAND) is not None
+    assert vault.revoke(CAND, mine.key_id) is True
+    assert vault.active(CAND) is None

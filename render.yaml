@@ -47,6 +47,14 @@ services:
         sync: false
       # No region. R2 signs everything `auto`, so it is a constant in the code
       # rather than a variable with one legal setting.
+      # Identity is Gatehouse's (ADR-0026). The issuer is configuration and not
+      # a constant because a development Gatehouse issues under its own name;
+      # the audience is our tenant slug, which is permanent and is what stops a
+      # token minted for another product being accepted here.
+      - key: GATEHOUSE_ISSUER
+        value: https://auth.buildspacelabs.com
+      - key: GATEHOUSE_AUDIENCE
+        value: interview-lm
       # Ingest embeds, and Related Topics compares the centroids that ingest
       # wrote (ADR-0021) — so this is what decides whether neighbours mean
       # anything. `hashing` is a lexical stand-in: it costs nothing, needs no

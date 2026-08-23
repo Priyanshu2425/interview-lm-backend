@@ -1,6 +1,11 @@
 """The HTTP contract, including the three rules it must structurally refuse."""
 
 import pytest
+from conftest import signed_in_client
+
+#: A grant is made *about* somebody by whatever cleared their payment,
+#: never *by* them, so the endpoint is the operator's (ADR-0026).
+OPERATOR = {"x-operator-token": "dev-operator-token"}
 from fastapi.testclient import TestClient
 
 from interviewer.api import idempotency
@@ -18,7 +23,7 @@ def client(clean_db, served_corpus):
     """
     wiring.cache_clear()
     idempotency.reset()
-    return TestClient(create_app())
+    return signed_in_client()
 
 
 @pytest.fixture()
@@ -28,10 +33,10 @@ def module_ids(client):
 
 
 def _start(client, module_ids, cand="c_api", seconds=1800, **kw):
-    client.post("/v1/credits/grants",
+    client.post("/v1/credits/grants", headers=OPERATOR,
                 json={"candidate_id": cand, "credits": 90_000,
                       "payment_ref": f"pay_{cand}"})
-    body = {"candidate_id": cand, "module_ids": module_ids[:1],
+    body = {"module_ids": module_ids[:1],
             "duration_seconds": seconds, **kw}
     r = client.post("/v1/sessions", json=body)
     assert r.status_code == 201, r.text
@@ -119,7 +124,7 @@ def test_no_response_fuses_coverage_and_mastery(client, module_ids):
     client.post(f"/v1/sessions/{b['session_id']}/turns", json={"answer": "a"})
     for path in (
         f"/v1/sessions/{b['session_id']}/summary",
-        "/v1/candidates/c_api/confidence",
+        "/v1/candidates/me/confidence",
     ):
         body = client.get(path).json()
         assert "coverage" in body and "mastery" in body
@@ -140,7 +145,7 @@ def test_no_candidate_facing_route_returns_an_answer_key(client, module_ids, cor
     for path in (
         f"/v1/sessions/{b['session_id']}",
         f"/v1/corpus/topics/{b['topic_id']}",
-        "/v1/candidates/c_api/confidence",
+        "/v1/candidates/me/confidence",
     ):
         assert key_text[:120] not in client.get(path).text
 
@@ -153,10 +158,10 @@ def test_no_session_response_quotes_a_price_in_advance(client, module_ids):
 
 
 def test_a_byok_candidate_sees_no_credit_balance(client, module_ids):
-    client.post("/v1/candidates/me/byok", json={
-        "candidate_id": "c_byok",
-        "openrouter_key": "sk-or-v1-" + "a" * 32})
-    body = client.get("/v1/candidates/c_byok/credits").json()
+    byok = signed_in_client("c_byok")
+    byok.post("/v1/candidates/me/byok",
+              json={"openrouter_key": "sk-or-v1-" + "a" * 32})
+    body = byok.get("/v1/candidates/me/credits").json()
     assert body["route"] == "byok"
     assert body["balance"] is None          # not 0
     assert body["byok"]["credits_spent"] is None
@@ -164,19 +169,20 @@ def test_a_byok_candidate_sees_no_credit_balance(client, module_ids):
 
 
 def test_a_raw_vendor_key_is_refused_by_the_api(client):
-    r = client.post("/v1/candidates/me/byok", json={
-        "candidate_id": "c2", "openrouter_key": "sk-ant-api03-secret"})
+    r = client.post("/v1/candidates/me/byok",
+                    json={"openrouter_key": "sk-ant-api03-secret"})
     assert r.status_code == 400
     assert "OpenRouter" in r.json()["detail"]
 
 
 def test_the_grant_endpoint_is_idempotent_on_the_payment_reference(client):
-    a = client.post("/v1/credits/grants", json={
+    a = client.post("/v1/credits/grants", headers=OPERATOR, json={
         "candidate_id": "c3", "credits": 100, "payment_ref": "same"}).json()
-    b = client.post("/v1/credits/grants", json={
+    b = client.post("/v1/credits/grants", headers=OPERATOR, json={
         "candidate_id": "c3", "credits": 100, "payment_ref": "same"}).json()
     assert b["already_granted"] is True
-    assert client.get("/v1/candidates/c3/credits").json()["balance"] == 100
+    assert signed_in_client("c3").get(
+        "/v1/candidates/me/credits").json()["balance"] == 100
 
 
 def test_the_summary_reports_spend_and_provenance(client, module_ids):

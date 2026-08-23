@@ -11,6 +11,7 @@ So the tests are mostly about what this reading refuses to carry.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 from interviewer.corpus.related import modules_touched
@@ -20,7 +21,7 @@ from interviewer.corpus.related import modules_touched
 def client(content_db, clean_db, served_corpus):
     from interviewer.api.app import create_app
 
-    return TestClient(create_app())
+    return signed_in_client()
 
 
 def _modules(client, track="aiml"):

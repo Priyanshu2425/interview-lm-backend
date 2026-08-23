@@ -8,7 +8,10 @@ that was frozen, and the picker shows it to its owner and to nobody else.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
+
+from interviewer.api.app import create_app
 
 from interviewer.corpus.conformance import validate
 
@@ -92,7 +95,7 @@ def client(content_db, clean_db):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    with TestClient(create_app()) as c:
+    with signed_in_client() as c:
         yield c
     refresh_corpus()
 
@@ -148,25 +151,29 @@ def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(
 def test_a_notebook_is_not_listed_for_another_candidate(
     client, ingested, real_notes
 ):
-    created = client.post(
-        "/v1/notebooks", json={"candidate_id": "cand-owner", "title": "Private"}
-    )
+    """"Nobody else's" stopped being a comment when the Candidate stopped
+    being a query parameter: there is no id to name any more, only a token."""
+    owner = signed_in_client("cand-owner")
+    other = signed_in_client("cand-other")
+    created = owner.post("/v1/notebooks", json={"title": "Private"})
     notebook_id = created.json()["notebook_id"]
-    added = client.post(
+    added = owner.post(
         f"/v1/notebooks/{notebook_id}/sources",
         json={"title": "Private notes", "text": real_notes},
     )
     module_id = added.json()["module_id"]
-    ingested(client, notebook_id)
+    ingested(owner, notebook_id)
 
-    mine = client.get("/v1/corpus/modules", params={"candidate_id": "cand-owner"})
-    theirs = client.get("/v1/corpus/modules", params={"candidate_id": "cand-other"})
-    anonymous = client.get("/v1/corpus/modules")
+    mine = owner.get("/v1/corpus/modules")
+    theirs = other.get("/v1/corpus/modules")
+    anonymous = TestClient(create_app()).get("/v1/corpus/modules")
 
     assert module_id in {m["module_id"] for m in mine.json()}
     assert module_id not in {m["module_id"] for m in theirs.json()}
-    assert module_id not in {m["module_id"] for m in anonymous.json()}
-    # Nothing else is visible either. There is no Corpus that belongs to
-    # nobody any more (ISSUE-0037): a shared Library would show here, and this
-    # deployment has none.
-    assert anonymous.json() == []
+    # Not "not listed" any more — not answered at all.
+    assert anonymous.status_code == 401
+    # The same question, signed in as somebody with nothing: an empty Library
+    # rather than a refusal. There is no Corpus that belongs to nobody any more
+    # (ISSUE-0037), so a shared Library would show here and this deployment has
+    # none.
+    assert other.get("/v1/corpus/modules").json() == []

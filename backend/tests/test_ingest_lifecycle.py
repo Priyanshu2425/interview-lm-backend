@@ -15,6 +15,7 @@ to nothing, no double charge.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 PROSE = (
@@ -29,7 +30,7 @@ def client(content_db, clean_db):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    with TestClient(create_app()) as c:
+    with signed_in_client() as c:
         yield c
     refresh_corpus()
 

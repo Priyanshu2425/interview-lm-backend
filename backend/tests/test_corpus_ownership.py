@@ -14,6 +14,7 @@ only because nobody wrote the route is a refusal that lasts until somebody does.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 HDR = {"x-operator-token": "dev-operator-token"}
@@ -25,7 +26,7 @@ def client(content_db, clean_db):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    with TestClient(create_app()) as c:
+    with signed_in_client() as c:
         yield c
     refresh_corpus()
 
@@ -45,10 +46,12 @@ def _shared(client, title="InterviewLM"):
 # -- owner and visibility ----------------------------------------------------
 
 def test_a_corpus_carries_an_owner_and_a_visibility(client):
-    body = client.get(f"/v1/notebooks?candidate_id=cand-own").json()
-    assert body == []
-    _personal(client)
-    record = client.get("/v1/notebooks?candidate_id=cand-own").json()[0]
+    """The owner is the signed-in Candidate. There is no id to pass and no id
+    to pass wrongly — a Library belongs to whoever uploaded it (ISSUE-0032)."""
+    owner = signed_in_client("cand-own")
+    assert owner.get("/v1/notebooks").json() == []
+    _personal(owner)
+    record = owner.get("/v1/notebooks").json()[0]
     assert record["candidate_id"] == "cand-own"
     assert record["visibility"] == "personal"
 
@@ -218,12 +221,13 @@ def test_a_shared_corpus_appears_in_the_picker_for_everyone(client, real_notes):
 
 
 def test_one_candidates_notebook_is_still_invisible_to_another(client, real_notes):
-    notebook_id = _personal(client, "cand-a")
-    client.post(
+    a, b = signed_in_client("cand-a"), signed_in_client("cand-b")
+    notebook_id = _personal(a, "cand-a")
+    a.post(
         f"/v1/notebooks/{notebook_id}/sources",
         json={"title": "AIML notes", "text": real_notes},
     )
-    assert client.get("/v1/notebooks?candidate_id=cand-b").json() == []
+    assert b.get("/v1/notebooks").json() == []
 
 
 def test_two_candidates_examined_on_a_shared_topic_hold_the_same_topic_id(

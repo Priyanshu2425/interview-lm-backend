@@ -1,6 +1,7 @@
 """The stories that needed dedicated work after the thirteen slices landed."""
 
 import pytest
+from conftest import signed_in_client
 from decimal import Decimal
 from fastapi.testclient import TestClient
 
@@ -21,7 +22,7 @@ from interviewer.metering.operator import PriceService
 def client(clean_db):
     wiring.cache_clear()
     idempotency.reset()
-    return TestClient(create_app())
+    return signed_in_client()
 
 
 # -- PRD-0004 ----------------------------------------------------------------
@@ -113,8 +114,9 @@ def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
 def test_a_running_total_is_available_mid_session(client, served_corpus):
     mods = [m["module_id"] for m in
             client.get("/v1/corpus/modules", params={"track": "aiml"}).json()][:1]
-    client.post("/v1/credits/grants", json={
-        "candidate_id": "c_run", "credits": 50_000, "payment_ref": "p"})
+    client.post("/v1/credits/grants",
+                headers={"x-operator-token": "dev-operator-token"},
+                json={"candidate_id": "c_run", "credits": 50_000, "payment_ref": "p"})
     b = client.post("/v1/sessions", json={
         "candidate_id": "c_run", "module_ids": mods, "duration_seconds": 1800}).json()
     client.post(f"/v1/sessions/{b['session_id']}/turns", json={"answer": "a"})
@@ -168,6 +170,6 @@ def test_the_weakest_reading_is_exposed_and_excludes_untested(client, clean_db, 
             candidate_id="c_weak", topic_id=ids[0], alpha=3.6, beta=7.4))
         c.execute(sa.insert(S.topic_confidence).values(
             candidate_id="c_weak", topic_id=ids[1], alpha=1.0, beta=1.0))
-    body = client.get("/v1/candidates/c_weak/weakest").json()
+    body = signed_in_client("c_weak").get("/v1/candidates/me/weakest").json()
     assert [t["topic_id"] for t in body["topics"]] == [ids[0]]
     assert body["topics"][0]["mastery"] is not None

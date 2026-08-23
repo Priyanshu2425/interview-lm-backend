@@ -9,6 +9,7 @@ deletable than the record is permanent. Both hold here, or neither does.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 
@@ -18,7 +19,7 @@ def client(content_db, clean_db):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    with TestClient(create_app()) as c:
+    with signed_in_client() as c:
         yield c
     refresh_corpus()
 
@@ -182,9 +183,11 @@ def test_a_retired_topic_keeps_its_coverage_and_its_reading(
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
         client, ingested, real_notes, candidate="cand-cov"
     )
-    before = client.get(f"/v1/candidates/{candidate}/confidence").json()
+    # The readings are the signed-in Candidate's, and the fixtures run as the
+    # default one — so ask as them rather than naming an id nothing accepts.
+    before = client.get("/v1/candidates/me/confidence").json()
     client.delete(f"/v1/notebooks/{notebook_id}")
-    after = client.get(f"/v1/candidates/{candidate}/confidence").json()
+    after = client.get("/v1/candidates/me/confidence").json()
 
     assert after["coverage"]["topics_examined"] == before["coverage"]["topics_examined"]
     assert after["topics"], "the Candidate's readings vanished with their files"

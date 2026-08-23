@@ -10,6 +10,7 @@ available as about the one that is.
 from __future__ import annotations
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 from interviewer.confidence.comparison import (
@@ -192,7 +193,7 @@ def client(content_db, clean_db):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    with TestClient(create_app()) as c:
+    with signed_in_client() as c:
         yield c
     refresh_corpus()
 
@@ -240,7 +241,8 @@ def _seed(engine, topic_id: str, people: dict[str, Posterior]) -> None:
 def test_the_route_returns_a_rank_for_a_shared_topic(client, clean_db, real_notes):
     topic_id = _shared_topic(client, real_notes)
     _seed(clean_db, topic_id, cohort(me=firm(0.95)))
-    body = client.get(f"/v1/candidates/me/topics/{topic_id}/standing").json()
+    body = signed_in_client("me").get(
+        f"/v1/candidates/me/topics/{topic_id}/standing").json()
     assert body["rank"] == 1
     assert body["cohort"] >= COHORT_FLOOR
 
@@ -251,7 +253,8 @@ def test_a_personal_corpus_never_yields_a_rank(
     """Their cohort is one by construction, and the route says exactly that."""
     topic_id = _personal_topic(client, real_notes, ingested)
     _seed(clean_db, topic_id, cohort(me=firm(0.95)))
-    body = client.get(f"/v1/candidates/me/topics/{topic_id}/standing").json()
+    body = signed_in_client("me").get(
+        f"/v1/candidates/me/topics/{topic_id}/standing").json()
     assert body["rank"] is None
     assert "nobody to compare you to" in body["reason"]
 
@@ -261,8 +264,8 @@ def test_the_route_never_returns_an_overall_position(client):
     paths = client.get("/v1/openapi.json").json()["paths"]
     ranked = [p for p in paths if "standing" in p]
     assert ranked == [
-        "/v1/candidates/{candidate_id}/topics/{topic_id}/standing",
-        "/v1/candidates/{candidate_id}/coverage-standing",
+        "/v1/candidates/me/topics/{topic_id}/standing",
+        "/v1/candidates/me/coverage-standing",
     ]
     for path in paths:
         assert "leaderboard" not in path and "rank" not in path
@@ -285,9 +288,11 @@ def test_a_standing_is_asked_for_one_topic_at_a_time(client):
     and it only holds if the API cannot answer the other question. It cannot.
     """
     paths = client.get("/v1/openapi.json").json()["paths"]
-    standing = paths["/v1/candidates/{candidate_id}/topics/{topic_id}/standing"]
+    standing = paths["/v1/candidates/me/topics/{topic_id}/standing"]
     params = {p["name"] for p in standing["get"].get("parameters", [])}
-    assert params == {"candidate_id", "topic_id"}
+    # One Topic, and no Candidate: whose standing it is comes from the token
+    # (ADR-0026), so the only thing a caller may name is the Topic.
+    assert params == {"topic_id"}
     assert not any(
         "standings" in path or path.endswith("/standing/all") for path in paths
     )

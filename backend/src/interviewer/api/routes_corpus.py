@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from interviewer.corpus.loader import TopicNotFound
+
+from .auth import current_candidate
 
 from .deps import (
     get_corpus, get_corpus_service, get_loader, get_notebook_service,
@@ -66,8 +68,13 @@ def tracks() -> list[dict]:
 
 
 @router.get("/corpus/modules", response_model=list[ModuleOut])
-def modules(track: str | None = None, candidate_id: str | None = None) -> list[ModuleOut]:
+def modules(track: str | None = None,
+            candidate_id: str = Depends(current_candidate)) -> list[ModuleOut]:
     """The shipped Corpus, plus this Candidate's own notebooks and nobody else's.
+
+    "Nobody else's" was a comment until the Candidate stopped being a query
+    parameter. Naming somebody else's id listed the Modules their uploads
+    produced — the titles of a private Library, to anyone who could guess an id.
 
     A notebook Track is private to the Candidate who uploaded it, so the picker
     is filtered by ownership rather than by what happens to be loaded.
@@ -179,7 +186,7 @@ def scope(module_id: list[str] = Query(default=[])) -> ScopeOut:
 
 
 @router.get("/corpus/provenance")
-def provenance(candidate_id: str | None = None) -> dict:
+def provenance(candidate_id: str = Depends(current_candidate)) -> dict:
     """Which extract a Session ran against (PRD-0001 §13).
 
     Each Library is reported as itself. Merging several into one composite

@@ -5,6 +5,7 @@ must structurally refuse to say.
 """
 
 import pytest
+from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 from interviewer.api.app import create_app
@@ -21,7 +22,7 @@ def client(served_corpus):
     from interviewer.api.deps import refresh_corpus
 
     refresh_corpus()
-    return TestClient(create_app())
+    return signed_in_client()
 
 
 def test_modules_carry_real_topic_and_ground_truth_counts(client):

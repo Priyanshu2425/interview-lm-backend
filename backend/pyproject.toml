@@ -12,6 +12,18 @@ dependencies = [
   # Vectors are a column type, not an array of floats: the citation lookup is
   # an index scan and the width is checked by the database (ADR-0017).
   "pgvector>=0.3",
+  # Identity is Gatehouse's (ADR-0026), and what arrives here is an RS256
+  # bearer token to verify against its published keys. Not written by hand:
+  # `aud`, `iss` and `exp` are the whole of the check, and a token library that
+  # has been read by more people than this one gets them right.
+  "pyjwt[crypto]>=2.9",
+  # The object store is on the upload path, not only the figure path: a
+  # Candidate's document is stored before its row is written (ISSUE-0033), so a
+  # deployment with a bucket cannot serve an upload without this. Declared here
+  # rather than in the `embeddings` extra, which is what it predates — and
+  # `pin_requirements.py` can only see what is declared, so a runtime
+  # dependency hiding in an extra is one it silently drops.
+  "boto3>=1.34",
 ]
 
 # The model that ships, and the S3 it is published to. Optional because the

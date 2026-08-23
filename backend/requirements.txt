@@ -24,10 +24,7 @@ tenacity==9.1.4
 numpy==2.5.2
 scipy==1.18.0
 pypdf==6.16.1
-# The object store is on the upload path, not only the figure path: a
-# Candidate's document is stored before its row is written (ISSUE-0033). A
-# deployment with a bucket configured cannot serve an upload without this, so
-# it is runtime rather than an extra.
+python-multipart==0.0.32
 boto3==1.43.78
 botocore==1.43.78
-python-multipart==0.0.32
+pyjwt==2.13.0

@@ -162,16 +162,28 @@ class KeyVault:
             ).first()
         return AttachedKey(*r) if r else None
 
-    def revoke(self, key_id: str) -> None:
+    def revoke(self, candidate_id: str, key_id: str) -> bool:
         """Ciphertext is deleted; the fingerprint survives so history stays
-        readable and the Candidate can see which key was removed."""
+        readable and the Candidate can see which key was removed.
+
+        The owner is an argument rather than an option. A key id is opaque but
+        it is not a secret — it comes back in the response that attached it and
+        travels wherever that response goes — so scoping the update to the
+        Candidate is what makes it theirs to revoke. Returns whether a row
+        matched, so a route can answer "no such key of yours" without saying
+        which of the two it was.
+        """
         with self._e.begin() as c:
-            c.execute(
+            result = c.execute(
                 sa.update(S.byok_key)
-                .where(S.byok_key.c.key_id == key_id)
+                .where(
+                    S.byok_key.c.key_id == key_id,
+                    S.byok_key.c.candidate_id == candidate_id,
+                )
                 .values(status="revoked", ciphertext=b"", wrapped_dek=b"",
                         revoked_at=sa.func.now())
             )
+        return result.rowcount > 0
 
     def rotate_kek(self, new_kms: KeyManagementService) -> int:
         """Re-wraps data keys without touching ciphertext, so rotation is

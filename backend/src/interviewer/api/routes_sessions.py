@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from interviewer.graph.sessions import SessionConfig
 
+from .auth import current_candidate
 from .idempotency import once
 from .wiring import wiring
 
@@ -14,7 +15,8 @@ router = APIRouter(tags=["sessions"])
 
 
 class StartIn(BaseModel):
-    candidate_id: str
+    """No candidate_id. A Session is started by whoever presented the token."""
+
     module_ids: list[str] = Field(min_length=1)
     duration_seconds: int = Field(gt=0)
     provider: str = "deepseek"
@@ -35,7 +37,7 @@ class TurnOut(BaseModel):
 
 
 @router.post("/sessions", status_code=201)
-def start(body: StartIn) -> dict:
+def start(body: StartIn, candidate_id: str = Depends(current_candidate)) -> dict:
     """The route is settled here, once, and then belongs to the Session.
 
     It is decided from the Key Vault rather than taken on the client's word: an
@@ -51,7 +53,7 @@ def start(body: StartIn) -> dict:
             422,
             f"these modules hold no examinable Topic: {', '.join(sorted(unusable))}",
         )
-    key = w.vault.active(body.candidate_id)
+    key = w.vault.active(candidate_id)
     route = body.payment_route or ("byok" if key else "credits")
     if route == "byok" and key is None:
         raise HTTPException(409, "no active key is attached for this candidate")
@@ -65,7 +67,7 @@ def start(body: StartIn) -> dict:
         payment_route=route,
     )
     sid, first = w.runner.start(
-        candidate_id=body.candidate_id, cfg=cfg,
+        candidate_id=candidate_id, cfg=cfg,
         byok_key_id=key.key_id if key else None,
     )
     return {"session_id": sid, "kind": first.kind,

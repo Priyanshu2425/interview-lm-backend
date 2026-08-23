@@ -1,4 +1,4 @@
-"""Model weights, uploaded documents and figure bytes, in S3.
+"""Model weights, uploaded documents and figure bytes, in Cloudflare R2.
 
 Two stores with one client. The model store is read-only at runtime and is what
 lets a deployment boot without reaching huggingface.co: weights are published
@@ -36,8 +36,22 @@ MANIFEST = "manifest.json"
 _CHUNK = 1024 * 1024
 
 
-def _client():
-    """boto3, imported here so a deployment that never uses S3 never needs it."""
+# R2 signs every request for one region, and it is not a choice a deployment
+# makes: no other value works. A variable here would be a variable with one
+# legal setting, which is a way of inviting somebody to set a second.
+R2_REGION = "auto"
+
+
+def _client(env: dict | None = None):
+    """boto3, imported here so a deployment that never uses a bucket never needs it.
+
+    The store is Cloudflare R2. boto3 is how it is spoken to — R2 serves the S3
+    API and SigV4 is the only way in — but nothing about this deployment runs on
+    AWS, and no name here says otherwise. The endpoint and the two credentials
+    are R2's, read under R2's names and passed explicitly rather than picked up
+    from whatever the ambient AWS environment of the host happens to hold.
+    """
+    env = os.environ if env is None else env
     try:
         import boto3
         from botocore.config import Config
@@ -46,15 +60,65 @@ def _client():
         # upload path needs it (ISSUE-0033). Reaching here means the image was
         # built without its own requirements.txt.
         raise EmbeddingUnavailable(
-            "S3 access needs boto3, which backend/requirements.txt pins. "
+            "bucket access needs boto3, which backend/requirements.txt pins. "
             "This process was installed without it."
         ) from exc
-    # Its own retries, because a 1.5GB pull over a flaky link should recover
-    # rather than fail a boot.
+
+    endpoint = endpoint_url(env)
+    if not endpoint:
+        # Reached only with a bucket configured, so this is a half-configured
+        # deployment rather than a deployment without one. Refusing beats
+        # resolving AWS's endpoint from a region and failing there: the bucket
+        # named in CONTENT_BUCKET does not exist on AWS, and the error that
+        # comes back from asking says nothing about why.
+        raise EmbeddingUnavailable(
+            "a bucket is configured and R2_ENDPOINT_URL is not. The store is "
+            "Cloudflare R2: set it to https://<account-id>.r2.cloudflarestorage.com, "
+            "or unset the bucket to keep objects on local disk."
+        )
+
+    key_id = (env.get("R2_ACCESS_KEY_ID") or "").strip()
+    secret = (env.get("R2_SECRET_ACCESS_KEY") or "").strip()
+    if not (key_id and secret):
+        # Said once, here, naming both. The alternative is NoCredentialsError
+        # raised somewhere inside a Candidate's upload, which names neither and
+        # reads like the bucket is down.
+        raise EmbeddingUnavailable(
+            "R2_ENDPOINT_URL is set and R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY "
+            "are not. Those two are the id and secret of an R2 API token with "
+            "Object Read & Write on the bucket."
+        )
+
     return boto3.client(
         "s3",
-        config=Config(retries={"max_attempts": 5, "mode": "adaptive"}),
+        endpoint_url=endpoint,
+        region_name=R2_REGION,
+        aws_access_key_id=key_id,
+        aws_secret_access_key=secret,
+        config=Config(
+            # Its own retries, because a 1.5GB pull over a flaky link should
+            # recover rather than fail a boot.
+            retries={"max_attempts": 5, "mode": "adaptive"},
+            # boto3 1.36 began attaching a CRC32 trailer to every upload, which
+            # is `aws-chunked` on the wire and is the one place stores serving
+            # the S3 API diverge from S3 itself. Ask for a checksum only where
+            # the API requires one: every object here is addressed by the
+            # sha256 of its own bytes, so the integrity claim is made by the
+            # layer that checks it rather than by a transport header.
+            request_checksum_calculation="when_required",
+        ),
     )
+
+
+def endpoint_url(env: dict | None = None) -> str | None:
+    """Where R2 serves the S3 API: https://<account-id>.r2.cloudflarestorage.com.
+
+    The account id is on the R2 page of the Cloudflare dashboard. A deployment
+    with no bucket never asks: `object_store` hands back the local disk and no
+    client is ever built.
+    """
+    env = os.environ if env is None else env
+    return (env.get("R2_ENDPOINT_URL") or "").strip() or None
 
 
 def sha256_of(path: Path) -> str:
@@ -100,7 +164,7 @@ class ModelSpec:
 def cache_root(env: dict | None = None) -> Path:
     env = os.environ if env is None else env
     return Path(
-        env.get("MODEL_CACHE_DIR") or (Path.home() / ".cache" / "cortex-models")
+        env.get("MODEL_CACHE_DIR") or (Path.home() / ".cache" / "interview-lm-models")
     ).expanduser()
 
 
@@ -340,6 +404,6 @@ def object_store(env: dict | None = None):
     if store is not None:
         return store
     return LocalObjectStore(
-        cache_root(env).parent / "cortex-content",
+        cache_root(env).parent / "interview-lm-content",
         env.get("CONTENT_PREFIX") or "notebooks",
     )

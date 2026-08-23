@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Publish a Hugging Face checkpoint to S3, so a deployment never fetches it.
+"""Publish a Hugging Face checkpoint to the bucket, so a deployment never fetches it.
 
 Run once per model per revision, by hand, from somewhere with a hub connection.
 Everything afterwards reads the bucket: boots are reproducible, offline hosts
@@ -85,12 +85,14 @@ def publish(args) -> int:
             print(f"  {entry['name']:<48} {entry['size']:>12,}  {entry['sha256'][:12]}")
         return 0
 
-    import boto3
-    from botocore.config import Config
+    # The application's client rather than a second one: it is what knows the
+    # store is R2 and reads R2's credentials. A `boto3.client("s3")` built here
+    # would resolve AWS's endpoint and publish the weights somewhere no
+    # deployment reads from, successfully and silently.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend" / "src"))
+    from interviewer.embeddings.artifacts import _client
 
-    client = boto3.client(
-        "s3", config=Config(retries={"max_attempts": 5, "mode": "adaptive"})
-    )
+    client = _client()
     for entry in manifest["files"]:
         key = f"{prefix}/{entry['name']}"
         # Re-running is cheap on purpose: publishing is the kind of thing that

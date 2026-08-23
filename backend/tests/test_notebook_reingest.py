@@ -146,7 +146,13 @@ def test_changing_the_embedding_model_preserves_every_membership(
     }
     assert after == before, "membership was recomputed rather than carried across"
     assert notebooks.store.get("nb-1").embedding_model == "hashing-v2"
-    assert any(e["reason"] == "embedding_model_changed" for e in notebooks.versions("nb-1"))
+    assert all(
+        row["embedding_model"] == "hashing-v2"
+        for row in notebooks.store.chunks_of("nb-1")
+    ), "a chunk's vector was replaced but its model string still names the old space"
+    assert any(
+        e["reason"] == "embedding_model_changed" for e in notebooks.versions("nb-1")
+    )
 
 
 def test_the_corpus_stays_conformant_across_a_re_ingest(notebooks, base, real_notes):
@@ -205,7 +211,10 @@ def test_evidence_accumulated_before_a_re_ingest_still_reads_after_it(
         c.execute(sa.insert(S.candidate).values(candidate_id="cand-1"))
         c.execute(
             sa.insert(S.topic_confidence).values(
-                candidate_id="cand-1", topic_id=topic_id, alpha=4.0, beta=2.0,
+                candidate_id="cand-1",
+                topic_id=topic_id,
+                alpha=4.0,
+                beta=2.0,
             )
         )
     before = confidence.get("cand-1", topic_id)

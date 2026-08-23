@@ -13,10 +13,18 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
 from interviewer.corpus.adapters.notebook import (
-    Chunk, FrozenTopic, Ingested, Notebook, Source,
+    Chunk,
+    FrozenTopic,
+    Ingested,
+    Notebook,
+    Source,
 )
 from interviewer.db.content import (
-    PERSONAL, SHARED, notebook as notebook_t, notebook_chunk, notebook_source,
+    PERSONAL,
+    SHARED,
+    notebook as notebook_t,
+    notebook_chunk,
+    notebook_source,
     notebook_topic,
 )
 from interviewer.db.schema import corpus_version
@@ -122,15 +130,24 @@ class NotebookStore:
                 )
             )
         return NotebookRecord(
-            notebook_id, candidate_id, title, embedding_model, (),
-            visibility=visibility, provenance=provenance,
+            notebook_id,
+            candidate_id,
+            title,
+            embedding_model,
+            (),
+            visibility=visibility,
+            provenance=provenance,
         )
 
     def get(self, notebook_id: str) -> NotebookRecord | None:
         with self._engine.begin() as c:
-            row = c.execute(
-                sa.select(notebook_t).where(notebook_t.c.notebook_id == notebook_id)
-            ).mappings().first()
+            row = (
+                c.execute(
+                    sa.select(notebook_t).where(notebook_t.c.notebook_id == notebook_id)
+                )
+                .mappings()
+                .first()
+            )
             if row is None:
                 return None
             return NotebookRecord(
@@ -168,11 +185,15 @@ class NotebookStore:
 
     def _records(self, where) -> list[NotebookRecord]:
         with self._engine.begin() as c:
-            rows = c.execute(
-                sa.select(notebook_t)
-                .where(where)
-                .order_by(notebook_t.c.created_at, notebook_t.c.notebook_id)
-            ).mappings().all()
+            rows = (
+                c.execute(
+                    sa.select(notebook_t)
+                    .where(where)
+                    .order_by(notebook_t.c.created_at, notebook_t.c.notebook_id)
+                )
+                .mappings()
+                .all()
+            )
             return [
                 NotebookRecord(
                     notebook_id=r["notebook_id"],
@@ -189,7 +210,8 @@ class NotebookStore:
     def all_notebook_ids(self) -> list[str]:
         with self._engine.begin() as c:
             return [
-                r[0] for r in c.execute(
+                r[0]
+                for r in c.execute(
                     sa.select(notebook_t.c.notebook_id).order_by(
                         notebook_t.c.created_at, notebook_t.c.notebook_id
                     )
@@ -231,22 +253,26 @@ class NotebookStore:
 
     @staticmethod
     def _sources(c, notebook_id: str) -> tuple[SourceRecord, ...]:
-        rows = c.execute(
-            sa.select(
-                notebook_source,
-                # Read from Postgres rather than from this process: the
-                # timestamps were written by that clock, and two clocks
-                # subtracted from each other is a duration nobody can defend.
-                sa.extract(
-                    "epoch", sa.func.now() - notebook_source.c.started_at
-                ).label("elapsed"),
-                sa.extract(
-                    "epoch", sa.func.now() - notebook_source.c.progress_at
-                ).label("since_progress"),
+        rows = (
+            c.execute(
+                sa.select(
+                    notebook_source,
+                    # Read from Postgres rather than from this process: the
+                    # timestamps were written by that clock, and two clocks
+                    # subtracted from each other is a duration nobody can defend.
+                    sa.extract(
+                        "epoch", sa.func.now() - notebook_source.c.started_at
+                    ).label("elapsed"),
+                    sa.extract(
+                        "epoch", sa.func.now() - notebook_source.c.progress_at
+                    ).label("since_progress"),
+                )
+                .where(notebook_source.c.notebook_id == notebook_id)
+                .order_by(notebook_source.c.source_order)
             )
-            .where(notebook_source.c.notebook_id == notebook_id)
-            .order_by(notebook_source.c.source_order)
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return tuple(
             SourceRecord(
                 source_id=r["source_id"],
@@ -296,11 +322,15 @@ class NotebookStore:
     def sources_of(self, notebook_id: str) -> list[Source]:
         """The Sources as the Adapter takes them, in upload order."""
         with self._engine.begin() as c:
-            rows = c.execute(
-                sa.select(notebook_source)
-                .where(notebook_source.c.notebook_id == notebook_id)
-                .order_by(notebook_source.c.source_order)
-            ).mappings().all()
+            rows = (
+                c.execute(
+                    sa.select(notebook_source)
+                    .where(notebook_source.c.notebook_id == notebook_id)
+                    .order_by(notebook_source.c.source_order)
+                )
+                .mappings()
+                .all()
+            )
         return [
             Source(
                 source_id=r["source_id"],
@@ -616,11 +646,15 @@ class NotebookStore:
 
     def frozen_topics(self, notebook_id: str) -> dict[str, FrozenTopic]:
         with self._engine.begin() as c:
-            rows = c.execute(
-                sa.select(notebook_topic).where(
-                    notebook_topic.c.notebook_id == notebook_id
-                ).order_by(notebook_topic.c.topic_order)
-            ).mappings().all()
+            rows = (
+                c.execute(
+                    sa.select(notebook_topic)
+                    .where(notebook_topic.c.notebook_id == notebook_id)
+                    .order_by(notebook_topic.c.topic_order)
+                )
+                .mappings()
+                .all()
+            )
         return {
             r["topic_id"]: FrozenTopic(
                 topic_id=r["topic_id"],
@@ -633,9 +667,7 @@ class NotebookStore:
             for r in rows
         }
 
-    def chunks_of(
-        self, notebook_id: str, *, modality: str | None = None
-    ) -> list[dict]:
+    def chunks_of(self, notebook_id: str, *, modality: str | None = None) -> list[dict]:
         """Stored chunks, in locator order.
 
         `modality` matters more than it looks: everything that rebuilds prose —
@@ -682,7 +714,8 @@ class NotebookStore:
     def object_keys_of(self, notebook_id: str) -> list[str]:
         with self._engine.begin() as c:
             return [
-                r[0] for r in c.execute(
+                r[0]
+                for r in c.execute(
                     sa.select(notebook_chunk.c.object_key).where(
                         notebook_chunk.c.notebook_id == notebook_id,
                         notebook_chunk.c.object_key.is_not(None),
@@ -693,7 +726,8 @@ class NotebookStore:
     def chunk_hashes(self, notebook_id: str) -> set[str]:
         with self._engine.begin() as c:
             return {
-                r[0] for r in c.execute(
+                r[0]
+                for r in c.execute(
                     sa.select(notebook_chunk.c.content_hash).where(
                         notebook_chunk.c.notebook_id == notebook_id
                     )
@@ -723,14 +757,10 @@ class NotebookStore:
         """
         with self._engine.begin() as c:
             c.execute(
-                sa.delete(notebook_chunk).where(
-                    notebook_chunk.c.source_id == source_id
-                )
+                sa.delete(notebook_chunk).where(notebook_chunk.c.source_id == source_id)
             )
             c.execute(
-                sa.delete(notebook_topic).where(
-                    notebook_topic.c.source_id == source_id
-                )
+                sa.delete(notebook_topic).where(notebook_topic.c.source_id == source_id)
             )
             c.execute(
                 sa.update(notebook_source)
@@ -817,7 +847,8 @@ class NotebookStore:
     def versions(self, notebook_id: str) -> list[dict]:
         with self._engine.begin() as c:
             return [
-                dict(r) for r in c.execute(
+                dict(r)
+                for r in c.execute(
                     sa.select(corpus_version)
                     .where(corpus_version.c.notebook_id == notebook_id)
                     .order_by(corpus_version.c.event_id)
@@ -838,7 +869,7 @@ class NotebookStore:
                 c.execute(
                     sa.update(notebook_chunk)
                     .where(notebook_chunk.c.chunk_id == chunk_id)
-                    .values(embedding=list(vector))
+                    .values(embedding=list(vector), embedding_model=embedding_model)
                 )
             for topic_id, centroid in centroids.items():
                 c.execute(
@@ -855,14 +886,10 @@ class NotebookStore:
     def delete_source(self, source_id: str) -> None:
         with self._engine.begin() as c:
             c.execute(
-                sa.delete(notebook_chunk).where(
-                    notebook_chunk.c.source_id == source_id
-                )
+                sa.delete(notebook_chunk).where(notebook_chunk.c.source_id == source_id)
             )
             c.execute(
-                sa.delete(notebook_topic).where(
-                    notebook_topic.c.source_id == source_id
-                )
+                sa.delete(notebook_topic).where(notebook_topic.c.source_id == source_id)
             )
             c.execute(
                 sa.delete(notebook_source).where(
@@ -908,9 +935,7 @@ def _pages_to(pages) -> str:
     nothing queries inside this, it is read whole and turned back into `Page`s."""
     import json
 
-    return json.dumps([
-        [p.number, p.char_start, p.char_end, p.anchor] for p in pages
-    ])
+    return json.dumps([[p.number, p.char_start, p.char_end, p.anchor] for p in pages])
 
 
 def _pages_from(raw: str | None) -> tuple:

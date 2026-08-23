@@ -1,11 +1,11 @@
-"""The Cortex Adapter — the only component that knows Scaler Cortex's shape.
+"""The InterviewLM Adapter — the only component that knows InterviewLM's shape.
 
 ADR-0007: all source-specific knowledge lives here and nowhere else. This is the
 mapping the backbone refuses to guess — what counts as a Module, what counts as a
-Topic, which text is Ground Truth, and how Cortex's own units collapse into that
+Topic, which text is Ground Truth, and how InterviewLM's own units collapse into that
 shape.
 
-Cortex vocabulary appears in this file (Class, Answer Key, Assignment, contest)
+InterviewLM vocabulary appears in this file (Class, Answer Key, Assignment, contest)
 and must not leak past it.
 """
 
@@ -28,7 +28,7 @@ from ..contract import (
 ADAPTER_NAME = "cortex"
 ADAPTER_VERSION = "1"
 
-# How a Cortex Class's `kind` maps onto backbone leaf kinds.
+# How a InterviewLM Class's `kind` maps onto backbone leaf kinds.
 _KIND = {
     "answer_key": LeafKind.GROUND_TRUTH,
     "assignment": LeafKind.PROMPT,
@@ -44,7 +44,7 @@ class AdapterError(ValueError):
 
 
 def _read_text(cls: dict[str, Any], root: Path) -> str | None:
-    """Cortex text lives on disk beside corpus.json, not inline."""
+    """InterviewLM text lives on disk beside corpus.json, not inline."""
     if cls.get("contentType") != "text":
         return None
     rel = cls.get("markdownPath")
@@ -81,7 +81,7 @@ def _leaf(cls: dict[str, Any], root: Path) -> Leaf:
     if cls.get("contentType") == "contest":
         kind = LeafKind.REFERENCE
 
-    # An Answer Key with no text cannot be Ground Truth, whatever Cortex calls it.
+    # An Answer Key with no text cannot be Ground Truth, whatever InterviewLM calls it.
     if kind is LeafKind.GROUND_TRUTH and not (text and text.strip()):
         kind = LeafKind.CONTENT
 
@@ -102,7 +102,7 @@ def _leaf(cls: dict[str, Any], root: Path) -> Leaf:
 
 
 def ingest(corpus_json: Path, *, data_root: Path | None = None) -> Corpus:
-    """Turn a Cortex scrape into a validated Corpus.
+    """Turn a InterviewLM scrape into a validated Corpus.
 
     Raises on anything the contract will not accept. Validation happens here, at
     ingest, rather than being discovered at question time.
@@ -123,7 +123,7 @@ def ingest(corpus_json: Path, *, data_root: Path | None = None) -> Corpus:
                 leaves = [_leaf(c, root) for c in tp.get("classes", [])]
                 leaves.sort(key=lambda l: l.order)
                 if not leaves:
-                    continue  # a Topic Cortex left empty is not a Topic
+                    continue  # a Topic InterviewLM left empty is not a Topic
                 topics.append(
                     Topic(
                         id=str(tp["id"]),
@@ -135,7 +135,7 @@ def ingest(corpus_json: Path, *, data_root: Path | None = None) -> Corpus:
             if not topics:
                 continue
             topics.sort(key=lambda x: x.order)
-            # Cortex module order is not always dense (CV skips topic 6); the
+            # InterviewLM module order is not always dense (CV skips topic 6); the
             # contract wants ascending, not gapless, so renumber nothing.
             modules.append(
                 Module(

@@ -36,7 +36,7 @@ def _personal(client, candidate="cand-own", title="My notes"):
     ).json()["notebook_id"]
 
 
-def _shared(client, title="Scaler Cortex"):
+def _shared(client, title="InterviewLM"):
     response = client.post("/v1/operator/corpora", json={"title": title}, headers=HDR)
     assert response.status_code == 201, response.text
     return response.json()["notebook_id"]

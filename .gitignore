@@ -10,7 +10,7 @@ node_modules/
 .env.*
 !.env.example
 
-# The Corpus is not published. `data/` holds Scaler Cortex course material —
+# The Corpus is not published. `data/` holds InterviewLM course material —
 # 387 markdown files and the manifest over them — which is theirs rather than
 # ours, so this repository carries the code that examines a Corpus and not the
 # Corpus itself. `data/README.md` says what belongs here and how to produce it.

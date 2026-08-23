@@ -4,10 +4,24 @@ from pathlib import Path
 
 import pytest
 
+# --- the suite runs against the local Postgres, and only the local one -------
+#
+# `make_engine()` with no argument reads DATABASE_URL, so an exported one — the
+# shared Neon URL this repo is provisioned on, say, exported to run an import —
+# would silently point all 780 tests at production. They create schemas, insert
+# eight hundred rows and drop what they made. This is not hypothetical: it
+# happened to `cltv` on the same database.
+#
+# Cleared here, before anything imports the engine module or binds a DSN.
+# `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the deliberate way past it.
+if os.environ.get("INTERVIEW_LM_TEST_ALLOW_REMOTE_DB") != "1":
+    for _var in ("DATABASE_URL", "GRAPH_DATABASE_URL", "INTERVIEW_LM_DATABASE_URL"):
+        os.environ.pop(_var, None)
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "backend" / "src"))
 
-from interviewer.corpus.adapters.cortex import ingest  # noqa: E402
+from interviewer.corpus.adapters.interview_lm import ingest  # noqa: E402
 from interviewer.corpus.loader import DossierLoader  # noqa: E402
 
 
@@ -42,7 +56,9 @@ def loader(corpus):
 
 # -- database fixtures -------------------------------------------------------
 
+from interviewer.db.content import CONTENT  # noqa: E402
 from interviewer.db.engine import create_core, create_graph, make_engine  # noqa: E402
+from interviewer.db.schema import CORE  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -72,13 +88,12 @@ def clean_db(engine):
     from sqlalchemy import text
 
     with engine.begin() as c:
-        c.execute(text(
-            "TRUNCATE core.evidence, core.topic_confidence, core.topic_visit, "
-            "core.session, core.identity, core.candidate, core.call_record, "
-            "core.credit_ledger, core.byok_key, core.pool_ledger, "
-            "core.corpus_version, "
-            "core.visit_provider_binding RESTART IDENTITY CASCADE"
+        tables = ", ".join(f"{CORE}.{t}" for t in (
+            "evidence", "topic_confidence", "topic_visit", "session", "identity",
+            "candidate", "call_record", "credit_ledger", "byok_key",
+            "pool_ledger", "corpus_version", "visit_provider_binding",
         ))
+        c.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     return engine
 
 
@@ -183,13 +198,13 @@ def content_db(engine):
     create_content(engine)
     with engine.begin() as c:
         c.execute(text(
-            "TRUNCATE content.notebook, content.notebook_source, "
-            "content.notebook_topic, content.notebook_chunk CASCADE"
+            f"TRUNCATE {CONTENT}.notebook, {CONTENT}.notebook_source, "
+            f"{CONTENT}.notebook_topic, {CONTENT}.notebook_chunk CASCADE"
         ))
         # Corpus Version events are permanent and live in `core`. They are
         # emptied here too, because a test asserting "one event" must not be
         # reading another test's history.
-        c.execute(text("TRUNCATE core.corpus_version RESTART IDENTITY"))
+        c.execute(text(f"TRUNCATE {CORE}.corpus_version RESTART IDENTITY"))
     return engine
 
 
@@ -202,7 +217,7 @@ def notebooks(content_db, counting):
 
 @pytest.fixture(scope="session")
 def real_notes() -> str:
-    """Real prose, not lorem: several Cortex classes pasted into one document,
+    """Real prose, not lorem: several InterviewLM classes pasted into one document,
     which is what a Candidate's own notes actually look like to the Adapter."""
     files = sorted((REPO / "data" / "markdown" / "aiml").rglob("*.md"))[:25]
     return "\n\n".join(f.read_text() for f in files)
@@ -327,7 +342,7 @@ def shipped_template(engine, corpus_path):
     """
     from sqlalchemy import text
 
-    from interviewer.corpus.adapters.cortex import ingest as ingest_corpus
+    from interviewer.corpus.adapters.interview_lm import ingest as ingest_corpus
     from interviewer.corpus.adapters.notebook import HashingEmbedder
     from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import CONTENT, PLATFORM_OWNER, SHARED
@@ -344,13 +359,13 @@ def shipped_template(engine, corpus_path):
     with engine.begin() as c:
         c.execute(text(f"DROP SCHEMA IF EXISTS {TEMPLATE} CASCADE"))
         c.execute(text(
-            "TRUNCATE content.notebook, content.notebook_source, "
-            "content.notebook_topic, content.notebook_chunk CASCADE"
+            f"TRUNCATE {CONTENT}.notebook, {CONTENT}.notebook_source, "
+            f"{CONTENT}.notebook_topic, {CONTENT}.notebook_chunk CASCADE"
         ))
 
     service = NotebookService(engine, embedder=HashingEmbedder())
     service.create(
-        SHIPPED, PLATFORM_OWNER, "Scaler Cortex", visibility=SHARED,
+        SHIPPED, PLATFORM_OWNER, "InterviewLM", visibility=SHARED,
         provenance=corpus.provenance.model_dump(),
     )
     for module in corpus.modules:

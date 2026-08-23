@@ -286,7 +286,7 @@ def test_retrying_a_document_in_a_shared_corpus_is_refused(client):
     from interviewer.db.content import SHARED
 
     svc = get_notebook_service()
-    svc.create("nb-shared-retry", "platform", "Scaler Cortex", visibility=SHARED)
+    svc.create("nb-shared-retry", "platform", "InterviewLM", visibility=SHARED)
     uploaded = svc.upload_source(
         "nb-shared-retry", source_id="src-1", title="Notes",
         text=PROSE * 40, as_operator=True,

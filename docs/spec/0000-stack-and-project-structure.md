@@ -29,7 +29,7 @@ a reader will assume was forgotten; each is refused above.
 ## 2. Repository layout
 
 ```
-cortex-interviewer/
+interview-lm/
   backend/                      # Python. ADR-0009.
     src/interviewer/
       corpus/                   # PRD-0001 — Corpus Contract, Dossier Loader

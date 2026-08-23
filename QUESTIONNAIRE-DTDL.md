@@ -1,6 +1,6 @@
 # Questhiring — Deutsche Telekom Digital Labs, AI Backend Engineer
 
-Answers drawn from the Scaler Cortex Interviewer (LangGraph + FastAPI + Postgres).
+Answers drawn from the InterviewLM (LangGraph + FastAPI + Postgres).
 
 ---
 

@@ -40,7 +40,7 @@ is the thing standing between a ReAct agent and a permanent write.
 ## Consequence
 
 `scripts/scrape.mjs` stays Node and is not ported. ADR-0007 already says the
-Cortex Adapter is one **Corpus Source**'s adapter and not the system; it is a
+InterviewLM Adapter is one **Corpus Source**'s adapter and not the system; it is a
 build-time producer whose output — a Corpus satisfying the contract — is the
 only thing the backbone sees. A future adapter may be written in anything.
 

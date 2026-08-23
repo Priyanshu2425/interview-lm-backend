@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
-from interviewer.db.content import EMBEDDING_DIM, notebook_chunk, notebook_topic
+from interviewer.db.content import CONTENT, EMBEDDING_DIM, notebook_chunk, notebook_topic
 from interviewer.notebooks import NotebookService
 from pdf_fixtures import image_pdf
 
@@ -44,11 +44,11 @@ def test_the_column_is_a_vector_and_the_index_is_hnsw(content_db):
     with content_db.begin() as c:
         udt = c.execute(sa.text(
             "select udt_name from information_schema.columns "
-            "where table_schema='content' and table_name='notebook_chunk' "
+            f"where table_schema='{CONTENT}' and table_name='notebook_chunk' "
             "and column_name='embedding'"
         )).scalar()
         index = c.execute(sa.text(
-            "select indexdef from pg_indexes where schemaname='content' "
+            f"select indexdef from pg_indexes where schemaname='{CONTENT}' "
             "and indexname='ix_chunk_embedding_hnsw'"
         )).scalar()
     assert udt == "vector"
@@ -62,7 +62,7 @@ def test_nearest_neighbour_is_a_query_rather_than_a_scan(notebooks, content_db):
         probe = c.execute(sa.select(notebook_chunk.c.embedding).limit(1)).scalar_one()
         rows = c.execute(
             sa.text(
-                "select chunk_id from content.notebook_chunk "
+                f"select chunk_id from {CONTENT}.notebook_chunk "
                 "order by embedding <=> cast(:probe as vector) limit 3"
             ),
             {"probe": str(list(float(x) for x in probe))},
@@ -86,7 +86,7 @@ def test_one_index_answers_across_both_modalities(illustrated, content_db):
         ).scalar_one()
         nearest = c.execute(
             sa.text(
-                "select modality from content.notebook_chunk "
+                f"select modality from {CONTENT}.notebook_chunk "
                 "order by embedding <=> cast(:probe as vector) limit 5"
             ),
             {"probe": str([float(x) for x in figure])},

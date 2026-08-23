@@ -78,7 +78,7 @@ def test_a_topic_that_is_all_stubs_is_flagged_rather_than_rejected():
 
 
 def test_a_reingest_that_moves_topic_boundaries_is_reported(corpus, corpus_path):
-    from interviewer.corpus.adapters.cortex import ingest
+    from interviewer.corpus.adapters.interview_lm import ingest
 
     same = diff_topics(corpus, ingest(corpus_path))
     assert same == {"added": [], "removed": [], "leaves_changed": [], "stable": 71}

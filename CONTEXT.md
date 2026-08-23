@@ -1,23 +1,28 @@
 # Context
 
-Glossary for the Scaler Cortex scraping project.
+Glossary for the InterviewLM scraping project.
 
 ## Corpus
 
-The retrievable body of knowledge extracted from Scaler Cortex. Chunked and
+The retrievable body of knowledge extracted from InterviewLM. Chunked and
 embedded for semantic query by an application.
 
 Not "context" — that word is overloaded (agent context window, page context).
 When we say what we are building, we say **Corpus**.
 
-## Cortex
+## InterviewLM
 
-The source system: the Scaler dashboard at `cortex.scaler.com`, behind login.
-Holds two **Tracks**.
+The source system: the Scaler dashboard, behind login. Holds two **Tracks**.
+
+Its own name is Cortex and its host is `cortex.scaler.com` — that is what the
+scrapers in `scripts/` connect to and what `data/corpus.json` records as the
+provenance of every Class in the shipped Corpus. This document calls it
+InterviewLM throughout because that is the name this project uses for it; the
+line above is here so the host it actually resolves to is written down once.
 
 ## Track
 
-A top-level division of Cortex. Exactly two exist:
+A top-level division of InterviewLM. Exactly two exist:
 - AI/ML Interview Preparation
 - Data Structures and Algorithms Mastery
 
@@ -36,7 +41,7 @@ even when they are the same person.
 
 ## Ground Truth
 
-An authoritative answer that came from Cortex itself — an editorial solution,
+An authoritative answer that came from InterviewLM itself — an editorial solution,
 a model answer, a stated complexity, a test case.
 
 Distinct from an answer the **Interviewer** produces on its own judgment.
@@ -59,7 +64,7 @@ In AIML's own prose a Topic is often called a "Pillar" — we say Topic.
 
 ## Class
 
-The leaf unit of Cortex. A Class carries exactly one `contentType`:
+The leaf unit of InterviewLM. A Class carries exactly one `contentType`:
 
 - **text** — markdown in `textContent`. Self-contained and scrapeable.
 - **video** — a live-session recording at a `videoUrl`. `textContent` is empty.
@@ -81,15 +86,15 @@ Answer Keys are the AIML Track's **Ground Truth**. There are 23.
 
 A Class posing graded questions, paired with an **Answer Key**.
 Assignment + Answer Key is a ready-made interview question with a rubric — the
-single most valuable structure in Cortex for the **Interviewer**.
+single most valuable structure in InterviewLM for the **Interviewer**.
 
 ## Lecture Recording
 
 The artifact behind a **Class** of contentType `video`. It does not live in
-Cortex. It lives in Scaler Academy (`www.scaler.com/meetings/...`), a separate
+InterviewLM. It lives in Scaler Academy (`www.scaler.com/meetings/...`), a separate
 product with its own account and its own sign-in.
 
-Consequence: a Cortex session does not reach a Lecture Recording. The two
+Consequence: a InterviewLM session does not reach a Lecture Recording. The two
 systems share a brand, not an identity.
 
 ## Contest
@@ -133,7 +138,7 @@ descending order of authority:
    and marks against that same text, held in the loaded Topic dossier. This is
    the default across the GenAI and Advanced AI agents Modules, which carry no
    Answer Keys but ~490 KB of material.
-3. **Model judgment** — no Cortex text behind the question; the Interviewer
+3. **Model judgment** — no InterviewLM text behind the question; the Interviewer
    relies on its own knowledge. The DSA Track runs here, anchored to
    `contestSyllabus` and Module ordering for scope.
 
@@ -151,7 +156,7 @@ Recorded so the term is not reinvented later under another name.
 
 ## A note on scope
 
-The **Corpus** is source material: a read-only, faithful extract of Cortex, and
+The **Corpus** is source material: a read-only, faithful extract of InterviewLM, and
 the truth about what the course contains. It is built and complete for text.
 
 The consuming side — **Interviewer**, **Session**, **Grading Mode**,
@@ -159,19 +164,19 @@ The consuming side — **Interviewer**, **Session**, **Grading Mode**,
 as vocabulary during the scrape and are being hardened into a specification.
 
 One rule the Corpus owns and keeps: difficulty is not a property of the Corpus.
-Cortex records none and we derive none.
+InterviewLM records none and we derive none.
 
 ---
 
 ## Progress — retired
 
-Do not use this word. **Cortex** owns it: its dashboard means "classes opened"
+Do not use this word. **InterviewLM** owns it: its dashboard means "classes opened"
 (`8% overall progress`, `6 of 74 classes completed`) and exposes it at
 `/api/progress/user/{id}`.
 
-Cortex Progress says nothing about ability — a Candidate can hold 100% Progress
-and answer nothing correctly. Where Cortex's own number is meant, say
-**Cortex Progress** and never the bare word.
+InterviewLM Progress says nothing about ability — a Candidate can hold 100% Progress
+and answer nothing correctly. Where InterviewLM's own number is meant, say
+**InterviewLM Progress** and never the bare word.
 
 ## Coverage
 
@@ -436,7 +441,7 @@ live when the next Visit opens.
 
 # Backbone and Adapters
 
-The **Interviewer** is subject-agnostic. Scaler Cortex is one **Corpus Source**,
+The **Interviewer** is subject-agnostic. InterviewLM is one **Corpus Source**,
 not the system. The same backbone must interview on any subject, so the terms
 above divide into two kinds and must not be mixed.
 
@@ -451,9 +456,9 @@ Floor**, **Grader Provenance**, **Session Resumption**, **Credit**, **Provider**
 
 ## Adapter vocabulary
 
-True only of the Cortex adapter: **Cortex**, **Track**, **Class**,
+True only of the InterviewLM adapter: **InterviewLM**, **Track**, **Class**,
 **Assignment**, **Answer Key**, **Lecture Recording**, **Contest**,
-**Cortex Progress**.
+**InterviewLM Progress**.
 
 These name artefacts of one source. A different Corpus Source will have its own,
 and will map them onto backbone terms — an **Answer Key** is one way a source
@@ -465,7 +470,7 @@ Anything that can produce a **Corpus**: a scraped course, a textbook, an
 internal wiki, a set of specifications, authored material.
 
 A Source is reached through an **Adapter**, which is the only part that knows
-the source's shape. `scripts/scrape.mjs` is the Cortex Adapter.
+the source's shape. `scripts/scrape.mjs` is the InterviewLM Adapter.
 
 ## Adapter
 

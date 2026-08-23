@@ -1,7 +1,7 @@
 # SPEC-0006 — A Corpus is assembled, not shipped
 
 Status: **draft — for review**
-Supersedes in part: ADR-0005 (dossiers are file reads), ADR-0007 (the Cortex
+Supersedes in part: ADR-0005 (dossiers are file reads), ADR-0007 (the InterviewLM
 Adapter as a runtime path)
 Builds on: ADR-0015, ADR-0017, ADR-0018, ISSUE-0021 through 0029
 
@@ -53,7 +53,7 @@ is what a Candidate sees and does: *add a document to your Library*, *this
 Library has 15 Modules*. The mapping is recorded in CONTEXT.md and enforced the
 way the vocabulary already is — the surface says Library, the API says corpus,
 and neither leaks into the other. This is the same discipline ADR-0007 applies to
-Cortex's own words.
+InterviewLM's own words.
 
 ## Ownership: shared and personal
 

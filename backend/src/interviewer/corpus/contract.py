@@ -2,7 +2,7 @@
 
 This module is declarative. It holds no behaviour beyond validation, and it
 speaks backbone vocabulary only: Module, Topic, leaf, Ground Truth, order, ids.
-Nothing here knows what Scaler Cortex is.
+Nothing here knows what InterviewLM is.
 
 One rule the Corpus owns and keeps: difficulty is not a property of the Corpus.
 There is no field for it, so an Adapter cannot supply one and the Interviewer

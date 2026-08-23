@@ -9,7 +9,7 @@
 # `SURFACE_DIR` points at, so a built surface can be mounted in at run time or
 # copied in by an image that extends this one:
 #
-#   FROM cortex-interviewer
+#   FROM interview-lm
 #   COPY dist /app/frontend/dist
 
 # --- the API ----------------------------------------------------------------

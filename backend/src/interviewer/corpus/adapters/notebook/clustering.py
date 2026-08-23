@@ -21,7 +21,7 @@ import numpy as np
 from .chunking import Chunk
 from .embedding import centroid_of
 
-#: A Topic aims for what Cortex's own Topics measured: ~5k tokens at the median.
+#: A Topic aims for what InterviewLM's own Topics measured: ~5k tokens at the median.
 TARGET_TOPIC_TOKENS = 5_000
 #: ADR-0005 assumes a whole Topic fits in context. 9k leaves headroom under 10k.
 MAX_TOPIC_TOKENS = 9_000

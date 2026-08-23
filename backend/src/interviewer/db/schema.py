@@ -31,8 +31,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TIMESTAMP
 
-CORE = "core"
-GRAPH = "graph"
+CORE = "interview_lm_core"
+GRAPH = "interview_lm_graph"
 
 metadata = MetaData(schema=CORE)
 

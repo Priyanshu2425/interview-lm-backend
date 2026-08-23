@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .adapters.cortex import AdapterError, ingest
+from .adapters.interview_lm import AdapterError, ingest
 from .conformance import validate
 
 

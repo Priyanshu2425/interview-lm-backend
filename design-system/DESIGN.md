@@ -1,5 +1,5 @@
 ---
-name: Scaler Cortex Interviewer
+name: InterviewLM Interviewer
 description: Text-first mock-interview surface built on Scaler's own palette and type
 colors:
   ink: "#021028"
@@ -272,7 +272,7 @@ Three things the build decided that the seed did not:
 
 - Never fuse Coverage and Mastery into one percentage. The call does not exist.
 - Never label a question easy, hard, or by difficulty. The Corpus records none.
-- Never use the word "progress" for anything but Cortex's own number, where it reads *Cortex Progress*.
+- Never use the word "progress" for anything but InterviewLM's own number, where it reads *InterviewLM Progress*.
 - Never show a Session price before it runs, or an estimate dressed as one.
 - Never show a Credit message on a BYOK surface — name the provider and the reason.
 - Never render an Answer Key on a Candidate surface before the answer is graded.

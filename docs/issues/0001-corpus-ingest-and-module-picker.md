@@ -7,7 +7,7 @@ Covers: PRD-0001 §1, §18, §26; PRD-0003 §1
 
 ## What to build
 
-The first end-to-end path: a **Corpus** produced by the Cortex **Adapter** is
+The first end-to-end path: a **Corpus** produced by the InterviewLM **Adapter** is
 validated at ingest, loaded by `topic_id`, served over HTTP, and rendered as the
 Module picker a **Candidate** chooses scope from.
 

@@ -1,4 +1,4 @@
-/* Scaler Cortex Interviewer — prototype behaviour.
+/* InterviewLM Interviewer — prototype behaviour.
    Everything here is presentation. All data is synthetic and labelled as such. */
 
 /* ---------------------------------------------------------------------------

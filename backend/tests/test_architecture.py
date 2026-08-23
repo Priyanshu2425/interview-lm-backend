@@ -61,9 +61,9 @@ def test_the_corpus_package_knows_nothing_about_sessions_or_credits():
                 assert forbidden not in mod, f"{f.name} -> {mod}"
 
 
-def test_cortex_vocabulary_does_not_leak_past_its_adapter():
+def test_source_vocabulary_does_not_leak_past_its_adapter():
     """Answer Key, Assignment, Class and contest are one source's words."""
-    adapter = SRC / "corpus" / "adapters" / "cortex.py"
+    adapter = SRC / "corpus" / "adapters" / "interview_lm.py"
     leaks = []
     for f in SRC.rglob("*.py"):
         if f == adapter or "tests" in f.parts:

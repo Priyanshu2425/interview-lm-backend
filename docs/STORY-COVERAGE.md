@@ -22,11 +22,11 @@ drift from the code without the suite failing.
 | 7 | **Interviewer** — Modules and Topics to expose their order | `corpus/contract.py` | `test_corpus_contract.py` |
 | 8 | **Judge** — to receive only the grounding excerpt for the question I am scoring | `judge/judge.py:_grounding` | `test_judge.py` |
 | 9 | **Judge** — an Assignment's Answer Key retrievable by the Assignment's id | `judge/judge.py:_grounding` | `test_judge.py` |
-| 10 | **system operator** — ingest to fail loudly when a Corpus violates the contract | `corpus/adapters/cortex.py` | `test_corpus_contract.py` |
+| 10 | **system operator** — ingest to fail loudly when a Corpus violates the contract | `corpus/adapters/interview_lm.py` | `test_corpus_contract.py` |
 | 11 | **system operator** — the validation report to name every violation rather than the first one | `corpus/conformance.py:validate` | `test_conformance.py` |
 | 12 | **system operator** — a report of Topic dossier sizes at ingest | `corpus/conformance.py` | `test_conformance.py` |
 | 13 | **system operator** — ingest to record the Corpus's provenance — Source, extraction time, Adapter identity  | `corpus/contract.py:CorpusProvenance` | `test_conformance.py` |
-| 14 | **system operator** — re-ingesting an unchanged Source to produce identical ids | `corpus/adapters/cortex.py` | `test_corpus_contract.py` |
+| 14 | **system operator** — re-ingesting an unchanged Source to produce identical ids | `corpus/adapters/interview_lm.py` | `test_corpus_contract.py` |
 | 15 | **system operator** — a re-ingest that changes Topic boundaries to be reported as such | `corpus/conformance.py:diff_topics` | `test_conformance.py` |
 | 16 | **system operator** — Classes with no retrievable content to be recorded as stubs rather than omitted | `corpus/conformance.py` | `test_conformance.py` |
 | 17 | **system operator** — a Topic whose Classes are all stubs to be flagged | `corpus/conformance.py` | `test_conformance.py` |
@@ -40,7 +40,7 @@ drift from the code without the suite failing.
 | 25 | **Candidate** — to choose a Session's scope by Module | `api/routes_corpus.py` | `test_corpus_api.py` |
 | 26 | **Candidate** — a Module with no Answer Keys to still be selectable | `api/routes_corpus.py` | `test_corpus_api.py` |
 | 27 | **tracker** — the canonical list of Topic ids for a Corpus | `corpus/service.py:topic_ids_for` | `test_selection.py` |
-| 28 | **future maintainer** — all Cortex-specific vocabulary confined to the Adapter | `corpus/adapters/cortex.py` | `test_architecture.py` |
+| 28 | **future maintainer** — all InterviewLM-specific vocabulary confined to the Adapter | `corpus/adapters/interview_lm.py` | `test_architecture.py` |
 | 29 | **future maintainer** — a second Adapter to be implementable against the contract alone | `corpus/adapters/markdown_folder.py` | `test_conformance.py` |
 
 ## PRD-0002 — Evidence and Topic Confidence Tracker

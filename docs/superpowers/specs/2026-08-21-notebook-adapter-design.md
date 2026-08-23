@@ -9,8 +9,8 @@ Depends on: PRD-0001, PRD-0002, PRD-0003, PRD-0005, ADR-0003, ADR-0010
 ## Problem Statement
 
 The backbone examines a Candidate on a Corpus and keeps a durable record of what
-they could explain. Today exactly one Corpus exists — a scrape of Scaler Cortex —
-and it arrives pre-divided: Cortex supplies Modules, Topics, curriculum order and
+they could explain. Today exactly one Corpus exists — a scrape of InterviewLM —
+and it arrives pre-divided: InterviewLM supplies Modules, Topics, curriculum order and
 23 Answer Keys, for free.
 
 A Candidate who is preparing from their own material gets none of that. Their
@@ -18,7 +18,7 @@ sources are PDFs, notes and pages. There is no Module, no Topic, no order, and n
 Ground Truth. The machinery that would examine them is already built and idle.
 
 ADR-0007 anticipated this: the Interviewer is corpus-agnostic behind an Adapter
-contract, and `scripts/scrape.mjs` is the Cortex Adapter rather than the system.
+contract, and `scripts/scrape.mjs` is the InterviewLM Adapter rather than the system.
 That claim has never been tested by a second Source. This design tests it with
 the hardest one available — material with no structure at all.
 
@@ -49,7 +49,7 @@ recorded as a Corpus Version event. Boundaries may move, but never silently.
 
 | Question | Decision |
 |---|---|
-| Relationship to the existing product | A second Adapter on the same backbone. The Cortex Corpus, Session, Judge, Evidence tables and Credits ledger are unchanged. |
+| Relationship to the existing product | A second Adapter on the same backbone. The InterviewLM Corpus, Session, Judge, Evidence tables and Credits ledger are unchanged. |
 | Topic derivation | The model decides. No user confirmation step. Chunk → embed → cluster → label. |
 | Ground Truth | Mined, never invented. Question/answer-shaped chunks are tagged Ground Truth (weight 1.0); everything else grades Text-grounded (0.7). A notebook with none is valid, exactly as the DSA Track is today. |
 | Deletion | Content is deletable; Evidence is not. Deleting a notebook removes chunks, embeddings and dossiers, retires its Topics, and leaves Evidence rows and posteriors standing on denormalised snapshots. |

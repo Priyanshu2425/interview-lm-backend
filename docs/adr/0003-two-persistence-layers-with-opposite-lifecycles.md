@@ -27,7 +27,7 @@ Sessions, which is the whole point of Topic Confidence.
 
 **LangGraph `BaseStore` alone** — correct in shape, and rejected only on
 coupling: it puts the one long-lived domain record inside a framework
-abstraction. `topic_id` is already a stable Cortex cuid carried in
+abstraction. `topic_id` is already a stable InterviewLM cuid carried in
 `corpus.json`, so a plain table costs almost nothing and owes nothing.
 
 ## Amendment — checkpoints are disposable only after a retention window

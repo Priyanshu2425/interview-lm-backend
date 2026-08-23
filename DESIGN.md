@@ -137,8 +137,8 @@ The product's own vocabulary, from `CONTEXT.md`, and the words it refuses.
   output.
 - **Untested**, never *0.00*, never *not started*. It is a fact about the
   evidence, not a score.
-- **"Progress" is retired.** Cortex owns the word and means "classes opened".
-- **No difficulty label.** Cortex records none and none is derived; no screen
+- **"Progress" is retired.** InterviewLM owns the word and means "classes opened".
+- **No difficulty label.** InterviewLM records none and none is derived; no screen
   calls a question easy or hard. Under test.
 - **A Credit is one US cent of provider cost.** Off the Credits route every
   figure is an em dash, never `0` — zero reads as "it was free" rather than

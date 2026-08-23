@@ -2,7 +2,7 @@
 
 The backbone interviews on any subject. A **Corpus Source** — a scraped course,
 a textbook, a wiki, authored material — is reached through an **Adapter** that
-holds all source-specific knowledge. `scripts/scrape.mjs` is the Cortex Adapter,
+holds all source-specific knowledge. `scripts/scrape.mjs` is the InterviewLM Adapter,
 not the system.
 
 The contract is strict and validated at ingest. An Adapter must emit:
@@ -29,7 +29,7 @@ someone who understands the source.
 
 ## The two contract terms that came from measurement
 
-**Token budget per Topic.** Cortex dossiers measured p50 4.9k, max 9.3k tokens,
+**Token budget per Topic.** InterviewLM dossiers measured p50 4.9k, max 9.3k tokens,
 which is what let ADR-0005 reject chunking and load whole dossiers. A source
 with 100k-token Topics breaks that guarantee, and only the Adapter knows what a
 meaningful division of its material looks like — so the Adapter divides, never

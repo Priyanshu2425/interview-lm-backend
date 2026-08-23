@@ -46,7 +46,7 @@ only, never to answer a follow-up (ADR-0005 amendment).
 - [x] Only spans that were in the grounding can be cited — a grounding naming an unknown leaf cites nothing for it
 - [x] No citation path issues a similarity query during a Session, verified by counting embedder calls across a whole Session
 - [x] Citations appear in the Session summary
-- [x] A Cortex Topic, which has no chunks, records an empty citation list and renders without one
+- [x] A InterviewLM Topic, which has no chunks, records an empty citation list and renders without one
 - [x] The chosen placement matches a design decision recorded before the surface work merges — **ADR-0025**
 
 ## Blocked by

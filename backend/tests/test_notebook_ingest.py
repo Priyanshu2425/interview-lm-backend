@@ -1,6 +1,6 @@
 """ISSUE-0021 — a Corpus nobody divided.
 
-The Notebook Adapter's whole job is to manufacture the structure Cortex hands
+The Notebook Adapter's whole job is to manufacture the structure InterviewLM hands
 us for free: Modules, Topics, order, and dossiers under budget. These tests are
 the contract's generality being checked rather than asserted.
 """

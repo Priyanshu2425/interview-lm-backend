@@ -50,7 +50,7 @@ def service(content_db, counting):
     from interviewer.notebooks import NotebookService
 
     svc = NotebookService(content_db, embedder=counting)
-    svc.create("nb-import", "platform", "Scaler Cortex")
+    svc.create("nb-import", "platform", "InterviewLM")
     return svc
 
 
@@ -175,7 +175,7 @@ def test_two_corpora_built_from_one_import_are_byte_identical(content_db, counti
 
     def built(notebook_id: str) -> list[str]:
         svc = NotebookService(content_db, embedder=counting)
-        svc.create(notebook_id, "platform", "Scaler Cortex")
+        svc.create(notebook_id, "platform", "InterviewLM")
         svc.import_structured(
             notebook_id, source_id=f"{notebook_id}-src", title="AIML",
             module_id="m-aiml", topics=[GIVEN[0]],
@@ -225,7 +225,7 @@ def test_an_import_is_metered_like_any_other_ingest(content_db, counting, clean_
     ledger = CreditLedger(content_db)
     ledger.grant("platform", 100_000, "seed")
     svc = NotebookService(content_db, embedder=counting, credits=ledger)
-    svc.create("nb-metered", "platform", "Scaler Cortex")
+    svc.create("nb-metered", "platform", "InterviewLM")
     added = svc.import_structured(
         "nb-metered", source_id="src-1", title="AIML", module_id="m-aiml",
         topics=GIVEN,
@@ -247,7 +247,7 @@ def test_an_import_is_refused_when_the_balance_cannot_cover_it(content_db, clean
     svc = NotebookService(
         content_db, embedder=Priced(), credits=CreditLedger(content_db)
     )
-    svc.create("nb-broke", "platform", "Scaler Cortex")
+    svc.create("nb-broke", "platform", "InterviewLM")
     with pytest.raises(InsufficientBalance):
         svc.import_structured(
             "nb-broke", source_id="src-1", title="AIML", module_id="m-aiml",
@@ -271,7 +271,7 @@ def test_an_import_is_atomic_per_source(content_db, counting):
             raise RuntimeError("provider fell over")
 
     svc = NotebookService(content_db, embedder=Exploding())
-    svc.create("nb-atomic", "platform", "Scaler Cortex")
+    svc.create("nb-atomic", "platform", "InterviewLM")
     with pytest.raises(RuntimeError):
         svc.import_structured(
             "nb-atomic", source_id="src-1", title="AIML", module_id="m-aiml",
@@ -286,7 +286,7 @@ def test_a_candidate_cannot_import_into_a_shared_corpus(content_db, counting):
     from interviewer.notebooks import NotebookService, SharedCorpusIsNotYours
 
     svc = NotebookService(content_db, embedder=counting)
-    svc.create("nb-shared", "platform", "Scaler Cortex", visibility=SHARED)
+    svc.create("nb-shared", "platform", "InterviewLM", visibility=SHARED)
     with pytest.raises(SharedCorpusIsNotYours):
         svc.import_structured(
             "nb-shared", source_id="src-1", title="AIML", module_id="m-aiml",
@@ -314,7 +314,7 @@ def client(content_db, clean_db):
 
 def _imported_module(client) -> str:
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "Scaler Cortex"}, headers=HDR
+        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     response = client.post(
         f"/v1/operator/corpora/{notebook_id}/import",
@@ -366,7 +366,7 @@ def test_a_session_scoped_to_an_imported_module_asks_from_its_topics(client):
 
 def test_a_candidate_cannot_reach_the_import_route(client):
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "Scaler Cortex"}, headers=HDR
+        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     assert client.post(
         f"/v1/operator/corpora/{notebook_id}/import",

@@ -2,7 +2,7 @@
 
 Its purpose is to make ADR-0007's claim checkable: the backbone interviews on
 any subject, and a Corpus Source is reached through an Adapter that holds all
-source-specific knowledge. Nothing in this file imports the Cortex adapter, and
+source-specific knowledge. Nothing in this file imports the InterviewLM adapter, and
 nothing in the backbone knows this one exists.
 
 Shape it maps:

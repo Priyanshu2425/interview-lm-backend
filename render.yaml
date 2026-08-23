@@ -4,7 +4,7 @@
 # destroyed by editing that file.
 services:
   - type: web
-    name: cortex-interviewer
+    name: interview-lm
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
@@ -33,12 +33,20 @@ services:
       # somewhere it cannot be read back from (`document_store_unavailable`).
       - key: CONTENT_BUCKET
         sync: false
-      - key: AWS_ACCESS_KEY_ID
+      # Where R2 serves the S3 API. Nothing here runs on AWS: boto3 is how R2
+      # is spoken to and that is the whole of it.
+      # https://<account-id>.r2.cloudflarestorage.com
+      - key: R2_ENDPOINT_URL
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      # An R2 API token with Object Read & Write on that bucket — its id and
+      # its secret. Passed to the client explicitly, so a host with AWS keys in
+      # its environment does not quietly become the store.
+      - key: R2_ACCESS_KEY_ID
         sync: false
-      - key: AWS_REGION
+      - key: R2_SECRET_ACCESS_KEY
         sync: false
+      # No region. R2 signs everything `auto`, so it is a constant in the code
+      # rather than a variable with one legal setting.
       # Ingest embeds, and Related Topics compares the centroids that ingest
       # wrote (ADR-0021) — so this is what decides whether neighbours mean
       # anything. `hashing` is a lexical stand-in: it costs nothing, needs no

@@ -32,7 +32,36 @@ POOLER_MARKER = "-pooler"
 
 
 def dsn() -> str:
-    return os.environ.get("DATABASE_URL", DEFAULT_DSN)
+    """The database this process talks to. Empty is absent, not a URL.
+
+    A variable set to nothing is what a platform hands you when it is declared
+    and never filled in. Treated as unset it falls back to the local default and
+    says so; taken literally it reaches `make_url("")`, which raises
+    `Could not parse SQLAlchemy URL from given URL string` — an error about
+    parsing that names neither the variable nor the fact that it is blank.
+    """
+    return with_driver(os.environ.get("DATABASE_URL") or DEFAULT_DSN)
+
+
+def with_driver(url: str) -> str:
+    """Name the driver, because every hosted Postgres hands out a URL without one.
+
+    Neon, Render and psql itself all say `postgresql://`. SQLAlchemy reads that
+    as psycopg2, which this project does not install — so a URL pasted straight
+    out of a dashboard fails at `create_engine` with `No module named
+    'psycopg2'`, an error that names a library nobody chose and says nothing
+    about the URL. The driver is ours to decide, so it is decided here rather
+    than asked for in every place a URL is written down.
+
+    A URL that already names a driver is left alone, including one naming a
+    different driver on purpose.
+    """
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    if url.startswith("postgres://"):
+        # What some platforms still emit. SQLAlchemy rejects it outright.
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    return url
 
 
 def is_pooled(url: str) -> bool:
@@ -69,7 +98,7 @@ def make_engine(url: str | None = None, **kw) -> Engine:
     statements, so a statement prepared on one is missing on the next — and it
     fails later, under load, on a query that worked a thousand times.
     """
-    target = url or dsn()
+    target = with_driver(url) if url else dsn()
     kw.setdefault("pool_pre_ping", True)
     # Long-lived connections to a suspending database are a liability rather
     # than a saving; recycle well inside any idle timeout.

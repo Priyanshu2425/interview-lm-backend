@@ -192,13 +192,16 @@ class EvidenceLedger:
             # Never read-modify-write: a concurrent Visit would be lost.
             c.execute(
                 text(
-                    """
-                    INSERT INTO core.topic_confidence
+                    # Schema from the constant, never spelled out: the name is a
+                    # deployment's to choose, and a literal here is a table this
+                    # statement cannot find on a database that chose differently.
+                    f"""
+                    INSERT INTO {S.CORE}.topic_confidence
                         (candidate_id, topic_id, alpha, beta, updated_at)
                     VALUES (:cid, :tid, :a, :b, now())
                     ON CONFLICT (candidate_id, topic_id) DO UPDATE
-                       SET alpha = core.topic_confidence.alpha + EXCLUDED.alpha - 1.0,
-                           beta  = core.topic_confidence.beta  + EXCLUDED.beta  - 1.0,
+                       SET alpha = {S.CORE}.topic_confidence.alpha + EXCLUDED.alpha - 1.0,
+                           beta  = {S.CORE}.topic_confidence.beta  + EXCLUDED.beta  - 1.0,
                            updated_at = now()
                     """
                 ),

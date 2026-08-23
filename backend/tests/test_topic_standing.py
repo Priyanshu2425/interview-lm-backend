@@ -199,7 +199,7 @@ def client(content_db, clean_db):
 
 def _shared_topic(client, real_notes) -> str:
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "Scaler Cortex"}, headers=HDR
+        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     client.post(
         f"/v1/operator/corpora/{notebook_id}/sources",

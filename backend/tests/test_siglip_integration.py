@@ -139,7 +139,7 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     """
     from pathlib import Path
 
-    from interviewer.corpus.adapters.cortex import ingest
+    from interviewer.corpus.adapters.interview_lm import ingest
     from interviewer.corpus.related import rank
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
@@ -176,7 +176,7 @@ def test_the_space_spreads_out_once_centred(model):
     """Directly: the cone is real, and centring opens it."""
     from pathlib import Path
 
-    from interviewer.corpus.adapters.cortex import ingest
+    from interviewer.corpus.adapters.interview_lm import ingest
     from interviewer.corpus.related import _mean, centre
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")

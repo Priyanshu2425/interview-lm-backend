@@ -10,7 +10,7 @@ Covers: spec §Architecture, §Contract conformance, §Why Module equals source
 The thinnest complete path for a Corpus nobody divided: a Candidate's own
 markdown file becomes a **Module** with **Topics**, and a Session runs on it.
 
-A third **Adapter** — the **Notebook Adapter** — sits beside the Cortex and
+A third **Adapter** — the **Notebook Adapter** — sits beside the InterviewLM and
 markdown-folder Adapters and imports neither. Its pipeline:
 
     extract → chunk → embed → cluster → label → freeze → dossier build → validate
@@ -64,7 +64,7 @@ deletable side of ADR-0010.
 ## Acceptance criteria
 
 - [ ] A notebook of one markdown file ingests to a Corpus that passes `corpus/conformance.py` with zero violations
-- [ ] The Notebook Adapter imports neither the Cortex Adapter nor the markdown-folder Adapter, and the backbone imports none of the three
+- [ ] The Notebook Adapter imports neither the InterviewLM Adapter nor the markdown-folder Adapter, and the backbone imports none of the three
 - [ ] Every chunk carries a locator whose `char_start`/`char_end` re-slice the original source text exactly
 - [ ] No Topic dossier exceeds 10k tokens, and ingest reports p50 and max
 - [ ] A source small enough for one chunk yields exactly one Topic and validates

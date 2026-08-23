@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, TIMESTAMP
 
-CONTENT = "content"
+CONTENT = "interview_lm_content"
 
 #: One space for both modalities. SigLIP 2 embeds a paragraph and a diagram into
 #: the same 768 dimensions, which is what lets a figure be a row in the chunk

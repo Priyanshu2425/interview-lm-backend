@@ -7,7 +7,7 @@ Depends on: ADR-0005, ADR-0007
 
 The Corpus exists, and nothing can read it safely.
 
-A Cortex extract sits on disk — a Track → Module → Topic → Class hierarchy with
+A InterviewLM extract sits on disk — a Track → Module → Topic → Class hierarchy with
 markdown for every Class that carries text. But every consumer that wants to use
 it has to re-derive the same facts by hand: which files belong to a Topic, how
 large that Topic is once assembled, whether a Class is Ground Truth or an
@@ -39,7 +39,7 @@ Topic dossier: the whole Topic, assembled, ordered, with its Ground Truth
 separated from its teaching material and never merged into it. No query, no
 embedding, no retriever — a lookup by id, as ADR-0005 requires.
 
-The Cortex Adapter already exists as a scraper. This PRD does not rewrite it; it
+The InterviewLM Adapter already exists as a scraper. This PRD does not rewrite it; it
 defines what it must emit, adds the validation that proves it did, and builds the
 loader every consumer reads through.
 
@@ -72,7 +72,7 @@ loader every consumer reads through.
 25. As a Candidate, I want to choose a Session's scope by Module, so that I can prepare for the part of the course I am actually being interviewed on.
 26. As a Candidate, I want a Module with no Answer Keys to still be selectable, so that the absence of Ground Truth reduces the weight of my evidence rather than removing the Module.
 27. As the tracker, I want the canonical list of Topic ids for a Corpus, so that Topic Confidence rows can be created against a known universe rather than discovered.
-28. As a future maintainer, I want all Cortex-specific vocabulary confined to the Adapter, so that adding a second Source does not mean unpicking Track and Class from the backbone.
+28. As a future maintainer, I want all InterviewLM-specific vocabulary confined to the Adapter, so that adding a second Source does not mean unpicking Track and Class from the backbone.
 29. As a future maintainer, I want a second Adapter to be implementable against the contract alone, so that the contract's untestedness is a fact I can fix rather than a guess.
 
 ## Implementation Decisions
@@ -82,7 +82,7 @@ loader every consumer reads through.
 - *Corpus Contract* — the schema and the vocabulary of what an Adapter must emit. Declarative, no behaviour. Backbone terms only: Module, Topic, leaf content unit, Ground Truth, order, ids.
 - *Corpus Validator* — takes a candidate Corpus, returns a report. Pure: no I/O beyond being handed content, no network, no model calls. Collects all violations rather than throwing on the first.
 - *Dossier Loader* — takes a `topic_id`, returns a Topic dossier. The only module in the system that knows how Corpus content is stored on disk. Deep by construction: one method of consequence, an interface that should not change when the storage does.
-- *Cortex Adapter* — the existing scraper, brought under the contract. It gains an emit step that produces contract-shaped output and a conformance run; its scraping behaviour is unchanged.
+- *InterviewLM Adapter* — the existing scraper, brought under the contract. It gains an emit step that produces contract-shaped output and a conformance run; its scraping behaviour is unchanged.
 
 **The contract's required terms**
 
@@ -95,7 +95,7 @@ loader every consumer reads through.
 
 **Budget enforcement**
 
-The measured Cortex figures (p50 ~4.9k tokens, max ~9.3k) are the reason ADR-0005
+The measured InterviewLM figures (p50 ~4.9k tokens, max ~9.3k) are the reason ADR-0005
 could reject chunking, so the budget is a hard ceiling with a warning band below
 it. A Topic over the ceiling fails validation. A Topic in the warning band passes
 and is reported. The backbone never splits, never summarises, never
@@ -139,7 +139,7 @@ explicit operator decision; it is never a side effect of running the scraper.
 **Ownership boundary**
 
 Everything that knows the word Track, Class, Assignment, Answer Key or Contest
-lives in the Cortex Adapter. The backbone knows Module, Topic, leaf, Ground
+lives in the InterviewLM Adapter. The backbone knows Module, Topic, leaf, Ground
 Truth. Where the Adapter maps one to the other, the mapping is recorded in the
 Adapter and nowhere else.
 
@@ -175,7 +175,7 @@ one term:
 - the Grading Mode ceiling is derived correctly for a Ground-Truth Topic, a text-only Topic, and a stub-only Topic
 - listing Topics for a set of Modules returns the right ids without loading content
 
-**Cortex Adapter — one conformance test.** Its real output, or a trimmed slice of
+**InterviewLM Adapter — one conformance test.** Its real output, or a trimmed slice of
 it, passes the validator. This is the test that would have caught a scraper change
 that broke the contract. Its scraping internals are not unit-tested; it is I/O
 against a live system and the conformance check is the meaningful assertion.
@@ -196,7 +196,7 @@ no mocking of the module under test.
 
 ## Further Notes
 
-The measured Cortex shape, as scraped: AIML — 8 Modules, 57 Topics, 356 Classes,
+The measured InterviewLM shape, as scraped: AIML — 8 Modules, 57 Topics, 356 Classes,
 26 Assignment/Answer Key pairs, one empty stub. DSA — 7 Modules, 14 Topics, 74
 Classes, 31 video stubs, 11 contest stubs, no Ground Truth. 71 Topics total,
 which is the size of the Topic Confidence table per Candidate.

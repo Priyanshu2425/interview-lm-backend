@@ -127,7 +127,7 @@ Named so they are not mistaken for solved:
 
 - **BYOK key handling** — storage, scoping, revocation
 - **Performance History** beyond Topic Confidence — what else a Session records
-- **Adapters beyond Cortex** — the contract is defined (ADR-0007); no second
+- **Adapters beyond InterviewLM** — the contract is defined (ADR-0007); no second
   Adapter has been written, so the contract is untested against a source that
   is not a structured course API
 - **Margin model** — Credits are exact provider cost, so revenue comes from

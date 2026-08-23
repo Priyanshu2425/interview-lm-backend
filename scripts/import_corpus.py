@@ -7,7 +7,7 @@ through, into the same tables, with one stage different — nothing is clustered
 and no `topic_id` is minted, because this material arrives with 71 Topics that
 are the join key for every row of Evidence and Topic Confidence (ISSUE-0034).
 
-    python scripts/import_corpus.py --corpus data/corpus.json --title "Scaler Cortex"
+    python scripts/import_corpus.py --corpus data/corpus.json --title "InterviewLM"
 
 Re-running it is a no-op per Module: a Source is deduplicated by the content and
 the structure it carries, so an interrupted import is resumed by running the
@@ -33,7 +33,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", default=os.environ.get("CORPUS_PATH")
                         or str(ROOT / "data" / "corpus.json"))
-    parser.add_argument("--title", default="Scaler Cortex")
+    parser.add_argument("--title", default="InterviewLM")
     parser.add_argument(
         "--notebook-id",
         help="import into an existing shared Corpus rather than creating one",
@@ -44,7 +44,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from interviewer.corpus.adapters.cortex import ingest
+    from interviewer.corpus.adapters.interview_lm import ingest
     from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import SHARED
     from interviewer.db.engine import create_content, create_core, make_engine

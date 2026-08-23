@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from interviewer.corpus.adapters.cortex import AdapterError, ingest
+from interviewer.corpus.adapters.interview_lm import AdapterError, ingest
 from interviewer.corpus.contract import (
     Corpus,
     CorpusProvenance,

@@ -9,7 +9,7 @@ web
 ## Users
 
 **Candidate** — the person being interviewed. Preparing for an AI/ML or DSA
-engineering interview, working from 1.9 MB of Scaler Cortex course material they
+engineering interview, working from 1.9 MB of InterviewLM course material they
 have already read. Their failure mode is recognition mistaken for the ability to
 explain under questioning. They practise in sessions of a duration they choose,
 at a desk, alongside the course material, in daylight.
@@ -64,8 +64,8 @@ the code editor because a test run may precede the answer being final.
 - Three **Grading Modes**, weighted 1.0 / 0.7 / 0.5 — Ground-Truth-graded, Text-grounded, Model judgment. Absence of an Answer Key moves a Module down a mode; it never makes it unusable.
 - **Evidence Floor** — below it the tracker reports *Untested* and nothing more. There is no call that returns a bare Mastery percentage for a Topic below the floor.
 - **Coverage and Mastery are reported separately, never fused into one figure.**
-- **Difficulty is not a property of the Corpus.** Cortex records none and we derive none. No screen may label a question easy or hard.
-- **"Progress" is a retired word.** Cortex owns it and means "classes opened". Where Cortex's own number is meant, say *Cortex Progress*; otherwise say Coverage.
+- **Difficulty is not a property of the Corpus.** InterviewLM records none and we derive none. No screen may label a question easy or hard.
+- **"Progress" is a retired word.** InterviewLM owns it and means "classes opened". Where InterviewLM's own number is meant, say *InterviewLM Progress*; otherwise say Coverage.
 - **Credit** = one US cent of OpenRouter cost. Session cost is not knowable in advance and is never quoted. BYOK Candidates spend no Credits and must never be shown a Credit message.
 - **Grader Provenance** — grader identity and provider are recorded on every Evidence row and shown to the Candidate.
 - Two run modes: **Managed** (our graph) and **MCP** (inside someone's Claude session).

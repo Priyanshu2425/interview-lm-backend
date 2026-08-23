@@ -10,7 +10,7 @@
 
 # design-system — tokens and prototype screens
 
-Eight screens for the Scaler Cortex Interviewer. Each is **one responsive HTML
+Eight screens for the InterviewLM Interviewer. Each is **one responsive HTML
 file**; `index.html` presents every screen at both a phone and a desktop width
 so the two can be compared side by side.
 

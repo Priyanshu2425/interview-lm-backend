@@ -62,7 +62,7 @@ def main() -> int:
     # a script for spending money on purpose, so it says so.
     env.setdefault("EMBEDDING_ALLOW_PAID", "1")
 
-    from interviewer.corpus.adapters.cortex import ingest
+    from interviewer.corpus.adapters.interview_lm import ingest
     from interviewer.corpus.index import _topic_chunks, build
     from interviewer.corpus.related import save
     from interviewer.embeddings import make_embedder

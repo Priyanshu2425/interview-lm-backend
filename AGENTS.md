@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Cortex Interviewer. A Python graph (`backend/`) examines a Candidate on a
+InterviewLM. A Python graph (`backend/`) examines a Candidate on a
 Corpus; a React surface (`frontend/`) renders what it decides.
 
 ## Where truth lives
@@ -35,12 +35,12 @@ re-opened one.
 - **A Credit is one US cent of provider cost.** Off the Credits route every
   figure is an em dash — a zero reads as "it was free" rather than "this ledger
   does not apply to you".
-- **Difficulty is not a property of the Corpus.** Cortex records none and none
+- **Difficulty is not a property of the Corpus.** InterviewLM records none and none
   is derived. No screen calls a question easy or hard.
 - **A Session's cost is not knowable in advance.** It is metered per graded call
   and reported after each Topic.
-- **Say Coverage.** Cortex owns the word *Progress* and means "classes opened";
-  where its own number is meant, say *Cortex Progress*.
+- **Say Coverage.** InterviewLM owns the word *Progress* and means "classes opened";
+  where its own number is meant, say *InterviewLM Progress*.
 - **Pictures alone are not examinable.** A Source that extracts no text stays a
   stub; no Topic is minted from figures and no caption model turns them into
   prose (ADR-0024). A figure may *support* a question grounded in text — that is
@@ -136,6 +136,19 @@ Two consequences worth stating outright:
   `notebook_source.text` is what one extractor made of them and is a cache;
   `re_extract` re-reads the document itself. A Source with no `object_key`
   predates the column and says so rather than pointing at bytes nobody kept.
+- The object store is Cloudflare R2 and nothing about it is AWS. boto3 is the
+  client because R2 serves the S3 API and SigV4 is the only way in, and that is
+  the whole of the connection: `_client` reads `R2_ENDPOINT_URL`,
+  `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` and passes them explicitly, so a
+  host with AWS keys in its environment does not quietly become the store.
+  There is no region variable — R2 signs everything `auto`, so `R2_REGION` is a
+  constant rather than a setting with one legal value. A bucket configured with
+  no endpoint is refused rather than resolved to AWS. Uploads ask for a checksum
+  only `when_required`: boto3 1.36 began adding a CRC32 trailer by default,
+  which is `aws-chunked` on the wire and the one place a store serving the S3
+  API is least likely to agree with S3. Every object here is keyed by the sha256
+  of its own bytes, so integrity is claimed where it is checked.
+  `scripts/publish_model.py` builds no client of its own for the same reason.
 - The upload outlives the ingestion (ISSUE-0035). `POST /notebooks/{id}/sources`
   stores the bytes, writes the row and returns; the embedding runs in a thread
   and the surface polls `GET /notebooks/{id}`. States are `uploaded → ingesting

@@ -1,6 +1,6 @@
 """The Notebook Adapter — a Corpus for material nobody divided.
 
-Cortex hands us Modules, Topics, order and answer keys. A Candidate's own PDF
+InterviewLM hands us Modules, Topics, order and answer keys. A Candidate's own PDF
 hands us none of them, and something has to manufacture the structure the
 contract requires. That something is here, in an Adapter, exactly where ADR-0007
 says the mess belongs.

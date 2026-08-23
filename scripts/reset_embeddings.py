@@ -1,25 +1,25 @@
 #!/usr/bin/env python
-"""Re-embed everything with the configured provider, and report what it cost.
+"""Re-embed every notebook with the configured provider, and report what it cost.
 
-Two stores, and they are not the same kind of thing — worth being explicit,
-because "the embedding data" sounds like one place and is two:
-
-  the Corpus index   data/corpus-index.json — a build artifact, committed,
-                     read at runtime, never written by the API (ADR-0018)
-  notebook material  content.notebook_chunk in Postgres — a Candidate's, and
-                     deleted when they say so (ADR-0010)
+There is one store and it is `content.notebook_chunk` in Postgres. The old
+`data/corpus-index.json` artifact is gone (ADR-0021): a Topic's centroid is
+written beside its chunks, so re-embedding a notebook is the whole migration,
+and Related Topics reads the new centroids the moment they land.
 
 Usage:
 
     export OPENROUTER_API_KEY=...
-    python scripts/reset_embeddings.py --provider openrouter --yes
+    python scripts/reset_embeddings.py --provider openrouter
 
-Nothing is destroyed without `--yes`. A dry run prints the token count and the
+Nothing is spent without `--yes`. A dry run prints the token count and the
 estimated spend and stops, which is the number you probably wanted anyway.
 
 Cost is computed from our own token counts and our own arithmetic, as ADR-0014
 requires of every figure this product bills on. The provider's dashboard is the
 authority; this is the number we would have charged.
+
+The database comes from DATABASE_URL in the environment; see the root .env's
+comment about INTERVIEW_LM_DATABASE_URL before pointing anything at Neon.
 """
 
 from __future__ import annotations
@@ -33,9 +33,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend" / "src"))
 
-CORPUS = ROOT / "data" / "corpus.json"
-ARTIFACT = ROOT / "data" / "corpus-index.json"
-
 
 def approx_tokens(text: str) -> int:
     """Four characters to a token — the estimate the rest of the product bills on."""
@@ -44,16 +41,12 @@ def approx_tokens(text: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", default=os.environ.get("EMBEDDING_PROVIDER") or "openrouter")
+    parser.add_argument(
+        "--provider", default=os.environ.get("EMBEDDING_PROVIDER") or "openrouter"
+    )
     parser.add_argument("--model", default=os.environ.get("EMBEDDING_MODEL") or "")
-    parser.add_argument("--corpus", action="store_true", help="only the Corpus index")
-    parser.add_argument("--notebooks", action="store_true", help="only notebook material")
     parser.add_argument("--yes", action="store_true", help="actually spend money")
     args = parser.parse_args()
-
-    both = not (args.corpus or args.notebooks)
-    do_corpus = both or args.corpus
-    do_notebooks = both or args.notebooks
 
     env = {**os.environ, "EMBEDDING_PROVIDER": args.provider}
     if args.model:
@@ -62,57 +55,54 @@ def main() -> int:
     # a script for spending money on purpose, so it says so.
     env.setdefault("EMBEDDING_ALLOW_PAID", "1")
 
-    from interviewer.corpus.adapters.interview_lm import ingest
-    from interviewer.corpus.index import _topic_chunks, build
-    from interviewer.corpus.related import save
+    from interviewer.db.engine import create_content, make_engine
+    from interviewer.embeddings.artifacts import S3ObjectStore
     from interviewer.embeddings import make_embedder
+    from interviewer.notebooks.service import NotebookService
+    from interviewer.notebooks.store import NotebookStore
 
     embedder = make_embedder(env)
     price = float(getattr(embedder, "dollars_per_million", 0.0))
     print(f"provider : {embedder.model_name}")
-    print(f"price    : ${price}/M tokens"
-          if price else "price    : unknown — cost cannot be estimated")
+    print(
+        f"price    : ${price}/M tokens"
+        if price
+        else "price    : unknown — cost cannot be estimated"
+    )
 
-    corpus_tokens = notebook_tokens = 0
-    corpus = None
+    engine = make_engine()
+    create_content(engine)
+    store = NotebookStore(engine)
+    notebook_ids = store.all_notebook_ids()
+    if not notebook_ids:
+        print("\nno notebooks in this database — nothing to do.")
+        return 0
 
-    if do_corpus:
-        corpus = ingest(CORPUS)
-        corpus_tokens = sum(
-            approx_tokens(chunk)
-            for topic in corpus.topics
-            for chunk in _topic_chunks(topic)
+    total = 0
+    figures = 0
+    for notebook_id in notebook_ids:
+        record = store.get(notebook_id)
+        rows = store.chunks_of(notebook_id, modality="text")
+        tokens = sum(approx_tokens(r["text"]) for r in rows)
+        total += tokens
+        print(
+            f"{notebook_id} ({record.title if record else '?'}): "
+            f"{len(rows)} text chunks, ~{tokens:,} tokens"
         )
-        print(f"\ncorpus   : {len(list(corpus.topics))} Topics, "
-              f"~{corpus_tokens:,} tokens")
-
-    rows: list[dict] = []
-    if do_notebooks:
-        try:
-            from interviewer.db.engine import create_content, make_engine
-            from interviewer.notebooks.store import NotebookStore
-
-            engine = make_engine()
-            create_content(engine)
-            store = NotebookStore(engine)
-            for notebook_id in store.all_notebook_ids():
-                rows.extend(store.chunks_of(notebook_id, modality="text"))
-            notebook_tokens = sum(approx_tokens(r["text"]) for r in rows)
-            print(f"notebooks: {len(rows)} text chunks, ~{notebook_tokens:,} tokens")
-            figures = sum(
-                len(store.figures_of(nb)) for nb in store.all_notebook_ids()
+        figures += sum(len(store.figures_of(nb)) for nb in [notebook_id])
+    if figures:
+        print(
+            f"           {figures} figure(s) across all notebooks"
+            + (
+                " — this provider has no image tower, so they keep the "
+                "vectors they have"
+                if not getattr(embedder, "supports_images", False)
+                else ""
             )
-            if figures:
-                print(f"           {figures} figure(s) — this provider has no image "
-                      "tower, so they keep the vectors they have")
-        except Exception as exc:
-            print(f"notebooks: unreachable ({type(exc).__name__}: {exc})")
-            do_notebooks = False
+        )
 
-    total = corpus_tokens + notebook_tokens
     estimate = total / 1_000_000 * price
-    print(f"\ntotal    : ~{total:,} tokens"
-          + (f"  ≈ ${estimate:.4f}" if price else ""))
+    print(f"\ntotal    : ~{total:,} tokens" + (f"  ≈ ${estimate:.4f}" if price else ""))
 
     if not args.yes:
         print("\ndry run — nothing embedded, nothing spent, nothing reset.")
@@ -123,25 +113,19 @@ def main() -> int:
     if callable(warm):
         warm()
 
+    service = NotebookService(
+        engine,
+        embedder=embedder,
+        objects=S3ObjectStore.from_env(env),
+    )
+
     started = time.monotonic()
-    if do_corpus and corpus is not None:
-        print("\nembedding the Corpus...")
-        index = build(corpus, embedder)
-        save(index, ARTIFACT)
-        print(f"  rebuilt {ARTIFACT.name}: {index.topic_count} Topics, "
-              f"{sum(len(v) for v in index.related.values())} edges")
-
-    if do_notebooks and rows:
-        print("\nre-embedding notebook material...")
-        from interviewer.notebooks.service import NotebookService
-
-        service = NotebookService(engine, embedder=embedder)
-        for notebook_id in store.all_notebook_ids():
-            # Memberships are stored data and are carried across untouched: a
-            # change of embedding model must never redraw a Topic boundary
-            # (ADR-0015). This replaces vectors and nothing else.
-            service.re_embed(notebook_id, embedding_model=embedder.model_name)
-            print(f"  {notebook_id}: re-embedded into {embedder.model_name}")
+    for notebook_id in notebook_ids:
+        # Memberships are stored data and are carried across untouched: a
+        # change of embedding model must never redraw a Topic boundary
+        # (ADR-0015). This replaces vectors and nothing else.
+        service.re_embed(notebook_id, embedding_model=embedder.model_name)
+        print(f"  {notebook_id}: re-embedded into {embedder.model_name}")
 
     elapsed = time.monotonic() - started
     health = getattr(embedder, "health", lambda: {})()
@@ -149,10 +133,14 @@ def main() -> int:
     print(f"calls    : {health.get('calls')}  failures: {health.get('failures')}")
     print(f"tokens   : ~{total:,} (our count, ADR-0014)")
     if price:
-        print(f"cost     : ≈ ${estimate:.4f}  "
-              f"= {int(-(-total * price * 100 // 1_000_000))} Credits")
-        print("\nthe authority is your OpenRouter dashboard; this is the number "
-              "we would have billed.")
+        print(
+            f"cost     : ≈ ${estimate:.4f}  "
+            f"= {int(-(-total * price * 100 // 1_000_000))} Credits"
+        )
+        print(
+            "\nthe authority is your OpenRouter dashboard; this is the number "
+            "we would have billed."
+        )
     return 0
 
 

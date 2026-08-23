@@ -1,6 +1,6 @@
 # ISSUE-0011 — Auth and Candidate identity
 
-Status: ready-for-agent
+Status: ready-for-agent — the provider is chosen (ADR-0026); the build is not done
 Type: HITL
 Source: ADR-0012; SPEC-0000
 Covers: ADR-0012; prerequisite for every Candidate-scoped reading
@@ -27,12 +27,14 @@ operation rather than an incident — it repoints `identity` rows and leaves eve
 permanent row untouched. That works only because nothing permanent references the
 subject.
 
-**Why HITL:** the identity provider is deliberately unchosen in ADR-0012, and
-picking it is an architectural decision with cost and lock-in implications.
+**Why HITL:** the identity provider was deliberately unchosen in ADR-0012.
+It is now Gatehouse (ADR-0026), which also fixes where the surface may be
+served from — its refresh cookie is `SameSite=Lax`, so the surface is same-site
+with `auth.buildspacelabs.com` or it cannot sign anybody in.
 
 ## Acceptance criteria
 
-- [ ] An identity provider has been chosen and the decision recorded as an ADR
+- [x] An identity provider has been chosen and the decision recorded as an ADR (ADR-0026)
 - [ ] `candidate_id` is server-issued and appears in no token or URL
 - [ ] No permanent table references an identity-provider subject
 - [ ] A Candidate can hold multiple identities pointing at one `candidate_id`

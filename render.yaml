@@ -8,7 +8,15 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
-    healthCheckPath: /v1/health
+    # Liveness, not readiness — deliberately. `/v1/health` reads a row, and a
+    # check on a timer that reads a row holds Neon's compute awake for a
+    # database nobody is using, which spends the free allowance on the checking
+    # rather than on Candidates. The reason to prefer the deeper check is to
+    # drop a bad process out of the rotation, and on the free instance type
+    # there is one instance and no rotation to drop out of. Whether the
+    # database is reachable is still asked, hourly, by the keepalive Worker in
+    # the gatehouse repository (ops/keepalive).
+    healthCheckPath: /v1/health/live
     envVars:
       # Neon. Use the pooled endpoint — the code detects it and switches off
       # prepared statements, and points the checkpointer at the direct one.

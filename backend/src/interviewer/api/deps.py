@@ -42,6 +42,25 @@ def get_object_store():
 
 
 @lru_cache(maxsize=1)
+def get_probe_engine():
+    """One connection, kept only to ask whether Postgres is answering.
+
+    Deliberately not `wiring()` or `get_notebook_service()`: both apply DDL on
+    first use, and a health check that can change the database it describes is
+    not a health check. Deliberately not a fresh Engine per call either — that
+    is a new connection to a suspended Neon every time somebody asks, which is
+    the cost the question was supposed to avoid.
+
+    `make_engine` already sets `pool_pre_ping` and a short `pool_recycle`, so a
+    socket left dead by an autosuspend is retried here rather than reported as
+    a database that has gone away.
+    """
+    from interviewer.db.engine import make_engine
+
+    return make_engine(pool_size=1, max_overflow=0)
+
+
+@lru_cache(maxsize=1)
 def get_notebook_service():
     """Ingest is metered on the same ledger a Session is (ISSUE-0026)."""
     from interviewer.db.engine import create_content, create_core, make_engine

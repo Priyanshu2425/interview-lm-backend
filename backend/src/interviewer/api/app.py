@@ -7,7 +7,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
@@ -65,6 +65,25 @@ async def lifespan(app: FastAPI):
         pass
 
 
+def _database_reachable() -> bool:
+    """Whether Postgres answers, as a bool rather than an exception.
+
+    Every kind of failure means the same thing to the caller — the database is
+    not there — and a health check that raises is a health check that returns
+    500 instead of the 503 it meant.
+    """
+    from sqlalchemy import text
+
+    from .deps import get_probe_engine
+
+    try:
+        with get_probe_engine().connect() as c:
+            c.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="InterviewLM",
@@ -82,16 +101,33 @@ def create_app() -> FastAPI:
     app.include_router(operator_router, prefix="/v1")
 
     @app.get("/v1/health")
-    def health() -> dict:
-        """Liveness, plus what the embedder is and whether it is loaded.
+    def health(response: Response) -> dict:
+        """Alive, and separately, able to do the job.
 
         `ready` is deliberately not `ok`: a process warming a model is alive and
         answering, and should not be restarted — it should not be sent traffic
         yet, which is a different question and needs a different field.
+
+        `database` is a third question again, and the only one that decides the
+        status code. A process that cannot reach Postgres can serve no Session,
+        no Corpus and no upload; reporting that as healthy is how a caller finds
+        out one request at a time. Whether the embedder is warm is not a reason
+        to refuse traffic — `MODEL_WARM_AT_BOOT` is off in most deployments, so
+        a 503 for a cold model would be a 503 for every ordinary deploy.
         """
         from .deps import get_embedder
 
-        body: dict = {"ok": True, "ready": getattr(app.state, "ready", True)}
+        # Asked first, and the status set with it, because the embedder block
+        # below returns early and a status set after it would never be reached.
+        reachable = _database_reachable()
+        if not reachable:
+            response.status_code = 503
+
+        body: dict = {
+            "ok": True,
+            "ready": getattr(app.state, "ready", True),
+            "database": reachable,
+        }
         try:
             embedder = get_embedder()
         except Exception as exc:
@@ -103,6 +139,25 @@ def create_app() -> FastAPI:
             "dim": getattr(embedder, "dim", None),
         }
         return body
+
+    @app.get("/v1/health/live")
+    def live() -> dict:
+        """Up, without asking anything else whether it agrees.
+
+        Separate from `/v1/health` because the two questions have different
+        costs. Reading a row wakes Neon's compute and then holds it awake, so
+        anything asking on a timer — Render's own health check, the worker in
+        gatehouse's `ops/keepalive` that stops this free instance spinning down
+        — would spend a database allowance on a database nobody is using. This
+        answers what those callers are actually asking: is there a process here
+        to serve the next request. Whether it can serve it is still
+        `/v1/health`.
+
+        It does not reach for the embedder either, for the same reason in a
+        different currency: constructing one is the paid provider's client, and
+        a liveness check should cost a process being awake and nothing else.
+        """
+        return {"service": "interview-lm", "version": app.version}
 
     # The surface is served from the same origin as the API, which is what
     # removes the CORS and cookie decision SPEC-0000 §7 left open — at least

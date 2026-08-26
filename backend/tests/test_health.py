@@ -144,3 +144,26 @@ def test_the_status_survives_the_embedder_reporting_first(client, unreachable, m
 
     assert response.status_code == 503
     assert response.json()["database"] is False
+
+
+# -- neither answer may be kept ---------------------------------------------
+
+def test_liveness_may_not_be_cached(client):
+    """A cached liveness check is the failure it was built to prevent.
+
+    Both hosts are served through Cloudflare. A 200 from the edge never reaches
+    Render, so the instance the keepalive worker is warming spins down anyway —
+    and every party to it reports success.
+    """
+    assert client.get("/v1/health/live").headers["cache-control"] == "no-store"
+
+
+def test_health_may_not_be_cached(client, reachable, stub_embedder):
+    assert client.get("/v1/health").headers["cache-control"] == "no-store"
+
+
+def test_a_refusal_may_not_be_cached_either(client, unreachable, stub_embedder):
+    """The 503 is the one an edge holding it for four hours would hurt most."""
+    response = client.get("/v1/health")
+    assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"

@@ -65,6 +65,16 @@ async def lifespan(app: FastAPI):
         pass
 
 
+#: Health answers are about this process at this moment, so nothing may keep one.
+#:
+#: The API is served through Cloudflare, which will hold a JSON body at the edge and
+#: answer from it. A cached health check is worse than none: the keepalive worker gets
+#: its 200 without the request ever reaching Render, and the instance it was warming
+#: spins down anyway — silently, because everything reported success. An operator
+#: curling the endpoint reads a body hours old for the same reason.
+NO_STORE = "no-store"
+
+
 def _database_reachable() -> bool:
     """Whether Postgres answers, as a bool rather than an exception.
 
@@ -119,6 +129,8 @@ def create_app() -> FastAPI:
 
         # Asked first, and the status set with it, because the embedder block
         # below returns early and a status set after it would never be reached.
+        response.headers["cache-control"] = NO_STORE
+
         reachable = _database_reachable()
         if not reachable:
             response.status_code = 503
@@ -141,7 +153,7 @@ def create_app() -> FastAPI:
         return body
 
     @app.get("/v1/health/live")
-    def live() -> dict:
+    def live(response: Response) -> dict:
         """Up, without asking anything else whether it agrees.
 
         Separate from `/v1/health` because the two questions have different
@@ -157,6 +169,7 @@ def create_app() -> FastAPI:
         different currency: constructing one is the paid provider's client, and
         a liveness check should cost a process being awake and nothing else.
         """
+        response.headers["cache-control"] = NO_STORE
         return {"service": "interview-lm", "version": app.version}
 
     # The surface is served from the same origin as the API, which is what

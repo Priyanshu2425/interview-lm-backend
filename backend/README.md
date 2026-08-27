@@ -1,21 +1,30 @@
 # backend
 
-The Python implementation (ADR-0009), built from the thirteen slices in
+The Python implementation (ADR-0009), built from the slices in
 `docs/issues/`. Every module names the ADR or PRD that decides its shape.
 
 ## Running it
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e backend
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements-dev.txt
+.venv/bin/pip install -e backend
 docker run -d --name cortex-pg -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex \
   -e POSTGRES_DB=cortex -p 55432:5432 pgvector/pgvector:pg16
 
-.venv/bin/python -m pytest backend/tests -q           # 780 tests, ~100s
+.venv/bin/python -m pytest backend/tests -q           # 840 tests, ~100s
 .venv/bin/uvicorn interviewer.api.app:app --port 8000 # the API
 ```
 
 The container keeps the name it was created with. It is local scratch: drop it
 and re-create it whenever, the suite builds every schema it needs.
+
+`pip install -e backend` on its own is not enough to run any of the above.
+`pyproject.toml` declares only what the Notebook Adapter cannot work without
+and leaves the rest of the runtime to the deployment — so it installs neither
+the API you are importing nor the runner importing it.
+`requirements-dev.txt` is the pinned runtime set plus pytest, and is the one
+to install.
 
 Without `OPENROUTER_API_KEY` the provider transport is a deterministic
 stand-in, so everything runs offline. With it, real calls are metered.

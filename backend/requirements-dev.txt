@@ -1,0 +1,27 @@
+# Everything the suite needs, on top of everything the image needs.
+#
+# `requirements.txt` is what the *deployment* installs, and `pin_requirements.py`
+# builds it from a hand-written list of what the API imports at runtime — so it
+# cannot produce this file: pytest is not runtime, and a test dependency that
+# leaked into the image would be carried by every container for the life of
+# the deployment.
+#
+# That left the test dependencies declared nowhere at all. The documented
+# install produced an environment that could not run `pytest`, and the only
+# machine that could was one where somebody had installed it by hand and not
+# written it down. This is writing it down.
+#
+# Pinned for the same reason the runtime set is: the claim "840 tests pass" is
+# about a specific set of versions or it is about nothing.
+
+-r requirements.txt
+
+pytest==9.1.1
+pytest-asyncio==1.4.0
+
+# Not a test runner, and needed all the same. `pdf_fixtures.py` draws the pages
+# it feeds the Notebook Adapter, so the figure and vector suites cannot even
+# collect without it — which is a different thing from the `embeddings` extra
+# it is otherwise part of. Pillow is a few megabytes; that extra is 2.5GB of
+# torch, and nothing here asks you to install it to run the tests.
+pillow==12.3.0

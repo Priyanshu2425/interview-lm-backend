@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 """Regenerate backend/requirements.txt from the environment the tests pass in.
 
-`pyproject.toml` declares only the two dependencies the Notebook Adapter cannot
+`pyproject.toml` declares only the dependencies the Notebook Adapter cannot
 work without, and says outright that the rest of the runtime is the
 deployment's business. This is the deployment's business, written down: the
-image installs exactly what 681 passing tests ran against.
+image installs exactly what 840 passing tests ran against.
+
+Runtime only. The test dependencies are pinned separately in
+`requirements-dev.txt`, because a test runner carried by every container for
+the life of the deployment is a cost paid forever for a command nobody runs
+there.
 
 Run it after changing a dependency, and commit the result — an unpinned build
 is a build that changes without a commit, and the first sign of that is

@@ -1,12 +1,49 @@
 # backend
 
-The Python implementation (ADR-0009), built from the slices in
-`docs/issues/`. Every module names the ADR or PRD that decides its shape.
+The Python implementation (ADR-0009), built from the slices in `docs/issues/`.
+Every module names the ADR or PRD that decides its shape.
+
+**This directory is the root of the backend, not a package inside one.** The
+image, the tooling, the pinned dependencies and the environment files are all
+here, and the Docker build context is this directory:
+
+```
+backend/
+  src/interviewer/     the packages, listed under Layout below
+  tests/               840, run from the repository root
+  scripts/             the tooling — see below
+  Dockerfile           built as `docker build backend/`
+  .dockerignore        what to keep out of the context
+  pyproject.toml       what the Notebook Adapter cannot work without
+  requirements.txt     the runtime set the image installs, pinned
+  requirements-dev.txt  that plus pytest and pillow
+  .env.example         all thirty-six variables the code reads
+  .env.prod.example    the eleven a deployment decides
+  package.json         playwright, for the Node scrapers in scripts/
+```
+
+Everything in `scripts/` is run **from the repository root**, not from here —
+the scrapers address `data/` and `.auth/` relative to the working directory:
+
+| | |
+|---|---|
+| `import_corpus.py` | a conformant Corpus into Postgres. Resumable, no-op per Module on a re-run |
+| `pin_requirements.py` | regenerates `requirements.txt` from the environment the suite passes in |
+| `reset_embeddings.py` | re-embeds every notebook with the configured provider |
+| `publish_model.py` | a Hugging Face checkpoint to the bucket, so a boot needs no hub |
+| `scrape.mjs` | the InterviewLM Corpus Adapter (ADR-0007). Node, and not ported (ADR-0009) |
+| `login.mjs`, `recon.mjs`, `api-probe.mjs`, `verify.mjs` | the scraper's supporting tools |
+| `ingest-transcripts.mjs` | fills stub Classes from `data/pending-transcripts.json` |
+| `dev-auth-setup.sh` | makes a machine able to sign in against Gatehouse locally |
+
+`serve.sh` is deliberately **not** here — it lives in the repository's own
+`scripts/`, because starting a container is the box's business rather than the
+backend's, and `deploy/` is where the box is described.
 
 ## Running it locally
 
-Local only. The deployment is a VPS talking to Neon — `backend/.env.prod.example` is
-that set, and `deploy/` is what runs it.
+Local only. The deployment is a VPS talking to Neon — `.env.prod.example` in
+this directory is that set, and `deploy/` is what runs it.
 
 ```bash
 python3 -m venv .venv
@@ -113,6 +150,8 @@ DATABASE_URL="$INTERVIEW_LM_DATABASE_URL" \
 ```
 
 ## Layout
+
+The packages under `src/interviewer/`:
 
 | Package | Owns | Decided by |
 |---|---|---|

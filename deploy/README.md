@@ -4,6 +4,22 @@ What keeps the API running on a VPS, and what stops its logs filling the disk.
 Three files, none of which the application knows about — it writes to stdout and
 listens on a port, and everything here is the box's side of that.
 
+What that looks like once installed:
+
+```
+/opt/interview-lm/            the clone
+  backend/                    the image is built from here, and only from here
+    .env.prod                 the eleven. chmod 600, never committed
+  scripts/serve.sh            what systemd execs
+  deploy/                     these files, copied out to /etc during install
+  logs/interview-lm.log       both streams, appended, rotated daily
+/etc/systemd/system/interview-lm.service
+/etc/logrotate.d/interview-lm
+```
+
+Nothing else on the box holds state. The database is Neon and the documents are
+in R2, both deliberately elsewhere — see **What is not here**.
+
 ## Install
 
 ```bash
@@ -107,9 +123,10 @@ keeps the deployment single-origin, and single-origin is what makes
 outlives any one deployment (ADR-0003), and a database on the machine it serves
 dies when you rebuild the machine.
 
-**Uploaded documents.** In R2, not on this box — see `backend/.env.prod.example`. Since
-ISSUE-0033 the stored document is the only copy of what a Candidate handed over,
-which is exactly why it does not live on a single machine.
+**Uploaded documents.** In R2, not on this box — see
+`backend/.env.prod.example`. Since ISSUE-0033 the stored document is the only
+copy of what a Candidate handed over, which is exactly why it does not live on
+a single machine.
 
 The `interview_lm_content` volume `serve.sh` mounts is therefore a cache and not
 a store: with R2 configured nothing durable is written to it, and with

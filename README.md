@@ -26,13 +26,31 @@ so it cannot be made by accident.
 
 ## What is in this repository
 
-| | |
-|---|---|
-| `backend/` | everything the API is: the graph, the Judge, metering, its Dockerfile, and the tooling that runs against it |
-| `docs/` | 26 ADRs, 5 PRDs, 5 specs, 37 implementation slices |
-| `deploy/` | the systemd unit and logrotate config for the VPS |
-| `scripts/` | `serve.sh` only — how the box starts the container |
-| `data/` | the Corpus source material. Ignored except its README |
+```
+backend/                 the backend, entire — its own root
+  src/interviewer/       the graph, the Judge, metering, the FastAPI app
+  tests/                 840 of them
+  scripts/               Corpus import, the scraper, embedding maintenance
+  Dockerfile             the image — its build context is backend/, not here
+  requirements.txt       the runtime set, pinned
+  requirements-dev.txt   that plus pytest and pillow
+  .env.example           every variable the code reads
+  .env.prod.example      the eleven a deployment decides
+docs/                    26 ADRs, 5 PRDs, 5 specs, 37 slices
+deploy/                  the systemd unit and logrotate config for the VPS
+scripts/serve.sh         how the box starts the container
+data/                    Corpus source material, ignored except its README
+```
+
+`backend/` is the root of the backend rather than a subdirectory of one: the
+Dockerfile, the tooling and the environment files all live inside it, and the
+image is built with `docker build backend/`. Nothing outside it reaches the
+image, which is the point — `data/` and `docs/` are not in the build context at
+all, so they cannot be copied in by a careless `COPY`.
+
+What is at the repository root is what is *not* the backend: the product and
+vocabulary documents, the decision record, and the two directories describing
+the machine it runs on.
 
 Two things are deliberately **not** here:
 
@@ -92,12 +110,13 @@ Then:
 database is the container above, and the model provider is a deterministic
 stand-in — so the whole interview loop runs offline, with real metering, and
 every examiner turn comes back as `SCORE: 0.8 WHY: fine.` That is the stub, not
-a bug. `cp backend/.env.example backend/.env` when you want to change it; it documents
-every variable and what it costs you to set.
+a bug. `cp backend/.env.example backend/.env` when you want to change it — it
+documents every variable the code reads and what each costs you to set.
 
-Nothing loads `.env` on its own. It reaches a process through
-`uvicorn --env-file backend/.env` or an explicit `set -a; . ./backend/.env; set +a`, and that
-is deliberate — see **the trap**, below.
+Nothing loads that file on its own. It reaches a process through
+`uvicorn --env-file backend/.env`, or an explicit
+`set -a; . ./backend/.env; set +a`, and that is deliberate — see **the trap**,
+below.
 
 ### Running the surface too
 
@@ -142,7 +161,7 @@ reference — every variable says why it exists and what breaks without it.
 `deploy/` holds the systemd unit and the logrotate config.
 
 ```bash
-cp backend/.env.prod.example backend/.env.prod   # fill it in — six answers
+cp backend/.env.prod.example backend/.env.prod   # eleven lines, ten to answer
 docker build -t interview-lm backend/
 sudo cp deploy/interview-lm.service /etc/systemd/system/
 sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm

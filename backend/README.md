@@ -3,7 +3,10 @@
 The Python implementation (ADR-0009), built from the slices in
 `docs/issues/`. Every module names the ADR or PRD that decides its shape.
 
-## Running it
+## Running it locally
+
+Local only. The deployment is a VPS talking to Neon — `.env.prod.example` at
+the repository root is that set, and `deploy/` is what runs it.
 
 ```bash
 python3 -m venv .venv
@@ -39,6 +42,7 @@ Validate a Corpus on its own:
 
 **Local is the default and is what the test suite always uses.** `docker run`
 above starts it on port 55432; with nothing set, the application connects there.
+Nothing but a deployment should ever point at Neon.
 
 **Shared.** The deployment runs on the shared Neon project, where this app owns
 the schemas below and reaches them through the reduced-privilege

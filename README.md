@@ -47,9 +47,15 @@ Two things are deliberately **not** here:
   Corpus to miss. `data/README.md` says what belongs there and how to produce
   it.
 
-## Setting it up
+## Setting it up locally
 
 Python 3.12 or newer, Docker, and about two minutes.
+
+**The Postgres container below is local only.** Production is Neon and is
+covered under [Deploying](#deploying) — the two never swap. Local dev
+deliberately cannot reach the shared database: `conftest.py:24` strips
+`DATABASE_URL` before anything imports the engine, because 840 tests pointed at
+Neon would create schemas and insert rows on production.
 
 ```bash
 git clone https://github.com/Priyanshu2425/interview-lm-backend.git
@@ -128,9 +134,11 @@ they have opposite lifecycles (ADR-0010).
 
 ## Deploying
 
-A VPS, a reverse proxy, and Neon. `.env.prod.example` is the reference — every
-variable says why it exists and what breaks without it. `deploy/` holds the
-systemd unit and the logrotate config.
+A VPS, a reverse proxy, and Neon. **No Postgres container appears here** — the
+one in [Setting it up locally](#setting-it-up-locally) is scratch for
+development and has no part in a deployment. `.env.prod.example` is the
+reference — every variable says why it exists and what breaks without it.
+`deploy/` holds the systemd unit and the logrotate config.
 
 ```bash
 cp .env.prod.example .env.prod          # fill it in — six answers

@@ -32,16 +32,20 @@ frontend/dist/
 # tying the two histories together would imply a coupling that does not exist.
 frontend/
 
-# Model weights are published to S3 by scripts/publish_model.py and cached
-# locally.
+# Model weights are published to S3 by backend/scripts/publish_model.py and
+# cached locally.
 .cache/
 *.safetensors
 
-# Python build noise
+# Python build noise. `.ruff_cache/` writes its own `.gitignore` containing `*`
+# and so ignores itself — named here anyway, because an ignore rule that lives
+# inside the thing being ignored disappears the moment the tool stops writing
+# it, and the first sign is a cache in a commit.
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 
 # Logs are written on the box, not carried in the repo. deploy/ rotates them.
 logs/

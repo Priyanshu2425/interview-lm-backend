@@ -5,6 +5,12 @@ Type: **HITL**
 Source: ISSUE-0029; DESIGN.md; AGENTS.md §"The surface holds no invariant"
 Covers: where sideways exploration appears to a Candidate, and whether it should
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## Why this one needs a human
 
 `design-system/` never drew this. There is no screen, no component and no

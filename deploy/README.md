@@ -12,7 +12,7 @@ sudo usermod -aG docker interview-lm          # serve.sh runs a container
 
 sudo git clone https://github.com/Priyanshu2425/interview-lm-backend.git /opt/interview-lm
 cd /opt/interview-lm
-sudo cp .env.prod.example .env.prod && sudo $EDITOR .env.prod
+sudo cp backend/.env.prod.example backend/.env.prod && sudo $EDITOR backend/.env.prod
 sudo docker build -t interview-lm backend/
 
 # The log directory is not created by anything else. systemd's `append:` fails
@@ -20,7 +20,7 @@ sudo docker build -t interview-lm backend/
 # service that starts and logs nowhere.
 sudo mkdir -p logs
 sudo chown -R interview-lm:interview-lm /opt/interview-lm
-sudo chmod 600 .env.prod
+sudo chmod 600 backend/.env.prod
 
 sudo cp deploy/interview-lm.service /etc/systemd/system/
 sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm
@@ -107,7 +107,7 @@ keeps the deployment single-origin, and single-origin is what makes
 outlives any one deployment (ADR-0003), and a database on the machine it serves
 dies when you rebuild the machine.
 
-**Uploaded documents.** In R2, not on this box — see `.env.prod.example`. Since
+**Uploaded documents.** In R2, not on this box — see `backend/.env.prod.example`. Since
 ISSUE-0033 the stored document is the only copy of what a Candidate handed over,
 which is exactly why it does not live on a single machine.
 

@@ -14,14 +14,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-: "${ENV_FILE:=.env.prod}"
+: "${ENV_FILE:=backend/.env.prod}"
 : "${PORT:=8000}"
 : "${IMAGE:=interview-lm}"
 : "${CONTAINER:=interview-lm}"
 : "${CONTENT_VOLUME:=interview_lm_content}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "no $ENV_FILE. Copy .env.prod.example and fill it in." >&2
+  echo "no $ENV_FILE. Copy backend/.env.prod.example and fill it in." >&2
   exit 1
 fi
 

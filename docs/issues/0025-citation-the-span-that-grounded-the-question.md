@@ -5,6 +5,12 @@ Type: **HITL**
 Source: SPEC 2026-08-21 Notebook Adapter; ADR-0015, ADR-0005 (amended), ADR-0002
 Covers: spec §Surface/Citation
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## Why this one needs a human
 
 `design-system/` holds no citation screen. Every other frontend slice compares

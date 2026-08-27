@@ -5,8 +5,8 @@ The Python implementation (ADR-0009), built from the slices in
 
 ## Running it locally
 
-Local only. The deployment is a VPS talking to Neon — `.env.prod.example` at
-the repository root is that set, and `deploy/` is what runs it.
+Local only. The deployment is a VPS talking to Neon — `backend/.env.prod.example` is
+that set, and `deploy/` is what runs it.
 
 ```bash
 python3 -m venv .venv
@@ -68,7 +68,7 @@ names psycopg on the way past, so a pasted URL works.
 
 ### The trap
 
-Setting `DATABASE_URL` — or uncommenting the line in the repo's `.env` and
+Setting `DATABASE_URL` — or uncommenting the line in `backend/.env` and
 sourcing it — redirects **every local run** at the shared database. It is not
 hypothetical: the `cltv` app's suite did exactly this, inserting rows and
 creating schemas on the shared instance before anyone noticed.
@@ -80,8 +80,8 @@ What guards you, and what does not:
   anything imports the engine. `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the
   deliberate way past it.
 - **Nothing reads `.env` on its own.** No `load_dotenv` anywhere; only
-  `uvicorn --env-file` and an explicit `set -a; . ./.env` do.
-- **The line in `.env` is commented out**, and says why. Do not delete it — the
+  `uvicorn --env-file` and an explicit `set -a; . ./backend/.env` do.
+- **The line in `backend/.env` is commented out**, and says why. Do not delete it — the
   password was generated at provisioning, written only there, and never printed.
 - **Nothing guards the app server or the scripts.** `uvicorn --env-file` and
   everything in `backend/scripts/` will go wherever you point them.
@@ -107,7 +107,7 @@ Importing the shipped Corpus is a separate, resumable step, and a no-op per
 Module on a re-run:
 
 ```bash
-set -a; . ./.env; set +a            # with the URL uncommented
+set -a; . ./backend/.env; set +a    # with the URL uncommented
 DATABASE_URL="$INTERVIEW_LM_DATABASE_URL" \
   .venv/bin/python backend/scripts/import_corpus.py --title "InterviewLM"
 ```

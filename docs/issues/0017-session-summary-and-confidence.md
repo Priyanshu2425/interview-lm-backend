@@ -5,6 +5,12 @@ Type: AFK
 Source: SPEC-0003, design-system/screens/04-session-summary.html; PRD-0002
 Covers: PRD-0002 §1, §2, §3, §5, §6, §10, §34, §36; PRD-0003 §18, §19, §21
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## What to build
 
 The screen that refuses the single number hardest.

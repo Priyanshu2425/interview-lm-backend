@@ -5,6 +5,12 @@ Type: AFK
 Source: SPEC-0003, design-system/screens/05-credits.html; PRD-0005, ADR-0008, ADR-0013
 Covers: PRD-0005 §1, §2, §6, §9, §12, §13, §14, §16, §17, §18, §19, §20, §22, §23
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## What to build
 
 The balance, with the definition of a Credit stated on the same screen: one US

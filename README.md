@@ -92,11 +92,11 @@ Then:
 database is the container above, and the model provider is a deterministic
 stand-in — so the whole interview loop runs offline, with real metering, and
 every examiner turn comes back as `SCORE: 0.8 WHY: fine.` That is the stub, not
-a bug. `cp .env.example .env` when you want to change it; the file documents
+a bug. `cp backend/.env.example backend/.env` when you want to change it; it documents
 every variable and what it costs you to set.
 
 Nothing loads `.env` on its own. It reaches a process through
-`uvicorn --env-file .env` or an explicit `set -a; . ./.env; set +a`, and that
+`uvicorn --env-file backend/.env` or an explicit `set -a; . ./backend/.env; set +a`, and that
 is deliberate — see **the trap**, below.
 
 ### Running the surface too
@@ -114,7 +114,7 @@ script sets up and why.
 
 ### The trap
 
-Setting `DATABASE_URL` — or uncommenting the line in `.env` and sourcing it —
+Setting `DATABASE_URL` — or uncommenting the line in `backend/.env` and sourcing it —
 redirects **every local run that reads it** at the shared Neon database. This
 is not hypothetical: a neighbouring app's suite did exactly this, creating
 schemas and inserting rows on the shared instance before anyone noticed.
@@ -137,12 +137,12 @@ they have opposite lifecycles (ADR-0010).
 
 A VPS, a reverse proxy, and Neon. **No Postgres container appears here** — the
 one in [Setting it up locally](#setting-it-up-locally) is scratch for
-development and has no part in a deployment. `.env.prod.example` is the
+development and has no part in a deployment. `backend/.env.prod.example` is the
 reference — every variable says why it exists and what breaks without it.
 `deploy/` holds the systemd unit and the logrotate config.
 
 ```bash
-cp .env.prod.example .env.prod          # fill it in — six answers
+cp backend/.env.prod.example backend/.env.prod   # fill it in — six answers
 docker build -t interview-lm backend/
 sudo cp deploy/interview-lm.service /etc/systemd/system/
 sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm

@@ -5,6 +5,12 @@ Type: AFK
 Source: SPEC-0003 §2, design-system/screens/03-visit-result.html; PRD-0002, ADR-0002
 Covers: PRD-0002 §4, §7, §8, §9; PRD-0003 §12, §13, §14; PRD-0005 §6, §8
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## What to build
 
 What a Candidate sees when a Topic closes: the score, the reasoning behind it,

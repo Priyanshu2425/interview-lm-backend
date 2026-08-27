@@ -76,6 +76,12 @@ over time.
 | 0036 | Where you stand on a Topic | **HITL** | 0034 | ✅ resolved (ADR-0022) |
 | 0037 | Retire the disk path | AFK | 0034, 0036 | ✅ resolved |
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## Shape of the graph
 
 The spine is `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007`, and it is a spine

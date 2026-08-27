@@ -5,6 +5,12 @@ Read this before any other spec; every other document assumes what is settled he
 
 ---
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## 1. The stack
 
 | Layer | Choice | Why this and not the obvious alternative |

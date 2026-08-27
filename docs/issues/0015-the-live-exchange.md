@@ -5,6 +5,12 @@ Type: AFK
 Source: SPEC-0003 §5, design-system/screens/02-topic-visit.html; PRD-0003, ADR-0011
 Covers: PRD-0003 §5, §6, §7, §8, §11, §14, §15, §16, §17; PRD-0005 §7
 
+> **Note (2026-08-27).** `design-system/` was removed from this repository. The
+> surface is built from the design files outside it — see `DESIGN.md` and
+> `AGENTS.md`. Paths naming `design-system/` below are kept as written: they
+> record what this was built against at the time, and they resolve in git
+> history rather than in the working tree.
+
 ## What to build
 
 The screen the product exists for. A question arrives, the Candidate answers,

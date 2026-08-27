@@ -1,0 +1,39 @@
+# Log retention: rotated daily, seven kept, everything older deleted.
+# Install as /etc/logrotate.d/interview-lm — no cron entry needed, the
+# logrotate timer that ships with the distribution picks it up.
+#
+# Verify without waiting a day:
+#   sudo logrotate -d /etc/logrotate.d/interview-lm    # dry run, prints the plan
+#   sudo logrotate -f /etc/logrotate.d/interview-lm    # force one now
+
+/opt/interview-lm/logs/*.log {
+    daily
+
+    # Seven dailies, so nothing on disk is older than a week. This is the whole
+    # retention policy: `rotate` is what deletes, and the oldest file falls off
+    # the end of the chain on the eighth day.
+    rotate 7
+
+    # copytruncate is required here, not preferred. systemd opened this file
+    # with `append:` and holds the descriptor; renaming it would leave the
+    # service writing to an inode with no name, so the live log would appear
+    # empty while the disk kept filling. Copy-then-truncate keeps the same
+    # inode and costs one copy of a day's log.
+    copytruncate
+
+    compress
+    # The most recent rotation stays readable without zcat — it is the one
+    # anybody actually opens.
+    delaycompress
+
+    # A box that has not been used yet has no log, and that is not an error.
+    missingok
+
+    # Rotating a zero-byte file every day would burn all seven slots on nothing
+    # and evict the logs from the week you cared about.
+    notifempty
+
+    # Rotate as the owner, so the copy and the new file are not root's.
+    su interview-lm interview-lm
+    create 0640 interview-lm interview-lm
+}

@@ -42,8 +42,8 @@ def _fernet_key(material: bytes) -> bytes:
     """A Fernet key from whatever the platform generated.
 
     Fernet wants url-safe base64 of exactly 32 bytes. A secret manager asked
-    for "a random value" gives you a random value — Render's `generateValue`,
-    a password manager, a line somebody typed — and none of those are that
+    for "a random value" gives you a random value — `openssl rand -hex 32`, a
+    password manager, a line somebody typed — and none of those are that
     shape. Rejecting them would mean the operator has to know to run
     `Fernet.generate_key()`, and the failure for not knowing is a boot loop.
 

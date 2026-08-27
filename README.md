@@ -128,26 +128,43 @@ they have opposite lifecycles (ADR-0010).
 
 ## Deploying
 
-`render.yaml` is the blueprint and its comments are the reference — every
-variable there says why it exists and what breaks without it. The shape:
+A VPS, a reverse proxy, and Neon. `.env.prod.example` is the reference — every
+variable says why it exists and what breaks without it. `deploy/` holds the
+systemd unit and the logrotate config.
 
-- **API** — the Docker image, one worker, on Render. The checkpointer and the
-  connection pool are per-process, and a free tier has neither the memory nor
-  the traffic to want more.
-- **Database** — Neon, declared nowhere in `render.yaml` on purpose. It holds
-  Evidence, Evidence outlives any one deployment (ADR-0003), and a database
-  declared in the same file as its service is a database that can be destroyed
-  by editing that file. The registry is at `~/Desktop/buildspace/neon`.
-- **Surface** — Cloudflare Pages, cross-origin, which is what `ALLOWED_ORIGINS`
-  is for (ADR-0020).
-- **Documents** — Cloudflare R2. Render's filesystem is ephemeral and the
-  stored document is the only copy of what a Candidate handed over
-  (ISSUE-0033).
+```bash
+cp .env.prod.example .env.prod          # fill it in — six answers
+docker build -t interview-lm .
+sudo cp deploy/interview-lm.service /etc/systemd/system/
+sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm
+sudo systemctl enable --now interview-lm
+```
 
-Health is `/v1/health/live` — liveness, not readiness, deliberately.
-`/v1/health` reads a row, and a check on a timer that reads a row holds Neon's
-compute awake for a database nobody is using. Whether the database is reachable
-is still asked hourly, by the keepalive Worker in the gatehouse repository.
+The shape, and why each piece is where it is:
+
+- **API** — the Docker image, one worker. The LangGraph checkpointer and the
+  connection pool are both per-process, so a second worker is a second of each.
+  systemd restarts it and starts it at boot; `scripts/serve.sh` is the same
+  thing runnable by hand.
+- **Database** — Neon, deliberately not on this box. It holds Evidence,
+  Evidence outlives any one deployment (ADR-0003), and a database on the
+  machine it serves dies when you rebuild the machine.
+- **Surface** — nginx serves the built `dist/` and proxies `/v1` to the API, so
+  there is one origin and no CORS to configure. That is SPEC-0000 §7's original
+  design; ADR-0020 reversed it only because a CDN forces a second origin, and
+  records that `ALLOWED_ORIGINS` and `VITE_API_URL` empty is the single-origin
+  deployment exactly as it was.
+- **Documents** — local disk, on a volume that survives a rebuild. Since
+  ISSUE-0033 the stored document is the only copy of what a Candidate handed
+  over. S3-compatible object storage is supported and optional; a host with an
+  ephemeral filesystem needs it, a VPS does not.
+- **Logs** — `logs/`, rotated daily and kept for seven days. `deploy/README.md`
+  has the detail.
+
+Health is `/v1/health/live` — liveness, not readiness, deliberately. `/v1/health`
+reads a row, and a check on a timer that reads a row holds Neon's compute awake
+for a database nobody is using. Point your supervisor and any uptime monitor at
+the former; ask the latter by hand when you want to know about the database.
 
 ## Where truth lives
 

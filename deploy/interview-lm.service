@@ -1,0 +1,58 @@
+# systemd is what keeps the API running: it restarts a crashed process, backs
+# off rather than spinning when one fails to boot, and starts it again after a
+# reboot. Install as /etc/systemd/system/interview-lm.service, then:
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now interview-lm
+#   systemctl status interview-lm
+#
+# WorkingDirectory and User are the two lines to check for your box.
+
+[Unit]
+Description=InterviewLM API
+Documentation=https://github.com/Priyanshu2425/interview-lm-backend
+# Docker must be up first. `Requires` rather than `Wants`: without the daemon
+# there is nothing to start, and failing loudly beats restarting forever.
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=interview-lm
+WorkingDirectory=/opt/interview-lm
+ExecStart=/opt/interview-lm/scripts/serve.sh
+
+# Stop the container rather than only the client that is attached to it —
+# `docker run` exiting does not by itself end what it started.
+ExecStop=/usr/bin/docker stop interview-lm
+
+# Logs to a folder, as files, alongside journald's own copy. `append:` rather
+# than `file:` so a restart adds to the log instead of truncating the last one
+# — which would mean the crash you want to read is erased by the restart that
+# followed it. Both streams to one file, because a traceback split across two
+# is a traceback in the wrong order.
+#
+# The directory must exist and be writable by User. logrotate uses copytruncate
+# because systemd holds this file open and would otherwise keep writing to a
+# rotated inode nothing can find.
+StandardOutput=append:/opt/interview-lm/logs/interview-lm.log
+StandardError=append:/opt/interview-lm/logs/interview-lm.log
+
+Restart=always
+# Five seconds, and a limit. Without StartLimit a process that cannot boot —
+# one missing variable, a bad DATABASE_URL — restarts forever, and the symptom
+# is a machine at full CPU writing the same traceback until the disk fills.
+# This gives up after five failures in five minutes and leaves the unit failed,
+# which is a state you can see.
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# The container drops privileges to uid 10001 on its own; this is about the
+# host side of the boundary.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

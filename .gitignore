@@ -4,11 +4,14 @@ node_modules/
 .auth/
 .DS_Store
 
-# Secrets. `.env.example` is the documented set and is tracked; a real .env
-# never is.
+# Secrets. The `*.example` files are the documented sets and are tracked; a
+# real .env or .env.prod never is. Each example needs its own negation —
+# `.env.*` swallows them otherwise, and the failure is silent: the file is
+# written, `git add -A` skips it, and nobody notices it never shipped.
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # The Corpus is not published. `data/` holds InterviewLM course material —
 # 387 markdown files and the manifest over them — which is theirs rather than
@@ -39,3 +42,6 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# Logs are written on the box, not carried in the repo. deploy/ rotates them.
+logs/

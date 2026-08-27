@@ -5,13 +5,6 @@ PDF takes roughly forty seconds — long enough that a Candidate cannot be held 
 a request, short enough that no infrastructure should be introduced for it. So
 the work runs here and the poll drives the progress readout.
 
-The poll is doing two jobs, and the second one is worth stating: an idle Render
-instance spins down and any inbound request resets that timer, so polling keeps
-the server alive for as long as somebody is watching. That is a side effect of a
-request we need anyway rather than a keep-alive built for its own sake — the free
-tier allows about one instance running full time, and holding it awake
-deliberately would spend the whole allowance on nothing.
-
 **No worker survives a restart**, which is what makes a killed one detectable
 without a timeout: any Source still marked `ingesting` when the process starts is
 stale by definition (see `reset_stale`).

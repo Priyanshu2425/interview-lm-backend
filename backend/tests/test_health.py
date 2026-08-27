@@ -69,8 +69,8 @@ def test_liveness_reports_a_version(client):
 def test_liveness_answers_without_reaching_the_database(client, unreachable):
     """The whole reason it exists apart from `/v1/health`.
 
-    A poller on a timer — Render's health check, the keepalive worker in the
-    gatehouse repository — would otherwise wake Neon's compute every few
+    A poller on a timer — a process supervisor, a reverse proxy's upstream
+    check, an uptime monitor — would otherwise wake Neon's compute every few
     minutes and hold it awake for a database no Candidate is using. If this
     test starts failing, that cost has come back.
     """
@@ -152,8 +152,8 @@ def test_liveness_may_not_be_cached(client):
     """A cached liveness check is the failure it was built to prevent.
 
     Both hosts are served through Cloudflare. A 200 from the edge never reaches
-    Render, so the instance the keepalive worker is warming spins down anyway —
-    and every party to it reports success.
+    the origin, so a dead process keeps answering healthy — and every party to
+    it reports success.
     """
     assert client.get("/v1/health/live").headers["cache-control"] == "no-store"
 

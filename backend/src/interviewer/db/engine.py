@@ -46,7 +46,7 @@ def dsn() -> str:
 def with_driver(url: str) -> str:
     """Name the driver, because every hosted Postgres hands out a URL without one.
 
-    Neon, Render and psql itself all say `postgresql://`. SQLAlchemy reads that
+    Neon and psql itself both say `postgresql://`. SQLAlchemy reads that
     as psycopg2, which this project does not install — so a URL pasted straight
     out of a dashboard fails at `create_engine` with `No module named
     'psycopg2'`, an error that names a library nobody chose and says nothing

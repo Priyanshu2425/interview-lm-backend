@@ -68,10 +68,10 @@ async def lifespan(app: FastAPI):
 #: Health answers are about this process at this moment, so nothing may keep one.
 #:
 #: The API is served through Cloudflare, which will hold a JSON body at the edge and
-#: answer from it. A cached health check is worse than none: the keepalive worker gets
-#: its 200 without the request ever reaching Render, and the instance it was warming
-#: spins down anyway — silently, because everything reported success. An operator
-#: curling the endpoint reads a body hours old for the same reason.
+#: answer from it. A cached health check is worse than none: a monitor gets its 200
+#: without the request ever reaching the origin, so a dead process keeps reporting
+#: healthy — silently, because everything reported success. An operator curling the
+#: endpoint reads a body hours old for the same reason.
 NO_STORE = "no-store"
 
 
@@ -158,9 +158,9 @@ def create_app() -> FastAPI:
 
         Separate from `/v1/health` because the two questions have different
         costs. Reading a row wakes Neon's compute and then holds it awake, so
-        anything asking on a timer — Render's own health check, the worker in
-        gatehouse's `ops/keepalive` that stops this free instance spinning down
-        — would spend a database allowance on a database nobody is using. This
+        anything asking on a timer — a process supervisor, a reverse proxy's
+        upstream check, an uptime monitor — would spend a database allowance on
+        a database nobody is using. This
         answers what those callers are actually asking: is there a process here
         to serve the next request. Whether it can serve it is still
         `/v1/health`.

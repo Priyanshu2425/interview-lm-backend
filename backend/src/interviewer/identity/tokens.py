@@ -28,6 +28,8 @@ from dataclasses import dataclass
 
 DEFAULT_ISSUER = "https://auth.buildspacelabs.com"
 DEFAULT_AUDIENCE = "interview-lm"
+#: Anything but PyJWT's default, which Cloudflare refuses. See `jwks_user_agent`.
+DEFAULT_JWKS_USER_AGENT = "interview-lm/1.0"
 
 
 class InvalidToken(Exception):
@@ -58,6 +60,23 @@ def jwks_url(env: dict | None = None) -> str:
     env = os.environ if env is None else env
     explicit = (env.get("GATEHOUSE_JWKS_URL") or "").strip()
     return explicit or f"{issuer(env).rstrip('/')}/.well-known/jwks.json"
+
+
+def jwks_user_agent(env: dict | None = None) -> str:
+    """What to call ourselves when fetching the key set.
+
+    Gatehouse sits behind Cloudflare, whose Browser Integrity Check answers
+    `Python-urllib/3.x` -- the agent PyJWT's client sends by default -- with a
+    403 and the body `error code: 1010`. Every token then fails verification
+    for a reason that has nothing to do with the token, and the failure is
+    invisible until the key set is actually needed: the client holds its keys
+    in process, so this survives every restart-free day and breaks on the
+    first unfamiliar `kid`, which is to say on the first key rotation.
+
+    Naming ourselves is the whole fix. Any agent but that one is served.
+    """
+    env = os.environ if env is None else env
+    return (env.get("GATEHOUSE_JWKS_USER_AGENT") or "").strip() or DEFAULT_JWKS_USER_AGENT
 
 
 class TokenVerifier:
@@ -92,7 +111,11 @@ class TokenVerifier:
         from jwt import PyJWKClient
 
         if self._client is None or refresh:
-            self._client = PyJWKClient(self._url, cache_keys=True)
+            self._client = PyJWKClient(
+                self._url,
+                cache_keys=True,
+                headers={"User-Agent": jwks_user_agent()},
+            )
         return self._client.get_signing_key_from_jwt(token).key
 
     def verify(self, token: str) -> VerifiedToken:

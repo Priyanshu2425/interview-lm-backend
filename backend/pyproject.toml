@@ -16,7 +16,9 @@ dependencies = [
   # bearer token to verify against its published keys. Not written by hand:
   # `aud`, `iss` and `exp` are the whole of the check, and a token library that
   # has been read by more people than this one gets them right.
-  "pyjwt[crypto]>=2.9",
+  # >=2.10 and not >=2.9: `PyJWKClient(headers=...)` arrived in 2.10, and the key
+  # set cannot be fetched through Cloudflare without it (identity/tokens.py).
+  "pyjwt[crypto]>=2.10",
   # The object store is on the upload path, not only the figure path: a
   # Candidate's document is stored before its row is written (ISSUE-0033), so a
   # deployment with a bucket cannot serve an upload without this. Declared here

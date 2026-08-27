@@ -15,7 +15,7 @@ When we say what we are building, we say **Corpus**.
 The source system: the Scaler dashboard, behind login. Holds two **Tracks**.
 
 Its own name is Cortex and its host is `cortex.scaler.com` — that is what the
-scrapers in `scripts/` connect to and what `data/corpus.json` records as the
+scrapers in `backend/scripts/` connect to and what `data/corpus.json` records as the
 provenance of every Class in the shipped Corpus. This document calls it
 InterviewLM throughout because that is the name this project uses for it; the
 line above is here so the host it actually resolves to is written down once.
@@ -470,7 +470,7 @@ Anything that can produce a **Corpus**: a scraped course, a textbook, an
 internal wiki, a set of specifications, authored material.
 
 A Source is reached through an **Adapter**, which is the only part that knows
-the source's shape. `scripts/scrape.mjs` is the InterviewLM Adapter.
+the source's shape. `backend/scripts/scrape.mjs` is the InterviewLM Adapter.
 
 ## Adapter
 

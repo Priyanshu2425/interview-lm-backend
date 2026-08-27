@@ -28,10 +28,11 @@ so it cannot be made by accident.
 
 | | |
 |---|---|
-| `backend/` | the API, the graph, the Judge, metering — all of the Python |
+| `backend/` | everything the API is: the graph, the Judge, metering, its Dockerfile, and the tooling that runs against it |
 | `docs/` | 26 ADRs, 5 PRDs, 5 specs, 37 implementation slices |
-| `scripts/` | Corpus import, scraping, embedding maintenance, dev auth |
-| `design-system/` | the retired predecessor. Nothing is built from it |
+| `deploy/` | the systemd unit and logrotate config for the VPS |
+| `scripts/` | `serve.sh` only — how the box starts the container |
+| `data/` | the Corpus source material. Ignored except its README |
 
 Two things are deliberately **not** here:
 
@@ -102,7 +103,7 @@ is deliberate — see **the trap**, below.
 
 ```bash
 git clone https://github.com/Priyanshu2425/interview-lm-frontend.git frontend
-cd frontend && npm install && ./../scripts/dev-auth-setup.sh && npm run dev
+cd frontend && npm install && ../backend/scripts/dev-auth-setup.sh && npm run dev
 ```
 
 `dev-auth-setup.sh` is idempotent and is needed once per machine. Sign-in is
@@ -142,7 +143,7 @@ reference — every variable says why it exists and what breaks without it.
 
 ```bash
 cp .env.prod.example .env.prod          # fill it in — six answers
-docker build -t interview-lm .
+docker build -t interview-lm backend/
 sudo cp deploy/interview-lm.service /etc/systemd/system/
 sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm
 sudo systemctl enable --now interview-lm

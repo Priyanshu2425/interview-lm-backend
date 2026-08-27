@@ -1,0 +1,22 @@
+# Everything the image does not need, and the two things it must never carry.
+#
+# The build context is `backend/`, so this lists only what is inside it —
+# `data/`, `docs/` and the repository's own `.git` are outside the context
+# entirely and cannot be copied by accident.
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.egg-info
+
+# Secrets. The `.example` files at the repository root document the set; a real
+# one is supplied by the deployment, never baked into a layer.
+.env
+.env.*
+
+# Not the API's business: the suite, and the tooling that runs against a
+# database rather than inside the image.
+tests
+scripts
+
+**/.DS_Store

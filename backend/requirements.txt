@@ -1,5 +1,5 @@
 # Generated from the environment the test suite passes in.
-# Regenerate with: python scripts/pin_requirements.py
+# Regenerate with: python backend/scripts/pin_requirements.py
 #
 # Pinned because an unpinned build is a build that changes without a
 # commit, and the first sign of it is production behaving differently

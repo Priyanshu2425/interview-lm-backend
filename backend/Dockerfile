@@ -1,5 +1,14 @@
 # The API, and the surface it serves when they share an origin.
 #
+# **The build context is `backend/`, not the repository root**, so every path
+# below is relative to this file's own directory:
+#
+#   docker build -t interview-lm backend/
+#
+# Nothing outside `backend/` is copied in, which is what lets the context be
+# the narrower one: `data/` is imported into Postgres rather than mounted
+# (SPEC-0006) and `docs/` is not the API's business.
+#
 # API only, and that follows from `frontend/` being its own git repository
 # (ADR-0009): a clone of this one has no surface to build, so an image that
 # insisted on building one could not be built at all.
@@ -37,11 +46,11 @@ WORKDIR /app
 # upload path since ISSUE-0033 — a document is stored before its row is
 # written — so a deployment with a bucket configured cannot answer an upload
 # without it. It is in requirements.txt for that reason.
-COPY backend/requirements.txt ./
+COPY requirements.txt ./
 RUN pip install -r requirements.txt && pip install "uvicorn[standard]"
 
-COPY backend/pyproject.toml backend/README.md ./backend/
-COPY backend/src ./backend/src
+COPY pyproject.toml README.md ./backend/
+COPY src ./backend/src
 RUN pip install --no-deps -e ./backend
 
 # No Corpus is copied in, and there is nothing to copy: every Corpus belongs to

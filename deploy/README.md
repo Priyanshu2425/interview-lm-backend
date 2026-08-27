@@ -13,7 +13,7 @@ sudo usermod -aG docker interview-lm          # serve.sh runs a container
 sudo git clone https://github.com/Priyanshu2425/interview-lm-backend.git /opt/interview-lm
 cd /opt/interview-lm
 sudo cp .env.prod.example .env.prod && sudo $EDITOR .env.prod
-sudo docker build -t interview-lm .
+sudo docker build -t interview-lm backend/
 
 # The log directory is not created by anything else. systemd's `append:` fails
 # the unit if the directory is missing, which is a clearer failure than a
@@ -88,7 +88,7 @@ sudo logrotate -f /etc/logrotate.d/interview-lm    # force one now
 
 ```bash
 cd /opt/interview-lm && sudo git pull
-sudo docker build -t interview-lm .
+sudo docker build -t interview-lm backend/
 sudo systemctl restart interview-lm
 ```
 

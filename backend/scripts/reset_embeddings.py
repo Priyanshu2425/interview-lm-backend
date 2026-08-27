@@ -9,7 +9,7 @@ and Related Topics reads the new centroids the moment they land.
 Usage:
 
     export OPENROUTER_API_KEY=...
-    python scripts/reset_embeddings.py --provider openrouter
+    python backend/scripts/reset_embeddings.py --provider openrouter
 
 Nothing is spent without `--yes`. A dry run prints the token count and the
 estimated spend and stops, which is the number you probably wanted anyway.
@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend" / "src"))
+sys.path.insert(0, str(ROOT / "src"))
 
 
 def approx_tokens(text: str) -> int:

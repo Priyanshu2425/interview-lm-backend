@@ -21,7 +21,7 @@ from __future__ import annotations
 import importlib.metadata as md
 from pathlib import Path
 
-TARGET = Path(__file__).resolve().parents[1] / "backend" / "requirements.txt"
+TARGET = Path(__file__).resolve().parents[1] / "requirements.txt"
 
 #: What the API imports at runtime, directly or through something it imports.
 #: Deliberately a list rather than `pip freeze`: the local environment also
@@ -46,7 +46,7 @@ RUNTIME = [
 
 HEADER = """\
 # Generated from the environment the test suite passes in.
-# Regenerate with: python scripts/pin_requirements.py
+# Regenerate with: python backend/scripts/pin_requirements.py
 #
 # Pinned because an unpinned build is a build that changes without a
 # commit, and the first sign of it is production behaving differently

@@ -74,7 +74,7 @@ auth realm and its bot protection blocks automated download.
 - **Legitimate routes:** ask Scaler for transcripts or captions; or the
   Candidate obtains audio by their own means.
 - **Ready and waiting:** `data/pending-transcripts.json` holds all 31 stubs;
-  `scripts/ingest-transcripts.mjs` writes any populated transcript into the
+  `backend/scripts/ingest-transcripts.mjs` writes any populated transcript into the
   Corpus.
 - **Effect if landed:** DSA moves from THIN to usable, and Grading Mode 2
   becomes available to it.

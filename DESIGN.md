@@ -20,8 +20,9 @@ durations and the five accents are all recoverable from it. What could not be
 recovered — the neutral ramps of the four non-Graphite variations — is derived
 by the same oklch formula the Graphite ramp uses.
 
-This replaces the earlier Scaler-blue prototype in `design-system/`, which is
-retired. PRODUCT.md's *Brand Commitments* section describes that older world.
+This replaces the earlier Scaler-blue prototype, which lived in `design-system/`
+until it was removed from this repository. PRODUCT.md's *Brand Commitments*
+section describes that older world.
 
 ## Palette
 

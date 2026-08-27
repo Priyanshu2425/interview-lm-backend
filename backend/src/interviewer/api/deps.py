@@ -4,7 +4,7 @@ Every Corpus is somebody's and lives in the `content` schema (SPEC-0006). There
 is no Corpus loaded from disk any more and no base to compose onto: what the API
 serves is every shared Library plus the Libraries each Candidate uploaded, read
 back out of Postgres. `CORPUS_PATH` is an import source for
-`scripts/import_corpus.py` and is not read here (ISSUE-0037).
+`backend/scripts/import_corpus.py` and is not read here (ISSUE-0037).
 """
 
 from __future__ import annotations

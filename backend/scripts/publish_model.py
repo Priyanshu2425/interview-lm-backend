@@ -5,7 +5,7 @@ Run once per model per revision, by hand, from somewhere with a hub connection.
 Everything afterwards reads the bucket: boots are reproducible, offline hosts
 work, and nobody's ingest depends on huggingface.co being up.
 
-    python scripts/publish_model.py google/siglip2-base-patch16-224 \
+    python backend/scripts/publish_model.py google/siglip2-base-patch16-224 \
         --revision <commit-sha> --bucket my-models
 
 The revision is required and is a commit sha, not a branch. "The model" is a
@@ -89,7 +89,7 @@ def publish(args) -> int:
     # store is R2 and reads R2's credentials. A `boto3.client("s3")` built here
     # would resolve AWS's endpoint and publish the weights somewhere no
     # deployment reads from, successfully and silently.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend" / "src"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
     from interviewer.embeddings.artifacts import _client
 
     client = _client()

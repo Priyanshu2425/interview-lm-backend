@@ -7,7 +7,7 @@ through, into the same tables, with one stage different — nothing is clustered
 and no `topic_id` is minted, because this material arrives with 71 Topics that
 are the join key for every row of Evidence and Topic Confidence (ISSUE-0034).
 
-    python scripts/import_corpus.py --corpus data/corpus.json --title "InterviewLM"
+    python backend/scripts/import_corpus.py --corpus data/corpus.json --title "InterviewLM"
 
 Re-running it is a no-op per Module: a Source is deduplicated by the content and
 the structure it carries, so an interrupted import is resumed by running the
@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "backend" / "src"))
+sys.path.insert(0, str(ROOT / "src"))
 
 
 def main() -> int:

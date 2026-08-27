@@ -17,8 +17,9 @@ Corpus; a React surface (`frontend/`) renders what it decides.
 The design files the surface was built from live outside the repo at
 `~/Documents/cortex-interviewer`. They ship markup only — their stylesheets
 were never in the folder, and `DESIGN.md` records what was reconstructed from
-the markup and what was derived. `design-system/` in this repo is the retired
-predecessor; nothing is built from it.
+the markup and what was derived. The `design-system/` prototype that preceded
+them was removed from this repository once it stopped being built from; the
+specs and slices that cite it are records of when it was, and still name it.
 
 ## The refusals
 
@@ -86,7 +87,7 @@ Two consequences worth stating outright:
   idempotently, the way `create_core` applies its triggers.
 - **There is no Corpus on disk.** Every Corpus belongs to somebody and lives in
   `content` (SPEC-0006, ISSUE-0037): a shared one an operator imported, or a
-  Candidate's own uploads. `CORPUS_PATH` is where `scripts/import_corpus.py`
+  Candidate's own uploads. `CORPUS_PATH` is where `backend/scripts/import_corpus.py`
   reads from and is not read by the API; a clean clone has no missing Corpus
   because there is no shipped Corpus to miss.
 - Related Topics is the stored Topic centroids of **one** Corpus compared
@@ -109,7 +110,7 @@ Two consequences worth stating outright:
   `VITE_API_URL`: the two deploys have to agree, and when they do not the first
   request fails in the browser with a CORS message that names neither usefully.
 - `Dockerfile` builds both halves and pins the runtime from
-  `backend/requirements.txt`; regenerate it with `scripts/pin_requirements.py`
+  `backend/requirements.txt`; regenerate it with `backend/scripts/pin_requirements.py`
   after changing a dependency. The `embeddings` extra is deliberately not in the
   image, and no Corpus is copied into it — material arrives by import.
 - Structure is given or derived, and the Source says which (ISSUE-0034). Derived
@@ -117,7 +118,7 @@ Two consequences worth stating outright:
   clusterer mints them. Given is a structured import: Topic ids, order, titles,
   leaf kinds and the Module id come from the source, and
   `adapters/notebook/structured.py` imports no clusterer at all so a later edit
-  cannot quietly reach one. `scripts/import_corpus.py` is how the shipped
+  cannot quietly reach one. `backend/scripts/import_corpus.py` is how the shipped
   Corpus gets in, one Source per Module, resumable.
 - A feature is reached through its `index.ts`; ESLint enforces it.
 - Evidence outlives the material. Deleting a notebook retires its Topics and
@@ -148,7 +149,7 @@ Two consequences worth stating outright:
   which is `aws-chunked` on the wire and the one place a store serving the S3
   API is least likely to agree with S3. Every object here is keyed by the sha256
   of its own bytes, so integrity is claimed where it is checked.
-  `scripts/publish_model.py` builds no client of its own for the same reason.
+  `backend/scripts/publish_model.py` builds no client of its own for the same reason.
 - The upload outlives the ingestion (ISSUE-0035). `POST /notebooks/{id}/sources`
   stores the bytes, writes the row and returns; the embedding runs in a thread
   and the surface polls `GET /notebooks/{id}`. States are `uploaded → ingesting

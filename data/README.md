@@ -16,13 +16,13 @@ this directory is an import source, not a mount.
 
 | file | what it is | how it is produced |
 |---|---|---|
-| `corpus.json` | Tracks → Modules → Topics → Leaves, conforming to `corpus/contract.py` | `scripts/scrape.mjs`, or any Adapter (ADR-0007) |
+| `corpus.json` | Tracks → Modules → Topics → Leaves, conforming to `corpus/contract.py` | `backend/scripts/scrape.mjs`, or any Adapter (ADR-0007) |
 | `markdown/` | the leaf text `corpus.json` points at | same |
-| `pending-transcripts.json` | Lecture Recordings carrying no text | `scripts/scrape.mjs` |
+| `pending-transcripts.json` | Lecture Recordings carrying no text | `backend/scripts/scrape.mjs` |
 
 ## Importing it
 
-    python scripts/import_corpus.py --corpus data/corpus.json --title "Scaler Cortex"
+    python backend/scripts/import_corpus.py --corpus data/corpus.json --title "Scaler Cortex"
 
 One Source per Module, into a shared Corpus that every Candidate can be examined
 on. The Topics keep the ids they arrived with, which is what makes two people's

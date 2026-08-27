@@ -84,7 +84,7 @@ What guards you, and what does not:
 - **The line in `.env` is commented out**, and says why. Do not delete it — the
   password was generated at provisioning, written only there, and never printed.
 - **Nothing guards the app server or the scripts.** `uvicorn --env-file` and
-  everything in `scripts/` will go wherever you point them.
+  everything in `backend/scripts/` will go wherever you point them.
 
 ### Which database am I on?
 
@@ -109,7 +109,7 @@ Module on a re-run:
 ```bash
 set -a; . ./.env; set +a            # with the URL uncommented
 DATABASE_URL="$INTERVIEW_LM_DATABASE_URL" \
-  .venv/bin/python scripts/import_corpus.py --title "InterviewLM"
+  .venv/bin/python backend/scripts/import_corpus.py --title "InterviewLM"
 ```
 
 ## Layout

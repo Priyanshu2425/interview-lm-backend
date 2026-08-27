@@ -116,10 +116,26 @@ What guards you, and what does not:
   `DATABASE_URL`, `GRAPH_DATABASE_URL` and `INTERVIEW_LM_DATABASE_URL` before
   anything imports the engine. `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the
   deliberate way past it.
-- **Nothing reads `.env` on its own.** No `load_dotenv` anywhere; only
-  `uvicorn --env-file` and an explicit `set -a; . ./backend/.env` do.
-- **The line in `backend/.env` is commented out**, and says why. Do not delete it — the
-  password was generated at provisioning, written only there, and never printed.
+- **Nothing reads `.env` on its own.** No `load_dotenv` anywhere. It reaches a
+  process through `uvicorn --env-file` or `docker run --env-file`, and through
+  nothing else.
+- **`set -a; . ./backend/.env` does not work, and fails quietly.** A hosted
+  Postgres URL carries query parameters, so it contains `&` — which a shell
+  reads as "run the preceding command in the background". `zsh` answers
+  `parse error near '&'`, the assignment never happens, `DATABASE_URL` stays
+  unset, and the next command connects to **local Postgres** while looking like
+  it was configured. Do not fix it by quoting the value either: `--env-file`
+  takes everything after `=` literally, so the quotes become part of the URL.
+  Use `--env-file`, or pull one variable out on its own:
+
+  ```bash
+  DATABASE_URL="$(grep '^DATABASE_URL=' backend/.env | cut -d= -f2-)" \
+    .venv/bin/python -m interviewer.corpus.cli ...
+  ```
+
+  The prefix form matters: it exports for that one command. A bare assignment
+  on its own line sets a shell variable the command never sees, and the symptom
+  is again local Postgres.
 - **Nothing guards the app server or the scripts.** `uvicorn --env-file` and
   everything in `backend/scripts/` will go wherever you point them.
 
@@ -137,17 +153,23 @@ print(sa.engine.make_url(dsn()).host)"
 
 There are none, and no alembic. `create_core` and `create_content` apply their
 DDL idempotently on every boot, and `create_content` also installs pgvector and
-the HNSW index (ADR-0017). The role may `CREATE EXTENSION vector`; it has been
+the HNSW index (ADR-0017). `create_graph` is separate and runs against the
+direct endpoint, so `interview_lm_graph` stays empty until the first Session —
+an absent graph schema on a fresh deployment is expected, not a fault. The role may `CREATE EXTENSION vector`; it has been
 installed on the shared project already.
 
 Importing the shipped Corpus is a separate, resumable step, and a no-op per
 Module on a re-run:
 
 ```bash
-set -a; . ./backend/.env; set +a    # with the URL uncommented
-DATABASE_URL="$INTERVIEW_LM_DATABASE_URL" \
+DATABASE_URL="$(grep '^INTERVIEW_LM_DATABASE_URL=' backend/.env | cut -d= -f2-)" \
   .venv/bin/python backend/scripts/import_corpus.py --title "InterviewLM"
 ```
+
+One variable, for one command, and never exported — which is the whole point.
+`grep | cut` rather than sourcing because the file cannot be sourced, and
+because promoting the parked name to `DATABASE_URL` for the length of a single
+invocation is what keeps it from applying to the next one.
 
 ## Layout
 

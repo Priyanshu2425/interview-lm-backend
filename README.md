@@ -114,9 +114,14 @@ a bug. `cp backend/.env.example backend/.env` when you want to change it — it
 documents every variable the code reads and what each costs you to set.
 
 Nothing loads that file on its own. It reaches a process through
-`uvicorn --env-file backend/.env`, or an explicit
-`set -a; . ./backend/.env; set +a`, and that is deliberate — see **the trap**,
-below.
+`uvicorn --env-file backend/.env` or `docker run --env-file`, and through
+nothing else — which is deliberate, see **the trap** below.
+
+Note that the file cannot be `source`d. A hosted Postgres URL carries query
+parameters and therefore an `&`, which a shell reads as a background operator;
+`set -a; . ./backend/.env` fails to parse and leaves you pointed at **local**
+Postgres while looking configured. Quoting the value is not the fix — it would
+end up inside the URL that `--env-file` passes on.
 
 ### Running the surface too
 

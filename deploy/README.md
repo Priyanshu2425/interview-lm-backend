@@ -107,7 +107,13 @@ keeps the deployment single-origin, and single-origin is what makes
 outlives any one deployment (ADR-0003), and a database on the machine it serves
 dies when you rebuild the machine.
 
-**Uploaded documents.** In the `interview_lm_content` Docker volume, mounted at
-`/home/cortex/.cache`. Since ISSUE-0033 the stored document is the only copy of
-what a Candidate handed over, so this volume is the thing on the box actually
-worth backing up.
+**Uploaded documents.** In R2, not on this box — see `.env.prod.example`. Since
+ISSUE-0033 the stored document is the only copy of what a Candidate handed over,
+which is exactly why it does not live on a single machine.
+
+The `interview_lm_content` volume `serve.sh` mounts is therefore a cache and not
+a store: with R2 configured nothing durable is written to it, and with
+`EMBEDDING_PROVIDER=openrouter` there are no model weights to cache either. It
+is mounted anyway so that a deployment which later turns R2 off does not
+silently start writing the only copy of a document to a container layer. Nothing
+on this box needs backing up; back up the bucket.

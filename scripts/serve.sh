@@ -29,9 +29,12 @@ fi
 # with a name clash. `--init` so signals reach uvicorn rather than being held by
 # PID 1.
 #
-# The volume is not a convenience. Since ISSUE-0033 an uploaded document is the
-# only copy of what somebody handed over, and without this it lives in the
-# container and is gone at the next deploy. uid 10001 is `cortex` in the image.
+# The volume is a cache, not a store: production keeps uploaded documents in R2
+# and there are no model weights to hold when EMBEDDING_PROVIDER=openrouter. It
+# is mounted anyway as a safety net — a deployment that later unsets the bucket
+# falls back to local disk, and without this the only copy of a Candidate's
+# document (ISSUE-0033) would be written to a container layer and lost at the
+# next deploy. uid 10001 is `cortex` in the image.
 exec docker run --rm --name "$CONTAINER" --init \
   --env-file "$ENV_FILE" \
   -p "127.0.0.1:${PORT}:8000" \

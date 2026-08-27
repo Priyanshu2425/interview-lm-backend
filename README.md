@@ -162,10 +162,11 @@ The shape, and why each piece is where it is:
   design; ADR-0020 reversed it only because a CDN forces a second origin, and
   records that `ALLOWED_ORIGINS` and `VITE_API_URL` empty is the single-origin
   deployment exactly as it was.
-- **Documents** — local disk, on a volume that survives a rebuild. Since
-  ISSUE-0033 the stored document is the only copy of what a Candidate handed
-  over. S3-compatible object storage is supported and optional; a host with an
-  ephemeral filesystem needs it, a VPS does not.
+- **Documents** — Cloudflare R2, on every production deployment. Local disk is
+  permitted by the code and is what development uses, but since ISSUE-0033 the
+  stored document is the only copy of what a Candidate handed over, and on one
+  box that copy has no second home. Off-box for the same reason the database
+  is (ADR-0003).
 - **Logs** — `logs/`, rotated daily and kept for seven days. `deploy/README.md`
   has the detail.
 

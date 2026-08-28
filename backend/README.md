@@ -36,14 +36,15 @@ the scrapers address `data/` and `.auth/` relative to the working directory:
 | `ingest-transcripts.mjs` | fills stub Classes from `data/pending-transcripts.json` |
 | `dev-auth-setup.sh` | makes a machine able to sign in against Gatehouse locally |
 
-`serve.sh` is deliberately **not** here — it lives in the repository's own
-`scripts/`, because starting a container is the box's business rather than the
-backend's, and `deploy/` is where the box is described.
+`deploy.sh` (this directory) handles everything: deployment via systemd
+(`setup`, `update`) and local container management (`start`, `stop`, `status`,
+`logs`). It embeds the systemd unit and logrotate config so no other directory
+is needed. `create_example_env.sh` generates sample env files before setup.
 
 ## Running it locally
 
 Local only. The deployment is a VPS talking to Neon — `.env.prod.example` in
-this directory is that set, and `deploy/` is what runs it.
+this directory is that set, and `deploy.sh` is what runs it.
 
 ```bash
 python3 -m venv .venv

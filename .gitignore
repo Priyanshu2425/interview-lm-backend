@@ -12,6 +12,8 @@ node_modules/
 .env.*
 !.env.example
 !.env.prod.example
+!backend/.env.example
+!backend/.env.prod.example
 
 # The Corpus is not published. `data/` holds InterviewLM course material —
 # 387 markdown files and the manifest over them — which is theirs rather than

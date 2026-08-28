@@ -31,14 +31,14 @@ backend/                 the backend, entire — its own root
   src/interviewer/       the graph, the Judge, metering, the FastAPI app
   tests/                 840 of them
   scripts/               Corpus import, the scraper, embedding maintenance
+  deploy.sh              the deploy script — setup, update, status, logs
+  create_example_env.sh  generates a sample .env file (--local / --prod)
   Dockerfile             the image — its build context is backend/, not here
   requirements.txt       the runtime set, pinned
   requirements-dev.txt   that plus pytest and pillow
   .env.example           every variable the code reads
   .env.prod.example      the eleven a deployment decides
 docs/                    26 ADRs, 5 PRDs, 5 specs, 37 slices
-deploy/                  the systemd unit and logrotate config for the VPS
-scripts/serve.sh         how the box starts the container
 data/                    Corpus source material, ignored except its README
 ```
 
@@ -163,22 +163,42 @@ A VPS, a reverse proxy, and Neon. **No Postgres container appears here** — the
 one in [Setting it up locally](#setting-it-up-locally) is scratch for
 development and has no part in a deployment. `backend/.env.prod.example` is the
 reference — every variable says why it exists and what breaks without it.
-`deploy/` holds the systemd unit and the logrotate config.
+
+One script handles everything — no separate deploy directory:
 
 ```bash
-cp backend/.env.prod.example backend/.env.prod   # eleven lines, ten to answer
-docker build -t interview-lm backend/
-sudo cp deploy/interview-lm.service /etc/systemd/system/
-sudo cp deploy/interview-lm.logrotate /etc/logrotate.d/interview-lm
-sudo systemctl enable --now interview-lm
+git clone https://github.com/Priyanshu2425/interview-lm-backend.git /opt/interview-lm
+cd /opt/interview-lm
+sudo backend/create_example_env.sh --prod   # generate backend/.env
+sudo $EDITOR backend/.env                    # fill in real values
+sudo backend/deploy.sh setup --prod         # build, install systemd + logrotate
 ```
+
+For local/staging:
+
+```bash
+sudo backend/create_example_env.sh --local  # generate backend/.env.local
+sudo $EDITOR backend/.env.local             # fill in real values
+sudo backend/deploy.sh setup --local        # uses backend/.env.local
+```
+
+Subsequent updates:
+
+```bash
+sudo backend/deploy.sh update    # pull, rebuild, restart, health check
+sudo backend/deploy.sh status    # service state + health check
+sudo backend/deploy.sh logs      # tail the live log
+```
+
+`deploy.sh` embeds the systemd unit and logrotate config — they are written to
+`/etc` on setup, so no files outside `backend/` are needed.
 
 The shape, and why each piece is where it is:
 
 - **API** — the Docker image, one worker. The LangGraph checkpointer and the
   connection pool are both per-process, so a second worker is a second of each.
-  systemd restarts it and starts it at boot; `scripts/serve.sh` is the same
-  thing runnable by hand.
+  systemd restarts it and starts it at boot; `deploy.sh start` runs the same
+  container locally without systemd.
 - **Database** — Neon, deliberately not on this box. It holds Evidence,
   Evidence outlives any one deployment (ADR-0003), and a database on the
   machine it serves dies when you rebuild the machine.
@@ -192,8 +212,8 @@ The shape, and why each piece is where it is:
   stored document is the only copy of what a Candidate handed over, and on one
   box that copy has no second home. Off-box for the same reason the database
   is (ADR-0003).
-- **Logs** — `logs/`, rotated daily and kept for seven days. `deploy/README.md`
-  has the detail.
+- **Logs** — `logs/`, rotated daily and kept for seven days. The logrotate
+  config is embedded in `backend/deploy.sh` and installed on setup.
 
 Health is `/v1/health/live` — liveness, not readiness, deliberately. `/v1/health`
 reads a row, and a check on a timer that reads a row holds Neon's compute awake

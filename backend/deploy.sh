@@ -246,10 +246,25 @@ cmd_update() {
 }
 
 # ---------------------------------------------------------------------------
+# build — build the Docker image
+# ---------------------------------------------------------------------------
+
+cmd_build() {
+  info "Building image"
+  docker build -t "$IMAGE" backend/
+  info "Done — image ${IMAGE} is ready"
+}
+
+# ---------------------------------------------------------------------------
 # start — run the container locally (no systemd, for development)
 # ---------------------------------------------------------------------------
 
 cmd_start() {
+  # Build if the image doesn't exist yet
+  if ! docker image inspect "$IMAGE" &>/dev/null; then
+    cmd_build
+  fi
+
   # Stop any existing container with the same name
   docker rm -f "$CONTAINER" 2>/dev/null || true
   run_container "backend/.env"
@@ -325,11 +340,14 @@ First deploy (requires an env file — create one first):
     backend/create_example_env.sh --prod    → creates backend/.env
   Then edit it with your real values before running setup.
 
+Build:
+  build             Build the Docker image (backend/)
+
 Ongoing:
   update            Pull latest, rebuild image, restart, health check
 
 Local development (no systemd):
-  start             Run the container locally (uses backend/.env)
+  start             Build (if needed) and run the container locally
   stop              Stop the local container
 
 Observability:
@@ -369,6 +387,7 @@ case "${1:-}" in
     cmd_setup "$@"
     ;;
   --help|-h|help) usage ;;
+  build)  cmd_build  ;;
   update) cmd_update ;;
   start)  cmd_start  ;;
   stop)   cmd_stop   ;;

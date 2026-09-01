@@ -58,6 +58,11 @@ class SessionState(TypedDict, total=False):
     follow_up: str
 
     score: float
+    # The two readings the score combines (ISSUE-0043). Carried through the
+    # state rather than recomputed at the write, so the row records what the
+    # Judge actually returned.
+    source_score: float | None
+    truth_score: float
     rationale: str
 
     finished: bool
@@ -211,7 +216,12 @@ def build_graph(d: Deps):
             topic_visit_id=state["topic_visit_id"],
             model=d.ports.model,
         )
-        return {"score": verdict.score, "rationale": verdict.rationale}
+        return {
+            "score": verdict.score,
+            "source_score": verdict.source_score,
+            "truth_score": verdict.truth_score,
+            "rationale": verdict.rationale,
+        }
 
     def update_confidence(state: SessionState) -> dict:
         """The Evidence write. An edge, not a tool call — it cannot not run."""
@@ -223,6 +233,8 @@ def build_graph(d: Deps):
             topic_id=state["topic_id"],
             session_id=state["session_id"],
             score=state["score"],
+            source_score=state.get("source_score"),
+            truth_score=state.get("truth_score"),
             mode=GradingMode(state["grading_mode"]),
             grader_kind="server_judge",
             provider=_provider(state),
@@ -241,6 +253,11 @@ def build_graph(d: Deps):
                 "topic_id": state["topic_id"],
                 "topic_title": state.get("dossier_title", ""),
                 "score": state["score"],
+                # Reported beside each other and never fused into a headline
+                # figure. `score` is what the posterior consumed, not a third
+                # reading standing over these two.
+                "source_score": state.get("source_score"),
+                "truth_score": state.get("truth_score"),
                 "rationale": state["rationale"],
                 "grading_mode": state["grading_mode"],
                 "weight": GradingMode(state["grading_mode"]).weight,

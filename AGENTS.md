@@ -72,7 +72,7 @@ Two consequences worth stating outright:
 
 - `INTERVIEWER_FAKE_MODEL=1` runs the whole loop against a scripted provider:
   deterministic, no network, real metering. Every examiner turn comes back as
-  `SCORE: 0.8 WHY: fine.` — that is the stub, not a bug.
+  `SOURCE: 0.8 TRUTH: 0.8 WHY: fine.` — that is the stub, not a bug.
 - `EMBEDDING_PROVIDER` picks what turns a notebook into vectors: `hashing` (the
   default — a lexical stand-in with no dependencies, and what the suite runs on),
   `siglip`, or `http`. An unknown name fails at boot rather than falling back,

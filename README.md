@@ -109,8 +109,8 @@ backend/.venv/bin/uvicorn interviewer.app:app --port 8000  # the API
 **No configuration is required for any of that.** With nothing set, the
 database is the container above, and the model provider is a deterministic
 stand-in — so the whole interview loop runs offline, with real metering, and
-every examiner turn comes back as `SCORE: 0.8 WHY: fine.` That is the stub, not
-a bug. `cp backend/.env.example backend/.env` when you want to change it — it
+every examiner turn comes back as `SOURCE: 0.8 TRUTH: 0.8 WHY: fine.` That is
+the stub, not a bug. `cp backend/.env.example backend/.env` when you want to change it — it
 documents every variable the code reads and what each costs you to set.
 
 Nothing loads that file on its own. It reaches a process through

@@ -81,7 +81,7 @@ class ScriptedTransport:
     """Deterministic. Cost is supplied, so metering is testable without network."""
 
     replies: dict[str, list[str]] = field(default_factory=dict)
-    default: str = "SCORE: 0.8\nWHY: fine."
+    default: str = "SOURCE: 0.8\nTRUTH: 0.8\nWHY: fine."
     cost_usd: Decimal | None = Decimal("0.06")
     fail_with: str | None = None
     sent: list[dict] = field(default_factory=list)

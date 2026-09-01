@@ -24,6 +24,12 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:22]}"
 
 
+def _unit(value: float | None) -> Decimal | None:
+    """A sub-score on its way into the row. Absent stays absent — a reading
+    nobody took is not a zero, and the column is nullable so it can say so."""
+    return None if value is None else Decimal(str(round(value, 3)))
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceWrite:
     evidence_id: str
@@ -138,6 +144,12 @@ class EvidenceLedger:
         session_id: str,
         score: float,
         mode: GradingMode,
+        # The two readings behind `score`, recorded beside it (ISSUE-0043).
+        # Both default to None because a grader that reads one dimension — MCP
+        # Mode's subagent, and every row written before rubric v2 — has neither,
+        # and a zero there would read as "explained none of the material".
+        source_score: float | None = None,
+        truth_score: float | None = None,
         grader_kind: str,
         provider: str | None,
         rubric_version: str,
@@ -175,6 +187,8 @@ class EvidenceLedger:
                     topic_id=topic_id,
                     session_id=session_id,
                     score=Decimal(str(round(score, 3))),
+                    source_score=_unit(source_score),
+                    truth_score=_unit(truth_score),
                     grading_mode=mode.value,
                     weight=Decimal(str(mode.weight)),
                     alpha_delta=Decimal(str(round(d.alpha_delta, 4))),

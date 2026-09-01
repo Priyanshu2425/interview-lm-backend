@@ -106,7 +106,7 @@ def _run(deps, seed, answers):
     from interviewer.service.graph.ports import Ports, FrozenClock, ScriptedModel
     from interviewer.service.graph.machine import Deps
 
-    model = ScriptedModel(default="SCORE: 0.8\nWHY: fine.")
+    model = ScriptedModel(default="SOURCE: 0.8\nTRUTH: 0.8\nWHY: fine.")
     d = Deps(
         ports=Ports(clock=FrozenClock(), rng=np.random.default_rng(seed), model=model),
         loader=deps.loader, corpus=deps.corpus, sessions=deps.sessions,
@@ -161,8 +161,8 @@ def test_replaying_with_a_changed_rubric_produces_different_scores(deps):
         out = r.submit(sid, "the same answer, word for word")
         return out.payload["last_visit"]["score"]
 
-    lenient = run_with("SCORE: 0.9\nWHY: generous rubric.", "cand_v1")
-    strict = run_with("SCORE: 0.4\nWHY: strict rubric.", "cand_v2")
+    lenient = run_with("SOURCE: 0.9\nTRUTH: 0.9\nWHY: generous rubric.", "cand_v1")
+    strict = run_with("SOURCE: 0.4\nTRUTH: 0.4\nWHY: strict rubric.", "cand_v2")
     assert lenient != strict
 
 

@@ -9,8 +9,12 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
 from ...db import schema as S
+# Re-exported, never redeclared. The rubric's version is the Judge's fact; a
+# Session and an Evidence row only record which rubric graded them, and a second
+# literal here is how a Session comes to claim a rubric the Judge never ran.
+from ..judge.judge import RUBRIC_VERSION
 
-RUBRIC_VERSION = "v1"
+__all__ = ["RUBRIC_VERSION", "SessionConfig", "SessionStore"]
 
 
 @dataclass(frozen=True, slots=True)

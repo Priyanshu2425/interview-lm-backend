@@ -41,7 +41,7 @@ def test_a_reference_grader_can_rescore_a_batch_without_writing(deps, clean_db):
         before = c.execute(sa.select(S.evidence.c.score)).scalars().all()
 
     result = ReJudge(deps.loader).run(
-        rows, reference=ScriptedModel(default="SCORE: 0.3\nWHY: stricter.")
+        rows, reference=ScriptedModel(default="SOURCE: 0.3\nTRUTH: 0.3\nWHY: stricter.")
     )
     assert len(result.compared) == len(rows)
 
@@ -55,7 +55,7 @@ def test_the_comparison_reports_the_delta_per_row(deps):
     _session(deps, 1)
     rows = deps.evidence.rejudgeable()
     result = ReJudge(deps.loader).run(
-        rows, reference=ScriptedModel(default="SCORE: 0.5\nWHY: r")
+        rows, reference=ScriptedModel(default="SOURCE: 0.5\nTRUTH: 0.5\nWHY: r")
     )
     c = result.compared[0]
     assert c.reference_score == 0.5
@@ -66,7 +66,7 @@ def test_deltas_group_by_provider_which_is_what_a_normaliser_would_need(deps):
     _session(deps, 2)
     result = ReJudge(deps.loader).run(
         deps.evidence.rejudgeable(),
-        reference=ScriptedModel(default="SCORE: 0.6\nWHY: r"),
+        reference=ScriptedModel(default="SOURCE: 0.6\nTRUTH: 0.6\nWHY: r"),
     )
     by = result.by_provider()
     assert "deepseek" in by

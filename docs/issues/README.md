@@ -91,7 +91,7 @@ the end.
 | 0040 | A scope suggests a time | AFK | — | ✅ resolved |
 | 0041 | The plan is made, and it is fixed | AFK | 0039, 0040 | open |
 | 0042 | The Session runs the plan | AFK | 0041 | open |
-| 0043 | The Judge reads two dimensions | AFK | 0039 | open |
+| 0043 | The Judge reads two dimensions | AFK | 0039 | ✅ resolved |
 | 0044 | The Session is graded at the end | AFK | 0042, 0043 | open |
 | 0045 | The report | AFK | 0044 | open |
 | 0046 | The documents catch up | **HITL** | 0045 | open |

@@ -172,6 +172,8 @@ class SessionRunner:
             topic_id=visit["topic_id"],
             session_id=session_id,
             score=verdict.score,
+            source_score=verdict.source_score,
+            truth_score=verdict.truth_score,
             mode=mode,
             grader_kind="server_judge",
             provider=(self._d.sessions.get(session_id) or {}).get("provider_chosen")
@@ -187,6 +189,8 @@ class SessionRunner:
             "topic_visit_id": visit["topic_visit_id"],
             "topic_id": visit["topic_id"],
             "score": verdict.score,
+            "source_score": verdict.source_score,
+            "truth_score": verdict.truth_score,
             "rationale": verdict.rationale,
             "band": p.band.value,
             "coverage": p.coverage,

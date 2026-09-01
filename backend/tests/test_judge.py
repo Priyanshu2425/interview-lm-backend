@@ -82,7 +82,7 @@ def test_a_model_judgment_call_receives_no_grounding():
         content=(), ground_truth_pairs=(), syllabus=("Binary Search",),
         grading_mode_ceiling=GradingMode.MODEL_JUDGMENT,
     )
-    model = ScriptedModel(default="SCORE: 0.5\nWHY: ok")
+    model = ScriptedModel(default="TRUTH: 0.5\nWHY: ok")
     Judge().grade(
         question="q", exchange=[{"role": "candidate", "text": "a"}],
         dossier=d, mode=GradingMode.MODEL_JUDGMENT,
@@ -105,16 +105,107 @@ def test_the_same_answer_scored_twice_gives_the_same_score(deps):
     j = Judge()
     a = j.grade(question="q", exchange=[{"role": "candidate", "text": "x"}],
                 dossier=d, mode=GradingMode.MODEL_JUDGMENT, topic_visit_id="v",
-                model=ScriptedModel(default="SCORE: 0.62\nWHY: r"))
+                model=ScriptedModel(default="TRUTH: 0.62\nWHY: r"))
     b = j.grade(question="q", exchange=[{"role": "candidate", "text": "x"}],
                 dossier=d, mode=GradingMode.MODEL_JUDGMENT, topic_visit_id="v",
-                model=ScriptedModel(default="SCORE: 0.62\nWHY: r"))
+                model=ScriptedModel(default="TRUTH: 0.62\nWHY: r"))
     assert a.score == b.score == 0.62
 
 
-def test_a_score_outside_the_unit_interval_is_rejected_not_clamped():
+# -- two dimensions (ISSUE-0043) ---------------------------------------------
+
+def test_a_sub_score_outside_the_unit_interval_is_rejected_not_clamped():
     with pytest.raises(ValueError, match="outside 0..1"):
-        Judge._parse("SCORE: 1.7\nWHY: nope")
+        Judge._parse("SOURCE: 0.5\nTRUTH: 1.7\nWHY: nope")
+    with pytest.raises(ValueError, match="outside 0..1"):
+        Judge._parse("SOURCE: 1.7\nTRUTH: 0.5\nWHY: nope")
+
+
+def test_a_missing_truth_line_raises_rather_than_defaulting():
+    """A grade with no TRUTH is a grader that did not answer the question, and
+    a default would write a measurement nobody made into a permanent record."""
+    with pytest.raises(ValueError, match="TRUTH"):
+        Judge._parse("SOURCE: 0.9\nWHY: it explained the material")
+    with pytest.raises(ValueError, match="TRUTH"):
+        Judge._parse("WHY: nothing numeric here at all", grounded=False)
+
+
+def test_a_grounded_grade_with_no_source_line_raises_too():
+    """Falling back to TRUTH alone would quietly turn a grounded reading into
+    an ungrounded one, and the row would not say so."""
+    with pytest.raises(ValueError, match="SOURCE"):
+        Judge._parse("TRUTH: 0.8\nWHY: right, but from somewhere else")
+
+
+def test_a_grounded_verdict_combines_the_two_readings_in_equal_halves():
+    v = Judge._parse("SOURCE: 0.4\nTRUTH: 0.8\nWHY: r")
+    assert v.source_score == 0.4
+    assert v.truth_score == 0.8
+    assert v.score == pytest.approx(0.6)
+
+
+def test_an_ungrounded_verdict_has_no_source_and_scores_as_truth_alone():
+    """`MODEL_JUDGMENT` has no material to have explained. A null, not a zero:
+    the answer did not fail to explain the source, it was never asked to."""
+    v = Judge._parse("TRUTH: 0.8\nWHY: r", grounded=False)
+    assert v.source_score is None
+    assert v.score == v.truth_score == 0.8
+
+
+def test_the_ungrounded_rubric_never_asks_for_a_source_reading():
+    from interviewer.service.corpus.loader import Dossier
+
+    d = Dossier(
+        topic_id="t", topic_title="Binary Search", module_id="m",
+        module_title="Sorting", module_order=2, topic_order=1,
+        content=(), ground_truth_pairs=(), syllabus=("Binary Search",),
+        grading_mode_ceiling=GradingMode.MODEL_JUDGMENT,
+    )
+    model = ScriptedModel(default="TRUTH: 0.5\nWHY: ok")
+    Judge().grade(
+        question="q", exchange=[{"role": "candidate", "text": "a"}],
+        dossier=d, mode=GradingMode.MODEL_JUDGMENT,
+        topic_visit_id="v1", model=model,
+    )
+    assert "SOURCE" not in model.calls[0]["system"]
+    assert "TRUTH" in model.calls[0]["system"]
+
+
+def test_both_sub_scores_reach_the_evidence_row(deps):
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id="cand_two_dimensions", cfg=_cfg(deps))
+    deps.ports.model.replies["judge"] = ["SOURCE: 0.4\nTRUTH: 0.8\nWHY: half of it."]
+    r.submit(sid, "an answer that owes little to the material")
+    row = deps.evidence.rows_for("cand_two_dimensions")[0]
+    assert float(row["source_score"]) == 0.4
+    assert float(row["truth_score"]) == 0.8
+    # `score` is the combination the posterior consumed — an input to the math,
+    # never a third reading standing over the two.
+    assert float(row["score"]) == pytest.approx(0.6)
+
+
+def test_an_ungrounded_row_records_no_source_score(deps):
+    """Graded on the model's own knowledge, the column stays null rather than
+    zero — and `score` is the truth reading unchanged."""
+    cand = deps.sessions.ensure_candidate("cand_ungrounded")
+    sid = deps.sessions.create(cand, _cfg(deps))
+    topic_id = deps.corpus.topic_ids_for(list(_cfg(deps).scope_module_ids))[0]
+    visit = deps.visits.open(
+        session_id=sid, candidate_id=cand, topic_id=topic_id, visit_index=0,
+    )
+
+    verdict = Judge._parse("TRUTH: 0.75\nWHY: sound.", grounded=False)
+    deps.evidence.write(
+        topic_visit_id=visit, candidate_id=cand, topic_id=topic_id,
+        session_id=sid, score=verdict.score, source_score=verdict.source_score,
+        truth_score=verdict.truth_score, mode=GradingMode.MODEL_JUDGMENT,
+        grader_kind="server_judge", provider="deepseek",
+        rubric_version=verdict.rubric_version, rationale=verdict.rationale,
+    )
+    row = deps.evidence.rows_for(cand)[0]
+    assert row["source_score"] is None
+    assert float(row["truth_score"]) == 0.75
+    assert float(row["score"]) == 0.75
 
 
 def test_every_evidence_row_carries_provenance_and_rubric_version(deps):
@@ -124,7 +215,7 @@ def test_every_evidence_row_carries_provenance_and_rubric_version(deps):
     row = deps.evidence.rows_for(CANDIDATE)[0]
     assert row["grader_kind"] == "server_judge"
     assert row["provider"] == "deepseek"
-    assert row["rubric_version"] == "v1"
+    assert row["rubric_version"] == "v2"
     assert row["rationale"]
 
 
@@ -141,7 +232,9 @@ def test_hints_are_expressed_in_the_score_never_in_the_weight(deps):
     """An answer reached after help is a real answer worth roughly half."""
     r = SessionRunner(deps)
     sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
-    deps.ports.model.replies["judge"] = ["SCORE: 0.5\nWHY: reached after a hint."]
+    deps.ports.model.replies["judge"] = [
+        "SOURCE: 0.5\nTRUTH: 0.5\nWHY: reached after a hint."
+    ]
     r.submit(sid, "eventually correct")
     row = deps.evidence.rows_for(CANDIDATE)[0]
     assert float(row["score"]) == 0.5

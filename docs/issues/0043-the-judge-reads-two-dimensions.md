@@ -1,6 +1,6 @@
 # ISSUE-0043 — The Judge reads two dimensions
 
-Status: open
+Status: resolved
 Type: AFK
 Source: SPEC-0007 §10; amends ADR-0002
 Covers: how much of the source was explained, and how close to correct it was
@@ -50,15 +50,46 @@ internal input to the math, not a reading shown as a score.
 
 ## Acceptance criteria
 
-- [ ] The Judge parses all three lines; a missing `TRUTH` raises rather than defaults
-- [ ] A sub-score outside 0..1 is rejected, not clamped
-- [ ] Under `MODEL_JUDGMENT`, `source_score` is null and `score` equals `truth_score`
-- [ ] Under the grounded modes, `score` is the stated combination
-- [ ] Both sub-scores reach the Evidence row
-- [ ] `math.py` is unchanged, and `test_confidence.py` passes untouched
-- [ ] `Verdict.score` still resolves, so `rejudge.py` and `mcp/server.py` compile
-- [ ] ADR-0002 amended: the Judge is still blind, and now reads two dimensions
+- [x] The Judge parses all three lines; a missing `TRUTH` raises rather than defaults
+- [x] A sub-score outside 0..1 is rejected, not clamped
+- [x] Under `MODEL_JUDGMENT`, `source_score` is null and `score` equals `truth_score`
+- [x] Under the grounded modes, `score` is the stated combination
+- [x] Both sub-scores reach the Evidence row
+- [x] `math.py` is unchanged, and `test_confidence.py` passes untouched
+- [x] `Verdict.score` still resolves, so `rejudge.py` and `mcp/server.py` compile
+- [x] ADR-0002 amended: the Judge is still blind, and now reads two dimensions
 
 ## Blocked by
 
 - ISSUE-0039 — the Evidence columns
+
+## What landed
+
+Rubric v2 asks for SOURCE and TRUTH beside WHY, and `RUBRIC_VERSION` is `v2`.
+`Verdict` is `(source_score, truth_score, rationale, rubric_version)` with
+`score` a property over the two — which is where the combination is stated, and
+why `rejudge.py` and `mcp/server.py` needed no change to keep reading it. Both
+sub-scores travel through the graph state and land on the Evidence row beside
+`score`. `math.py`, `GradingMode` and `test_confidence.py` are untouched.
+
+`graph/sessions.py` had a second `RUBRIC_VERSION = "v1"` of its own, which the
+Session row and every Evidence write read. It re-exports the Judge's constant
+now: the rubric's version is the Judge's fact, and a Session that recorded a
+rubric the Judge never ran was the bug the duplicate was waiting to become.
+
+## Deviations
+
+**A missing SOURCE raises too, under the grounded modes.** The ticket names only
+TRUTH. Defaulting a missing SOURCE would silently turn a grounded reading into
+an ungrounded one and the row would not say so — the same argument the ticket
+makes for TRUTH.
+
+**The rubric asked of `MODEL_JUDGMENT` has two lines, not three.** There is no
+material to have explained, so asking for SOURCE would invite a figure about
+nothing. `_parse` keys the SOURCE decision on the grounding the call actually
+sent rather than on the mode's name; the two agree wherever a Verdict is
+written, and where a dossier has lost the material its mode claims, the answer
+was still graded against nothing, so there is still no SOURCE to record.
+
+**The scripted provider's reply changed shape.** `INTERVIEWER_FAKE_MODEL=1` now
+returns `SOURCE: 0.8 TRUTH: 0.8 WHY: fine.`; `AGENTS.md` and `README.md` say so.

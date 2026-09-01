@@ -185,7 +185,7 @@ def deps(clean_db, loader, corpus):
             "question_writer": [],
             "judge": [],
         },
-        default="SCORE: 0.8\nWHY: solid reasoning.",
+        default="SOURCE: 0.8\nTRUTH: 0.8\nWHY: solid reasoning.",
     )
     return Deps(
         ports=Ports(clock=__import__("interviewer.service.graph.ports", fromlist=["x"]).FrozenClock(),

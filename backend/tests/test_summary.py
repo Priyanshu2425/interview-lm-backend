@@ -1,5 +1,7 @@
 """ISSUE-0004/0005 — the Session summary a Candidate reads at the end."""
 
+from conftest import grade_session
+
 from interviewer.service.confidence.summary import SummaryService
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
@@ -33,9 +35,21 @@ def test_the_summary_reports_coverage_and_mastery_separately(deps, corpus):
 
 
 def test_coverage_counts_against_the_whole_corpus(deps, corpus):
+    """Coverage reads posteriors, so it needs a graded Session (ISSUE-0042).
+
+    `topics_examined` on the summary counts questions the Session asked, and it
+    is non-zero the moment one is answered. Coverage is a different reading —
+    it is derived from Evidence — and until ISSUE-0044 grades a Session at the
+    end, a Session that has only run has moved no posterior.
+    """
     sid = _run(deps)
     s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
     assert s.coverage["topics_total"] == 71
+    assert s.topics_examined > 0
+    assert s.coverage["topics_examined"] == 0
+
+    grade_session(deps, sid)
+    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
     assert 0 < s.coverage["topics_examined"] <= 71
 
 

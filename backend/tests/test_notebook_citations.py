@@ -105,17 +105,21 @@ def _run_one_visit(client, ingested, real_notes):
     ).json()
     session_id = started["session_id"]
     result = started
-    # Answer until the Visit closes, so Evidence exists to carry a citation.
+    # Answer the whole plan, then grade it. Since ISSUE-0042 the loop writes no
+    # Evidence, and a citation is a property of an Evidence row — so the
+    # Session is graded here the way ISSUE-0044 will grade it at the end.
     for _ in range(6):
         result = client.post(
             f"/v1/sessions/{session_id}/turns",
             json={"answer": "Scaling keeps the softmax in a region with gradient."},
         ).json()
-        if result.get("payload", {}).get("kind") == "visit_closed":
-            return session_id, result["payload"]
-        if result.get("kind") == "visit_closed":
-            return session_id, result["payload"]
-    return session_id, result.get("payload", {})
+        if result.get("kind") == "session_ended":
+            break
+    from conftest import grade_session
+    from interviewer.wiring import wiring
+
+    grade_session(wiring().deps, session_id)
+    return session_id, result.get("payload", result)
 
 
 def test_a_graded_visit_carries_the_spans_that_grounded_its_question(

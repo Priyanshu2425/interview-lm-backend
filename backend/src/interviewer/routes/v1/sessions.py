@@ -224,6 +224,26 @@ async def plan(
     }
 
 
+@router.get("/sessions/{session_id}/transcript")
+async def transcript(
+    session_id: str,
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """Everything that was said, in order (ISSUE-0042).
+
+    A transcript, not a report: every question, probe, hint and answer, each
+    labelled with the `kind` the loop knew and the `topic_ids` the plan fixed.
+    No score appears here, because while a Session is running there is none —
+    it is graded once, at the end.
+    """
+    await _get_owned_session(session_id, candidate_id, sessions)
+    return {
+        "session_id": session_id,
+        "messages": await sessions.transcript(session_id),
+    }
+
+
 @router.post("/sessions/{session_id}/resume")
 async def resume(
     session_id: str,
@@ -246,9 +266,14 @@ async def end(
     visits: AsyncVisitLifecycle = Depends(get_async_visit_lifecycle),
     runner: SessionRunner = Depends(lambda: wiring().runner),
 ) -> dict:
-    """Soft: the current Topic Visit completes first."""
+    """Soft: the question being asked completes first.
+
+    `being_asked` rather than `unresolved` since ISSUE-0042: an answered
+    question is finished, and waiting for it to be graded would mean a Session
+    could never be ended early once it had answered anything.
+    """
     row = await _get_owned_session(session_id, candidate_id, sessions)
-    open_visit = await visits.unresolved(session_id)
+    open_visit = await visits.being_asked(session_id)
     if open_visit:
         return {
             "state": row["state"],

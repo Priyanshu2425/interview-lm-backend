@@ -393,7 +393,15 @@ def test_resuming_reads_the_stored_plan_rather_than_making_a_second_one(
     again = SessionRunner(deps)
     again.resume_after_interruption(sid)
 
-    assert PlanStore(clean_db).get(sid) == before
+    # Fixed, item for item: the same Topics in the same order under the same
+    # focus. `state` is the one column the trigger lets move — an item asked
+    # before the park is still asked after it — so the comparison is of the
+    # plan rather than of what has happened to it (ISSUE-0042).
+    after = PlanStore(clean_db).get(sid)
+    assert [(i.plan_item_id, i.item_order, i.topic_ids, i.focus)
+            for i in after.items] == [
+        (i.plan_item_id, i.item_order, i.topic_ids, i.focus) for i in before.items
+    ]
     planner_calls = [c for c in deps.ports.model.calls
                      if c["role"] == "session_planner"]
     assert len(planner_calls) == 1
@@ -443,7 +451,11 @@ def test_the_plan_endpoint_serves_the_plan(client, started):
     for item in body["items"]:
         assert 1 <= len(item["topic_ids"]) <= 3
         assert len(item["topic_titles"]) == len(item["topic_ids"])
-        assert item["state"] == "planned"
+    # The Session is already running the plan (ISSUE-0042): its first question
+    # has been asked and everything after it is still waiting.
+    assert [i["state"] for i in body["items"]] == (
+        ["asked"] + ["planned"] * (len(body["items"]) - 1)
+    )
 
 
 def test_reading_the_plan_twice_returns_the_same_bytes(client, started):

@@ -15,18 +15,36 @@ def _cfg(deps, n=2, seconds=1800):
     return SessionConfig(scope_module_ids=tuple(mods), duration_seconds=seconds)
 
 
-def test_the_opening_topic_follows_curriculum_order(deps):
+def test_the_opening_question_is_the_plans_first_item(deps, clean_db):
+    """Rewritten by ISSUE-0042. The curriculum-order exemption is gone.
+
+    It existed because selection ran inside the loop and the opening Topic had
+    to be spared the sampler, so a Session did not open on the hardest thing
+    nobody had ever seen. The sampler now runs once, before the first question,
+    over the whole scope — the ranking *is* the order, and the first item of
+    the plan is the first question. Nothing is exempted because nothing is
+    chosen mid-Session any more.
+    """
+    from interviewer.service.graph.planner import PlanStore
+
     r = SessionRunner(deps)
     cfg = _cfg(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=cfg)
-    expected = deps.corpus.topic_ids_for(list(cfg.scope_module_ids))[0]
-    assert first.payload["topic_id"] == expected
+    plan = PlanStore(clean_db).get(sid)
+    assert first.payload["topic_ids"] == list(plan.items[0].topic_ids)
+    assert first.payload["topic_id"] == plan.items[0].topic_ids[0]
+    in_scope = set(deps.corpus.topic_ids_for(list(cfg.scope_module_ids)))
+    assert set(first.payload["topic_ids"]) <= in_scope
 
 
-def test_subsequent_topics_come_from_the_selector(deps):
+def test_subsequent_questions_follow_the_plan_in_order(deps, clean_db):
+    from interviewer.service.graph.planner import PlanStore
+
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     second = r.submit(sid, "answer")
+    plan = PlanStore(clean_db).get(sid)
+    assert second.payload["topic_ids"] == list(plan.items[1].topic_ids)
     assert second.payload["topic_id"] != first.payload["topic_id"]
 
 

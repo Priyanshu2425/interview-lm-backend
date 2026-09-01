@@ -56,6 +56,11 @@ def test_merging_repoints_identities_and_leaves_permanent_rows_untouched(
                      cfg=SessionConfig(scope_module_ids=tuple(mods),
                                        duration_seconds=1800))
     r.submit(sid, "an answer")
+    # A Session writes no Evidence while it runs (ISSUE-0042), and this test is
+    # about Evidence surviving a merge — so it is graded before the merge.
+    from conftest import grade_session
+
+    grade_session(deps, sid)
 
     before = deps.evidence.rows_for(absorb)
     assert before
@@ -79,6 +84,9 @@ def test_swapping_the_provider_leaves_every_permanent_row_untouched(clean_db, de
                      cfg=SessionConfig(scope_module_ids=tuple(mods),
                                        duration_seconds=1800))
     r.submit(sid, "answer")
+    from conftest import grade_session
+
+    grade_session(deps, sid)
     snapshot = deps.confidence.all_for(cid)
 
     # the whole migration: point a new issuer's subject at the same Candidate

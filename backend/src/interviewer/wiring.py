@@ -31,6 +31,7 @@ from interviewer.service.graph.planner import PlanStore, SessionPlanner
 from interviewer.service.graph.ports import Ports, SystemClock
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionStore
+from interviewer.service.graph.transcript import Transcript
 from interviewer.service.judge.interviewer import Interviewer
 from interviewer.service.judge.judge import Judge
 from interviewer.service.judge.question_writer import QuestionWriter
@@ -107,6 +108,11 @@ def plan_store() -> PlanStore:
 
 
 @lru_cache(maxsize=1)
+def transcript_store() -> Transcript:
+    return Transcript(sync_engine())
+
+
+@lru_cache(maxsize=1)
 def credit_ledger() -> CreditLedger:
     return CreditLedger(sync_engine())
 
@@ -170,6 +176,7 @@ def graph_deps() -> Deps:
         confidence=confidence,
         judge=Judge(),
         writer=QuestionWriter(),
+        transcript=transcript_store(),
         selector=TopicSelector(confidence),
         planner=SessionPlanner(
             loader=get_loader(),
@@ -204,7 +211,8 @@ def summary() -> SummaryService:
 #: process rather than only the facade in front of it.
 _PROVIDERS = (
     sync_engine, async_engine, confidence_store, visit_lifecycle, evidence_ledger,
-    session_store, plan_store, credit_ledger, pool_ledger, transport, vault,
+    session_store, plan_store, transcript_store, credit_ledger, pool_ledger,
+    transport, vault,
     metered_client, graph_deps, runner, summary,
 )
 

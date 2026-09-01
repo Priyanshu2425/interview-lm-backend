@@ -298,8 +298,17 @@ class VisitLifecycle:
         self._e = engine
 
     def open(
-        self, *, session_id: str, candidate_id: str, topic_id: str, visit_index: int
+        self, *, session_id: str, candidate_id: str, topic_id: str, visit_index: int,
+        topic_ids: tuple[str, ...] | list[str] | None = None,
+        plan_item_id: str | None = None,
     ) -> str:
+        """Open one question.
+
+        `topic_id` is the owning Topic and stays scalar — `open_topic_ids()` and
+        the refund path both need one. `topic_ids` is what the question actually
+        spans, which since ISSUE-0042 is whatever the plan item said, and
+        `plan_item_id` is the item that scheduled it.
+        """
         vid = new_id("visit")
         with self._e.begin() as c:
             c.execute(
@@ -310,6 +319,8 @@ class VisitLifecycle:
                     topic_id=topic_id,
                     visit_index=visit_index,
                     state="open",
+                    topic_ids=list(topic_ids) if topic_ids else [topic_id],
+                    plan_item_id=plan_item_id,
                 )
             )
         return vid
@@ -338,6 +349,34 @@ class VisitLifecycle:
                 )
             )
 
+    def close_question(
+        self, topic_visit_id: str, *, turn_count: int,
+        mode: GradingMode, grounding_ref: dict | None = None,
+    ) -> None:
+        """The question is finished. Nothing about it is graded (ISSUE-0042).
+
+        `record_answer` above still exists and still writes the `exchange`
+        blob, because MCP Mode grades per Visit against exactly that blob. The
+        managed loop no longer does: its record is `message`, and writing a
+        second copy here would leave two transcripts that can disagree.
+
+        The state it lands in is `answered`, and that is now a terminal state
+        for the loop rather than a queue for the grader — the Session moves on
+        immediately, and the grade arrives once, at the end.
+        """
+        with self._e.begin() as c:
+            c.execute(
+                sa.update(S.topic_visit)
+                .where(S.topic_visit.c.topic_visit_id == topic_visit_id)
+                .values(
+                    state="answered",
+                    turn_count=turn_count,
+                    grading_mode=mode.value,
+                    grounding_ref=grounding_ref,
+                    answered_at=sa.func.now(),
+                )
+            )
+
     def get(self, topic_visit_id: str) -> dict | None:
         with self._e.connect() as c:
             r = c.execute(
@@ -348,11 +387,27 @@ class VisitLifecycle:
         return dict(r._mapping) if r else None
 
     def unresolved(self, session_id: str) -> dict | None:
+        """Open or answered — MCP Mode's reading, where a grade is still owed.
+
+        The managed loop asks `being_asked` instead: since ISSUE-0042 an
+        answered question owes nothing until the Session ends.
+        """
         with self._e.connect() as c:
             r = c.execute(
                 sa.select(S.topic_visit).where(
                     S.topic_visit.c.session_id == session_id,
                     S.topic_visit.c.state.in_(("open", "answered")),
+                )
+            ).first()
+        return dict(r._mapping) if r else None
+
+    def being_asked(self, session_id: str) -> dict | None:
+        """The question this Session is in the middle of, if it is in one."""
+        with self._e.connect() as c:
+            r = c.execute(
+                sa.select(S.topic_visit).where(
+                    S.topic_visit.c.session_id == session_id,
+                    S.topic_visit.c.state == "open",
                 )
             ).first()
         return dict(r._mapping) if r else None

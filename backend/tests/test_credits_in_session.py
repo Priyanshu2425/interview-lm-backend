@@ -76,7 +76,7 @@ def test_a_visit_already_open_completes_even_when_the_balance_runs_out(metered_d
     out = r.submit(sid, "an answer given while broke")
 
     row = d.visits.get(vid)
-    assert row["state"] == "graded"           # it finished
+    assert row["state"] == "answered"         # it finished
     assert d.credits.balance(CAND) < 0        # and went negative doing so
     assert out.payload["reason"] == "credits_exhausted_mid_visit"
 
@@ -91,7 +91,9 @@ def test_no_partial_visit_is_written_when_the_session_parks(metered_deps, clean_
         if out.kind == "session_ended":
             break
     rows = d.visits.for_session(sid)
-    assert all(x["state"] == "graded" for x in rows)
+    # Answered rather than graded since ISSUE-0042: a question the Session
+    # finished asking is complete, and the grade arrives once, at the end.
+    assert all(x["state"] == "answered" for x in rows)
 
 
 def test_topping_up_resumes_the_same_session(metered_deps):
@@ -144,7 +146,8 @@ def test_a_byok_session_runs_and_spends_no_credits(metered_deps):
 
     assert d.credits.balance(CAND) == 0
     assert [x for x in d.credits.rows(CAND)] == []
-    assert out.payload["last_visit"]["score"] is not None
+    assert out.kind in ("question", "session_ended")
+    assert d.visits.get(first.payload["topic_visit_id"])["state"] == "answered"
     assert d.transport.sent[0]["api_key"] == "sk-or-candidate"
 
 

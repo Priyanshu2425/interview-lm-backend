@@ -1,11 +1,29 @@
 # The Interviewer is a state machine with agentic regions, not an agent with tools
 
 A **Session** runs as an explicit LangGraph state machine —
-`select_topic → load_dossier → generate_question → interrupt → grade →
-update_confidence → decide_next` — with LLM calls made *inside* nodes rather
-than deciding which node runs next. Agency is confined to the region around the
-**Answer Turn**: probing a vague answer, offering a hint, deciding a follow-up
-is warranted before scoring.
+`build_plan → next_planned_item → load_dossiers → generate_question →
+interrupt → record_exchange → decide_next` — with LLM calls made *inside* nodes
+rather than deciding which node runs next. Agency is confined to the region
+around the **Answer Turn**: probing a vague answer, offering a hint, deciding a
+follow-up is warranted before closing the question.
+
+> **Amended by ISSUE-0041 and ISSUE-0042.** The node list was
+> `select_topic → load_dossier → generate_question → interrupt → grade →
+> update_confidence → decide_next`. `build_plan` was added in front of it
+> (ISSUE-0041): the Session decides what it will ask before it asks anything,
+> and writes the plan down. Then `select_topic` became `next_planned_item`,
+> `load_dossier` became `load_dossiers` — a question may span up to three
+> Topics — `record_answer` became `record_exchange`, and `grade` and
+> `update_confidence` were **deleted from the loop** (ISSUE-0042).
+>
+> The deletion does not weaken the argument below; it is the argument applied
+> once more. In-loop grading existed because selection was adaptive: the
+> sampler needed a posterior updated after every Visit before it could pick the
+> next Topic. Fixing the plan before the first question removes that
+> dependency, and removing it is what lets the Evidence write move to the end
+> of the Session (ISSUE-0044). It is still an edge and it still cannot not run;
+> it runs once, over a transcript, instead of once per question. Thompson
+> sampling did not die either — it moved to plan-construction time.
 
 ## Why not a ReAct agent
 

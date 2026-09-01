@@ -1,12 +1,24 @@
 """The Session graph (ADR-0001).
 
-    build_plan -> select_topic -> load_dossier -> generate_question -> interrupt
-               -> grade -> update_confidence -> decide_next
+    build_plan -> next_planned_item -> load_dossiers -> generate_question
+               -> answer_turn -> interviewer_move  ^(probe/hint)
+               -> record_exchange -> decide_next   -> next_planned_item | END
 
 `build_plan` arrived with ISSUE-0041 and runs once, before anything else: the
 Session decides what it will ask before it asks anything, and writes the plan
-down. Everything after it is unchanged in this slice — running the plan is
-ISSUE-0042 — but the plan exists, is fixed, and is served.
+down. ISSUE-0042 made the rest of the loop *execute* that plan.
+
+The two nodes that graded are gone from here, and their absence is the point
+rather than an omission. In-loop grading existed because selection was
+adaptive: the sampler needed a posterior updated after every Visit before it
+could pick the next Topic. Fixing the plan up front removes that dependency,
+and removing it is what lets grading move to the end (ISSUE-0044). While a
+Session is running it writes questions, answers and a transcript, and no
+Evidence at all.
+
+What the loop still owes the record it writes as it goes: one `message` row per
+turn, labelled with the `kind` the loop already knew and the `topic_ids` the
+plan already fixed. Nothing asks a model what a message was about.
 
 Model calls are made *inside* nodes; models do not decide which node runs next.
 Everything that must happen exactly once is an edge, and a graph edge cannot not
@@ -25,9 +37,7 @@ from typing import Any, Literal, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
-from ...service.confidence.math import Posterior
 from ...service.confidence.store import ConfidenceStore, EvidenceLedger, VisitLifecycle
-from ...service.corpus.citations import resolve
 from ...model.corpus import GradingMode
 from ...service.corpus.loader import DossierLoader
 from ...service.corpus import CorpusService
@@ -55,10 +65,17 @@ class SessionState(TypedDict, total=False):
     payment_route: str
     provider: str
 
+    # The question currently in flight. `topic_id` is the owning Topic and
+    # stays scalar because the metering and refund paths need one; `topic_ids`
+    # is what the plan item actually spans.
     topic_id: str
+    topic_ids: list[str]
+    plan_item_id: str
+    item_focus: str
     topic_visit_id: str
     visit_index: int
     dossier_title: str
+    dossier_titles: list[str]
     question: str
     grading_mode: str
     grounding_ref: dict | None
@@ -68,19 +85,10 @@ class SessionState(TypedDict, total=False):
     move: str
     follow_up: str
 
-    score: float
-    # The two readings the score combines (ISSUE-0043). Carried through the
-    # state rather than recomputed at the write, so the row records what the
-    # Judge actually returned.
-    source_score: float | None
-    truth_score: float
-    rationale: str
-
     finished: bool
     end_reason: str
     balance: int
     byok_key_id: str
-    last_result: dict
 
 
 @dataclass
@@ -96,8 +104,9 @@ class Deps:
     confidence: ConfidenceStore
     judge: Judge
     writer: QuestionWriter
+    transcript: Any = None    # Transcript; None writes no messages
     selector: Any = None
-    planner: Any = None       # SessionPlanner; None leaves the Session unplanned
+    planner: Any = None       # SessionPlanner; without one there is no plan to run
     interviewer: Any = None   # the agentic region; None closes after one turn
     credits: Any = None       # CreditLedger; None disables the spend gate
     bindings: Any = None      # BindingStore
@@ -136,9 +145,9 @@ def build_graph(d: Deps):
         plan = d.planner.stored(sid)
         if plan is None:
             if not d.corpus.topic_ids_for(state["scope_module_ids"]):
-                # Nothing examinable in scope. `select_topic` ends the Session
-                # for this reason already; planning nothing would only turn a
-                # clean ending into a constraint violation.
+                # Nothing examinable in scope. `next_planned_item` ends the
+                # Session for want of a plan already; planning nothing would
+                # only turn a clean ending into a constraint violation.
                 return {}
             ref = f"plan_{sid}"
             if d.bindings is not None:
@@ -168,33 +177,37 @@ def build_graph(d: Deps):
             "planner_fallback": plan.planner_fallback,
         }
 
-    def select_topic(state: SessionState) -> dict:
-        visited = d.visits.visited_topic_ids(state["session_id"])
-        in_scope = d.corpus.topic_ids_for(state["scope_module_ids"])
-        remaining = [t for t in in_scope if t not in visited]
-        if not remaining:
-            return {"finished": True, "end_reason": "scope_exhausted"}
+    def next_planned_item(state: SessionState) -> dict:
+        """Take the next planned question and open it.
 
-        if d.selector is None or not visited:
-            # The opening Topic follows curriculum order — an explicit exemption
-            # from selection, so a Session never opens on the hardest thing.
-            topic_id = remaining[0]
-        else:
-            topic_id = d.selector.choose(
-                candidate_id=state["candidate_id"],
-                topic_ids=remaining,
-                rng=d.ports.rng,
-            )
+        The plan is the queue, and it is read from Postgres rather than carried
+        in the checkpointer: a restart resumes where the Session actually got
+        to. An item is marked `asked` as it opens, so a Session picked up after
+        a park does not re-ask the question it was in the middle of — the plan
+        is fixed, but what happened to it is allowed to move.
+        """
+        if d.planner is None:
+            return {"finished": True, "end_reason": "no_plan"}
+        sid = state["session_id"]
+        item = d.planner.next_item(sid)
+        if item is None:
+            return {"finished": True, "end_reason": "plan_exhausted"}
 
-        idx = len(visited) + 1
+        topic_ids = list(item.topic_ids)
+        idx = item.item_order + 1
         vid = d.visits.open(
-            session_id=state["session_id"],
+            session_id=sid,
             candidate_id=state["candidate_id"],
-            topic_id=topic_id,
+            topic_id=topic_ids[0],
             visit_index=idx,
+            topic_ids=topic_ids,
+            plan_item_id=item.plan_item_id,
         )
-        # A Provider is bound once, here, and held for this Visit's lifetime.
-        # It may change between Visits and never inside one.
+        d.planner.mark_asked(item.plan_item_id)
+        # A Provider is bound once, here, and held for this question's
+        # lifetime. It may change between questions and never inside one. The
+        # block moved verbatim from the node this one replaces: metering is not
+        # part of ISSUE-0042 and must not drift while the loop around it does.
         if d.bindings is not None:
             from ...service.metering.client import Binding
 
@@ -208,16 +221,47 @@ def build_graph(d: Deps):
                     session_id=state["session_id"],
                     candidate_id=state["candidate_id"],
                 )
-        return {"topic_id": topic_id, "topic_visit_id": vid, "visit_index": idx}
+        return {
+            "topic_id": topic_ids[0],
+            "topic_ids": topic_ids,
+            "plan_item_id": item.plan_item_id,
+            "item_focus": item.focus,
+            "topic_visit_id": vid,
+            "visit_index": idx,
+        }
 
-    def load_dossier(state: SessionState) -> dict:
-        dossier = d.loader.load(state["topic_id"])
-        return {"dossier_title": dossier.topic_title}
+    def load_dossiers(state: SessionState) -> dict:
+        """Every Topic the item spans, not just the first one.
+
+        A Topic retired since the plan was fixed — a Candidate deleted the
+        notebook it came from — is dropped from the question rather than
+        failing it. The plan is fixed; what is left of the material is not.
+        """
+        titles, alive = [], []
+        for topic_id in state["topic_ids"]:
+            try:
+                titles.append(d.loader.load(topic_id).topic_title)
+            except LookupError:
+                continue
+            alive.append(topic_id)
+        if not alive:
+            raise LookupError(
+                "every Topic this question spans has been retired"
+            )
+        return {
+            "topic_ids": alive,
+            "topic_id": alive[0],
+            "dossier_titles": titles,
+            # One string, because the Answer Turn's payload has always carried
+            # one and a surface reading `topic_title` must keep working.
+            "dossier_title": " · ".join(titles),
+        }
 
     def generate_question(state: SessionState) -> dict:
-        dossier = d.loader.load(state["topic_id"])
+        dossiers = [d.loader.load(t) for t in state["topic_ids"]]
         written = d.writer.write(
-            dossier=dossier,
+            dossiers=dossiers,
+            focus=state.get("item_focus", ""),
             topic_visit_id=state["topic_visit_id"],
             model=d.ports.model,
         )
@@ -248,6 +292,13 @@ def build_graph(d: Deps):
                 "topic_visit_id": state["topic_visit_id"],
                 "topic_id": state["topic_id"],
                 "topic_title": state.get("dossier_title", ""),
+                # What the question actually spans. `topic_id` and
+                # `topic_title` stay beside them: the payload keys are the
+                # surface's contract and ISSUE-0042 adds to them rather than
+                # replacing them.
+                "topic_ids": list(state.get("topic_ids") or [state["topic_id"]]),
+                "topic_titles": list(state.get("dossier_titles") or []),
+                "plan_item_id": state.get("plan_item_id", ""),
                 "grading_mode": state["grading_mode"],
                 "turn": state.get("turn_count", 0) + 1,
             }
@@ -257,85 +308,43 @@ def build_graph(d: Deps):
         exchange.append({"role": "candidate", "kind": "answer", "text": answer})
         return {"exchange": exchange, "turn_count": state.get("turn_count", 0) + 1}
 
-    def record_answer(state: SessionState) -> dict:
-        """Store the exchange before grading, so an interruption here is
-        recoverable rather than lost."""
-        d.visits.record_answer(
-            state["topic_visit_id"],
-            exchange={"turns": state["exchange"]},
+    def record_exchange(state: SessionState) -> dict:
+        """Write the question down — every turn of it — and close it.
+
+        One `message` row per turn: question, probe, hint, answer. The label on
+        each is the `kind` the loop already knew and the `topic_ids` the plan
+        already fixed, so the transcript is grounded in what was decided rather
+        than in what a model would say about it afterwards.
+
+        `message` is append-only, and a graph node may be replayed after a
+        park — so a question already written down is not written twice. There
+        would be no way to tidy up if it were.
+        """
+        vid = state["topic_visit_id"]
+        if d.transcript is not None and not d.transcript.has_question(vid):
+            from .transcript import Turn
+
+            topic_ids = tuple(state.get("topic_ids") or [state["topic_id"]])
+            d.transcript.append(state["session_id"], [
+                Turn(
+                    role=t["role"],
+                    kind=t.get("kind") or (
+                        "answer" if t["role"] == "candidate" else "question"
+                    ),
+                    text=t.get("text") or "",
+                    topic_ids=topic_ids,
+                    topic_visit_id=vid,
+                    plan_item_id=state.get("plan_item_id", ""),
+                )
+                for t in state["exchange"]
+            ])
+        d.visits.close_question(
+            vid,
             turn_count=state["turn_count"],
             mode=GradingMode(state["grading_mode"]),
             grounding_ref=state.get("grounding_ref"),
         )
         return {}
-
-    def grade(state: SessionState) -> dict:
-        dossier = d.loader.load(state["topic_id"])
-        verdict = d.judge.grade(
-            question=state["question"],
-            exchange=state["exchange"],
-            dossier=dossier,
-            mode=GradingMode(state["grading_mode"]),
-            topic_visit_id=state["topic_visit_id"],
-            model=d.ports.model,
-        )
-        return {
-            "score": verdict.score,
-            "source_score": verdict.source_score,
-            "truth_score": verdict.truth_score,
-            "rationale": verdict.rationale,
-        }
-
-    def update_confidence(state: SessionState) -> dict:
-        """The Evidence write. An edge, not a tool call — it cannot not run."""
-        dossier = d.loader.load(state["topic_id"])
-        citations = resolve(dossier, state.get("grounding_ref"))
-        written = d.evidence.write(
-            topic_visit_id=state["topic_visit_id"],
-            candidate_id=state["candidate_id"],
-            topic_id=state["topic_id"],
-            session_id=state["session_id"],
-            score=state["score"],
-            source_score=state.get("source_score"),
-            truth_score=state.get("truth_score"),
-            mode=GradingMode(state["grading_mode"]),
-            grader_kind="server_judge",
-            provider=_provider(state),
-            rubric_version=RUBRIC_VERSION,
-            rationale=state["rationale"],
-            exchange_snapshot={"turns": state["exchange"]},
-            citations=citations,
-            topic_title=dossier.topic_title,
-            module_title=dossier.module_title,
-        )
-        p: Posterior = written.posterior
-        return {
-            "last_result": {
-                "kind": "visit_closed",
-                "topic_visit_id": state["topic_visit_id"],
-                "topic_id": state["topic_id"],
-                "topic_title": state.get("dossier_title", ""),
-                "score": state["score"],
-                # Reported beside each other and never fused into a headline
-                # figure. `score` is what the posterior consumed, not a third
-                # reading standing over these two.
-                "source_score": state.get("source_score"),
-                "truth_score": state.get("truth_score"),
-                "rationale": state["rationale"],
-                "grading_mode": state["grading_mode"],
-                "weight": GradingMode(state["grading_mode"]).weight,
-                "band": p.band.value,
-                "band_label": p.band.label,
-                "coverage": p.coverage,
-                "mastery": p.mastery_or_none,
-                "alpha": p.alpha,
-                "beta": p.beta,
-                "grader": "server_judge",
-                "provider": _provider(state),
-                "rubric_version": RUBRIC_VERSION,
-                "citations": citations,
-            }
-        }
 
     def decide_next(state: SessionState) -> dict:
         """The only place a Session may legally end, and the only place a spend
@@ -350,9 +359,18 @@ def build_graph(d: Deps):
         if elapsed >= state["duration_seconds"]:
             return {"finished": True, "end_reason": "duration"}
 
-        visited = d.visits.visited_topic_ids(state["session_id"])
-        in_scope = d.corpus.topic_ids_for(state["scope_module_ids"])
-        if not [t for t in in_scope if t not in visited]:
+        item = (d.planner.next_item(state["session_id"])
+                if d.planner is not None else None)
+        if item is None:
+            return {"finished": True, "end_reason": "plan_exhausted"}
+
+        # The material can be withdrawn under a running Session (ISSUE-0027):
+        # a Candidate deletes the notebook their Topics came from. The plan is
+        # fixed and still names them, so scope is checked here rather than
+        # assumed — and a Session with nothing left to ask about ends at the
+        # boundary, exactly as it did when scope exhaustion was the test.
+        in_scope = set(d.corpus.topic_ids_for(state["scope_module_ids"]))
+        if not in_scope & set(item.topic_ids):
             return {"finished": True, "end_reason": "scope_exhausted"}
 
         # Credits meter our key only. Under BYOK the Candidate pays their
@@ -371,8 +389,8 @@ def build_graph(d: Deps):
                 }
         return {"finished": False}
 
-    def _after_select(state: SessionState) -> Literal["load_dossier", "__end__"]:
-        return "__end__" if state.get("finished") else "load_dossier"
+    def _after_item(state: SessionState) -> Literal["load_dossiers", "__end__"]:
+        return "__end__" if state.get("finished") else "load_dossiers"
 
     def interviewer_move(state: SessionState) -> dict:
         """The agentic region: probe, hint, or close.
@@ -400,34 +418,30 @@ def build_graph(d: Deps):
         )
         return {"move": move.action, "exchange": exchange, "follow_up": move.text}
 
-    def _after_move(state: SessionState) -> Literal["answer_turn", "record_answer"]:
-        return "record_answer" if state.get("move") == "close" else "answer_turn"
+    def _after_move(state: SessionState) -> Literal["answer_turn", "record_exchange"]:
+        return "record_exchange" if state.get("move") == "close" else "answer_turn"
 
-    def _after_decide(state: SessionState) -> Literal["select_topic", "__end__"]:
-        return "__end__" if state.get("finished") else "select_topic"
+    def _after_decide(state: SessionState) -> Literal["next_planned_item", "__end__"]:
+        return "__end__" if state.get("finished") else "next_planned_item"
 
     g = StateGraph(SessionState)
     g.add_node("build_plan", build_plan)
-    g.add_node("select_topic", select_topic)
-    g.add_node("load_dossier", load_dossier)
+    g.add_node("next_planned_item", next_planned_item)
+    g.add_node("load_dossiers", load_dossiers)
     g.add_node("generate_question", generate_question)
     g.add_node("answer_turn", answer_turn)
     g.add_node("interviewer_move", interviewer_move)
-    g.add_node("record_answer", record_answer)
-    g.add_node("grade", grade)
-    g.add_node("update_confidence", update_confidence)
+    g.add_node("record_exchange", record_exchange)
     g.add_node("decide_next", decide_next)
 
     g.add_edge(START, "build_plan")
-    g.add_edge("build_plan", "select_topic")
-    g.add_conditional_edges("select_topic", _after_select)
-    g.add_edge("load_dossier", "generate_question")
+    g.add_edge("build_plan", "next_planned_item")
+    g.add_conditional_edges("next_planned_item", _after_item)
+    g.add_edge("load_dossiers", "generate_question")
     g.add_edge("generate_question", "answer_turn")
     g.add_edge("answer_turn", "interviewer_move")
     g.add_conditional_edges("interviewer_move", _after_move)
-    # Nothing between record_answer and update_confidence is a decision.
-    g.add_edge("record_answer", "grade")
-    g.add_edge("grade", "update_confidence")
-    g.add_edge("update_confidence", "decide_next")
+    # Nothing between the transcript write and the decision is a decision.
+    g.add_edge("record_exchange", "decide_next")
     g.add_conditional_edges("decide_next", _after_decide)
     return g

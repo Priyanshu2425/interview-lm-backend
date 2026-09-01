@@ -124,6 +124,58 @@ class PlanStore:
                 ))
         return replace(plan, items=items)
 
+    def next_planned(self, session_id: str) -> PlanItem | None:
+        """The first item still waiting to be asked, in plan order.
+
+        The plan is the queue. Asking the database rather than carrying a
+        cursor in the checkpointer means a restart resumes where the Session
+        actually got to, not where a copy of the plan thought it had.
+        """
+        with self._e.connect() as c:
+            r = c.execute(
+                sa.select(S.plan_item)
+                .where(S.plan_item.c.session_id == session_id,
+                       S.plan_item.c.state == "planned")
+                .order_by(S.plan_item.c.item_order)
+                .limit(1)
+            ).first()
+        if r is None:
+            return None
+        m = r._mapping
+        return PlanItem(
+            item_order=m["item_order"],
+            topic_ids=tuple(m["topic_ids"]),
+            focus=m["focus"],
+            plan_item_id=m["plan_item_id"],
+            state=m["state"],
+        )
+
+    def mark_asked(self, plan_item_id: str) -> None:
+        """The item has been opened. `state` is the one column the trigger lets
+        move, which is exactly the difference between the plan and what happened
+        to it."""
+        with self._e.begin() as c:
+            c.execute(
+                sa.update(S.plan_item)
+                .where(S.plan_item.c.plan_item_id == plan_item_id)
+                .values(state="asked")
+            )
+
+    def mark_unreached(self, session_id: str) -> int:
+        """Everything still `planned` when the Session ended.
+
+        A Session that ran out of clock leaves questions unasked, and the
+        difference between "asked and answered badly" and "never reached" is
+        the whole reason `unreached` is a state rather than an absence.
+        """
+        with self._e.begin() as c:
+            return c.execute(
+                sa.update(S.plan_item)
+                .where(S.plan_item.c.session_id == session_id,
+                       S.plan_item.c.state == "planned")
+                .values(state="unreached")
+            ).rowcount
+
     def get(self, session_id: str) -> SessionPlan | None:
         with self._e.connect() as c:
             head = c.execute(
@@ -207,6 +259,16 @@ class SessionPlanner:
         a restart: the plan is in Postgres, not only in the checkpointer.
         """
         return self._plans.get(session_id)
+
+    def next_item(self, session_id: str) -> PlanItem | None:
+        """The next question this Session owes. `None` means the plan is done."""
+        return self._plans.next_planned(session_id)
+
+    def mark_asked(self, plan_item_id: str) -> None:
+        self._plans.mark_asked(plan_item_id)
+
+    def mark_unreached(self, session_id: str) -> int:
+        return self._plans.mark_unreached(session_id)
 
     # -- the whole of it ---------------------------------------------------
 

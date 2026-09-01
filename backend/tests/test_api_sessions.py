@@ -82,7 +82,15 @@ def test_a_retried_turn_with_the_same_key_returns_the_original_result(
     assert first == again
 
 
-def test_a_retried_turn_writes_no_second_evidence_row(client, module_ids, clean_db):
+def test_a_retried_turn_writes_no_second_answer_to_the_transcript(
+    client, module_ids, clean_db
+):
+    """Rewritten by ISSUE-0042: there is no Evidence row to count any more.
+
+    What idempotency protects is the same fact under a different name — one
+    Answer Turn per key — and the transcript is where that fact now lives.
+    `message` is append-only, so a duplicate could never be tidied away.
+    """
     import sqlalchemy as sa
     from interviewer.db import schema as S
 
@@ -92,8 +100,15 @@ def test_a_retried_turn_writes_no_second_evidence_row(client, module_ids, clean_
         client.post(f"/v1/sessions/{b['session_id']}/turns",
                     json={"answer": "one"}, headers=h)
     with clean_db.connect() as c:
-        n = c.execute(sa.select(sa.func.count()).select_from(S.evidence)).scalar()
-    assert n == 1
+        answers = c.execute(
+            sa.select(S.message.c.text)
+            .where(S.message.c.session_id == b["session_id"],
+                   S.message.c.kind == "answer")
+        ).scalars().all()
+        evidence = c.execute(
+            sa.select(sa.func.count()).select_from(S.evidence)).scalar()
+    assert answers == ["one"]
+    assert evidence == 0
 
 
 def test_session_state_is_readable_and_lists_its_visits(client, module_ids):

@@ -1,6 +1,14 @@
-"""ISSUE-0007 — resumption and replay determinism."""
+"""ISSUE-0007 — resumption and replay determinism.
+
+ISSUE-0042 changed what an interruption can lose. Grading no longer happens
+between questions, so there is no half-graded Visit to recover: an answer that
+landed is already in the transcript, and the grade the Session owes is owed to
+the end of itself.
+"""
 
 import sqlalchemy as sa
+
+from conftest import grade_session
 
 from interviewer.db import schema as S
 from interviewer.service.graph.runner import SessionRunner
@@ -26,39 +34,42 @@ def test_a_session_interrupted_at_the_answer_turn_resumes_at_the_same_question(d
     assert deps.sessions.get(sid)["state"] == "running"
 
 
-def test_an_answer_submitted_before_an_interruption_is_still_graded(deps, clean_db):
-    """The exchange is stored at the Answer Turn, so the work is not thrown away."""
+def test_an_answer_submitted_before_an_interruption_is_kept(deps, clean_db):
+    """Rewritten by ISSUE-0042: the answer is kept, not graded.
+
+    The old behaviour was to grade the stored exchange on resume, because the
+    Visit owed a score and an ungraded one would have thrown the Candidate's
+    work away. Nothing owes a score mid-Session now — the answer is in the
+    transcript the moment it lands, which is the whole of what "not thrown
+    away" ever meant.
+    """
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     vid = first.payload["topic_visit_id"]
-
-    # simulate: answer accepted and stored, then the process dies before grading
-    from interviewer.model.corpus import GradingMode
-    deps.visits.record_answer(
-        vid,
-        exchange={"turns": [
-            {"role": "interviewer", "kind": "question", "text": first.payload["question"]},
-            {"role": "candidate", "kind": "answer", "text": "a real answer"},
-        ]},
-        turn_count=1,
-        mode=GradingMode(first.payload["grading_mode"]),
-    )
+    r.submit(sid, "a real answer")
     deps.sessions.park(sid, "client_gone")
 
     out = r.resume_after_interruption(sid)
-    assert out.kind == "visit_closed"
-    assert out.payload["recovered"] is True
+    assert out is not None
+    assert out.kind in ("question", "session_ended")
 
     with clean_db.connect() as c:
-        n = c.execute(sa.select(sa.func.count()).select_from(S.evidence)).scalar()
-    assert n == 1
-    assert deps.visits.get(vid)["state"] == "graded"
+        assert c.execute(
+            sa.select(sa.func.count()).select_from(S.evidence)).scalar() == 0
+        said = c.execute(
+            sa.select(S.message.c.text)
+            .where(S.message.c.topic_visit_id == vid,
+                   S.message.c.kind == "answer")
+        ).scalars().all()
+    assert said == ["a real answer"]
+    assert deps.visits.get(vid)["state"] == "answered"
 
 
 def test_resuming_an_already_graded_visit_writes_nothing_new(deps, clean_db):
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
+    grade_session(deps, sid)
 
     with clean_db.connect() as c:
         before = c.execute(sa.select(sa.func.count()).select_from(S.evidence)).scalar()
@@ -91,6 +102,7 @@ def test_session_state_is_readable_without_instantiating_a_graph(deps):
     r = SessionRunner(deps)
     sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
+    grade_session(deps, sid)
 
     from interviewer.service.confidence.store import ConfidenceStore
     from interviewer.service.graph.sessions import SessionStore
@@ -101,29 +113,43 @@ def test_session_state_is_readable_without_instantiating_a_graph(deps):
 
 # -- determinism -------------------------------------------------------------
 
-def _run(deps, seed, answers):
+def _deps_with(deps, seed):
+    """The same world, one seed. A planner is not optional: the Session runs a
+    plan, so a `Deps` without one has nothing to run."""
     import numpy as np
-    from interviewer.service.graph.ports import Ports, FrozenClock, ScriptedModel
+    from interviewer.service.confidence.selector import TopicSelector
     from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.planner import PlanStore, SessionPlanner
+    from interviewer.service.graph.ports import Ports, FrozenClock, ScriptedModel
+    from interviewer.service.graph.transcript import Transcript
 
+    engine = deps.visits._e
     model = ScriptedModel(default="SOURCE: 0.8\nTRUTH: 0.8\nWHY: fine.")
-    d = Deps(
+    return Deps(
         ports=Ports(clock=FrozenClock(), rng=np.random.default_rng(seed), model=model),
         loader=deps.loader, corpus=deps.corpus, sessions=deps.sessions,
         visits=deps.visits, evidence=deps.evidence, confidence=deps.confidence,
-        judge=deps.judge, writer=deps.writer, selector=deps.selector,
+        judge=deps.judge, writer=deps.writer, transcript=Transcript(engine),
+        selector=deps.selector,
+        planner=SessionPlanner(
+            loader=deps.loader, corpus=deps.corpus,
+            selector=TopicSelector(deps.confidence), plans=PlanStore(engine),
+        ),
         interviewer=deps.interviewer,
     )
+
+
+def _run(deps, seed, answers):
+    d = _deps_with(deps, seed)
     r = SessionRunner(d)
     sid, out = r.start(candidate_id=f"cand_{seed}_{id(answers)}", cfg=_cfg(deps))
-    seq, scores = [out.payload.get("topic_id")], []
+    seq = [out.payload.get("topic_id")]
     for a in answers:
         out = r.submit(sid, a)
-        if out.payload.get("last_visit"):
-            scores.append(out.payload["last_visit"]["score"])
         if out.kind == "session_ended":
             break
         seq.append(out.payload.get("topic_id"))
+    scores = [float(w.posterior.mastery_or_none or 0) for w in grade_session(d, sid)]
     return seq, scores
 
 
@@ -143,23 +169,14 @@ def test_a_different_injected_randomness_can_produce_a_different_session(deps):
 
 def test_replaying_with_a_changed_rubric_produces_different_scores(deps):
     """The property that makes grading measurable rather than asserted."""
-    import numpy as np
-    from interviewer.service.graph.machine import Deps
-    from interviewer.service.graph.ports import FrozenClock, Ports, ScriptedModel
-
     def run_with(score_text, cand):
-        model = ScriptedModel(default=score_text)
-        d = Deps(
-            ports=Ports(clock=FrozenClock(), rng=np.random.default_rng(1), model=model),
-            loader=deps.loader, corpus=deps.corpus, sessions=deps.sessions,
-            visits=deps.visits, evidence=deps.evidence, confidence=deps.confidence,
-            judge=deps.judge, writer=deps.writer, selector=deps.selector,
-            interviewer=deps.interviewer,
-        )
+        d = _deps_with(deps, 1)
+        d.ports.model.default = score_text
         r = SessionRunner(d)
         sid, _ = r.start(candidate_id=cand, cfg=_cfg(deps))
-        out = r.submit(sid, "the same answer, word for word")
-        return out.payload["last_visit"]["score"]
+        r.submit(sid, "the same answer, word for word")
+        grade_session(d, sid)
+        return float(d.evidence.rows_for(cand)[0]["score"])
 
     lenient = run_with("SOURCE: 0.9\nTRUTH: 0.9\nWHY: generous rubric.", "cand_v1")
     strict = run_with("SOURCE: 0.4\nTRUTH: 0.4\nWHY: strict rubric.", "cand_v2")

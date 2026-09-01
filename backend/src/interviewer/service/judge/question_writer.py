@@ -3,6 +3,12 @@
 The dossier's ceiling *bounds* the mode; it does not set it. A Topic with an
 Answer Key may still yield a text-grounded question, and the Visit records what
 happened rather than what was possible.
+
+Since ISSUE-0042 a question may span up to three Topics, because that is what a
+plan item may schedule. The mode it records is then the **weakest** across its
+dossiers: a composite question is only as grounded as its least-grounded part,
+and recording a Ground-Truth grade for a question half of which has no answer
+key would be claiming an authority the material does not have.
 """
 
 from __future__ import annotations
@@ -27,18 +33,75 @@ class WrittenQuestion:
     grounding_ref: dict | None
 
 
+def weakest(modes) -> GradingMode:
+    """The least authoritative of several. Weight is the ordering."""
+    return min(modes, key=lambda m: m.weight)
+
+
 class QuestionWriter:
     def write(
-        self, *, dossier: Dossier, topic_visit_id: str, model: ModelClient
+        self, *, topic_visit_id: str, model: ModelClient,
+        dossiers=None, dossier: Dossier | None = None, focus: str = "",
     ) -> WrittenQuestion:
-        mode, grounding, prompt = self._ground(dossier)
+        """One question over one or more dossiers.
+
+        `dossier=` is still accepted for the single-Topic callers that predate
+        the plan — MCP Mode and the rejudge path both hold exactly one.
+        """
+        ds = list(dossiers) if dossiers is not None else [dossier]
+        ds = [x for x in ds if x is not None]
+        if not ds:
+            raise ValueError("a question must be grounded in at least one dossier")
+
+        grounds = [self._ground(x) for x in ds]
+        mode = weakest(g[0] for g in grounds)
         reply = model.complete(
             topic_visit_id=topic_visit_id,
             role="question_writer",
             system=SYSTEM,
-            user=prompt,
+            user=self._prompt(ds, grounds, focus),
         )
-        return WrittenQuestion(reply.text.strip(), mode, grounding)
+        return WrittenQuestion(
+            reply.text.strip(), mode, self._grounding_ref(ds, grounds, mode)
+        )
+
+    # -- the prompt --------------------------------------------------------
+
+    def _prompt(self, ds, grounds, focus: str) -> str:
+        if len(ds) == 1:
+            body = grounds[0][2]
+            return f"{body}\n\nWhat this should test: {focus}" if focus else body
+
+        # A spanning question is asked *as* one question. The material arrives
+        # per Topic because that is how it is grounded, and the instruction to
+        # ask one thing is stated once, at the end, where it is last read.
+        parts = "\n\n---\n\n".join(g[2] for g in grounds)
+        titles = ", ".join(d.topic_title for d in ds)
+        return (
+            f"{parts}\n\n---\n\n"
+            f"Ask ONE question that a candidate could answer only by connecting "
+            f"all of these topics: {titles}."
+            + (f"\nWhat it should test: {focus}" if focus else "")
+        )
+
+    def _grounding_ref(self, ds, grounds, mode: GradingMode) -> dict | None:
+        """What the question was grounded in, per Topic.
+
+        A single Topic keeps the shape it has always had, so every reader of an
+        older row keeps working. A spanning question cannot: it is grounded in
+        several places at once, and flattening that would lose which citation
+        belongs to which Topic.
+        """
+        if len(ds) == 1:
+            return grounds[0][1]
+        return {
+            "kind": "spanning",
+            "mode": mode.value,
+            "parts": [
+                {"topic_id": d.topic_id, **(ref or {})}
+                for d, (_, ref, _) in zip(ds, grounds)
+            ],
+        }
 
     def _ground(self, d: Dossier) -> tuple[GradingMode, dict | None, str]:
         # 1. An Assignment with its Answer Key — a ready-made question with a rubric.

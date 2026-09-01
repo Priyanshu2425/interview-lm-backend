@@ -118,6 +118,62 @@ def clean_db(engine):
     return engine
 
 
+def grade_session(deps, session_id: str, *, provider: str = "deepseek") -> list:
+    """Grade a Session's answered questions, and write the Evidence.
+
+    ISSUE-0042 took grading out of the loop; ISSUE-0044 has not yet put it back
+    at the end of the Session. Between the two, a test that needs an Evidence
+    row makes one here rather than by running a loop that no longer produces
+    any — and this is deliberately the shape the deleted `update_confidence`
+    node had, so what it exercises is the store's contract rather than a second
+    grading policy.
+
+    The exchange it grades is the transcript, which is now the only record of
+    what was said.
+    """
+    from interviewer.model.corpus import GradingMode
+    from interviewer.service.corpus.citations import resolve
+    from interviewer.service.graph.sessions import RUBRIC_VERSION
+    from interviewer.service.graph.transcript import Transcript
+
+    engine = deps.visits._e
+    messages = Transcript(engine).of(session_id)
+    written = []
+    for visit in deps.visits.for_session(session_id):
+        if visit["state"] != "answered":
+            continue
+        turns = [
+            {"role": m["role"], "kind": m["kind"], "text": m["text"]}
+            for m in messages if m["topic_visit_id"] == visit["topic_visit_id"]
+        ]
+        question = next((t["text"] for t in turns if t["kind"] == "question"), "")
+        dossier = deps.loader.load(visit["topic_id"])
+        mode = GradingMode(visit["grading_mode"])
+        verdict = deps.judge.grade(
+            question=question, exchange=turns, dossier=dossier, mode=mode,
+            topic_visit_id=visit["topic_visit_id"], model=deps.ports.model,
+        )
+        written.append(deps.evidence.write(
+            topic_visit_id=visit["topic_visit_id"],
+            candidate_id=visit["candidate_id"],
+            topic_id=visit["topic_id"],
+            session_id=session_id,
+            score=verdict.score,
+            source_score=verdict.source_score,
+            truth_score=verdict.truth_score,
+            mode=mode,
+            grader_kind="server_judge",
+            provider=provider,
+            rubric_version=RUBRIC_VERSION,
+            rationale=verdict.rationale,
+            exchange_snapshot={"turns": turns},
+            citations=resolve(dossier, visit["grounding_ref"]),
+            topic_title=dossier.topic_title,
+            module_title=dossier.module_title,
+        ))
+    return written
+
+
 @pytest.fixture()
 def metered_deps(clean_db, loader, corpus):
     """Deps whose model calls run through the real metering chokepoint."""
@@ -134,6 +190,7 @@ def metered_deps(clean_db, loader, corpus):
     from interviewer.service.graph.planner import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import FrozenClock, Ports
     from interviewer.service.graph.sessions import SessionStore
+    from interviewer.service.graph.transcript import Transcript
     from interviewer.service.judge.interviewer import Interviewer
     from interviewer.service.judge.judge import Judge
     from interviewer.service.judge.question_writer import QuestionWriter
@@ -155,6 +212,7 @@ def metered_deps(clean_db, loader, corpus):
         confidence=ConfidenceStore(clean_db),
         judge=Judge(),
         writer=QuestionWriter(),
+        transcript=Transcript(clean_db),
         selector=TopicSelector(ConfidenceStore(clean_db)),
         planner=SessionPlanner(
             loader=loader, corpus=CorpusService(corpus),
@@ -182,6 +240,7 @@ def deps(clean_db, loader, corpus):
     from interviewer.service.graph.planner import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import Ports, ScriptedModel
     from interviewer.service.graph.sessions import SessionStore
+    from interviewer.service.graph.transcript import Transcript
     from interviewer.service.judge.judge import Judge
     from interviewer.service.judge.question_writer import QuestionWriter
     from interviewer.service.confidence.selector import TopicSelector
@@ -206,6 +265,7 @@ def deps(clean_db, loader, corpus):
         confidence=ConfidenceStore(clean_db),
         judge=Judge(),
         writer=QuestionWriter(),
+        transcript=Transcript(clean_db),
         selector=TopicSelector(ConfidenceStore(clean_db)),
         planner=SessionPlanner(
             loader=loader, corpus=CorpusService(corpus),

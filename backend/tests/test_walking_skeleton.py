@@ -4,11 +4,18 @@ These assert what happened to the Session and what was written. They do not
 assert which node ran in which order, how many model calls happened, or what a
 prompt contained — that is exactly what ADR-0001 chose a graph in order to make
 testable.
+
+Rewritten in places by ISSUE-0042. A running Session no longer grades anything:
+it executes a plan, writes a transcript, and writes no Evidence at all. Where a
+test here needs an Evidence row it makes one with `grade_session`, which is
+what ISSUE-0044 will do at the end of a Session.
 """
 
 import sqlalchemy as sa
 import pytest
 from sqlalchemy import text
+
+from conftest import grade_session
 
 from interviewer.service.confidence.math import PRIOR
 from interviewer.model.corpus import GradingMode
@@ -24,7 +31,14 @@ def _cfg(deps, n_modules=1, seconds=1800):
     return SessionConfig(scope_module_ids=tuple(mods), duration_seconds=seconds)
 
 
-def test_a_session_asks_a_question_and_one_answer_writes_one_evidence_row(deps, clean_db):
+def test_a_session_asks_a_question_and_one_answer_writes_a_transcript(deps, clean_db):
+    """ISSUE-0042: the answer lands in the record, and nothing is graded.
+
+    This used to assert one Evidence row per answer. It asserts the opposite
+    now, because that is the trade the Interview Mode set makes: the plan is
+    fixed up front, so nothing in the loop needs a freshly updated posterior,
+    so nothing in the loop grades.
+    """
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     assert first.kind == "question"
@@ -33,13 +47,18 @@ def test_a_session_asks_a_question_and_one_answer_writes_one_evidence_row(deps, 
 
     out = r.submit(sid, "Because the dot products grow with d_k and softmax saturates.")
     assert out.kind == "question"
-    closed = out.payload["last_visit"]
-    assert closed["kind"] == "visit_closed"
-    assert 0.0 <= closed["score"] <= 1.0
+    # A turn carries the next question and nothing else.
+    assert "last_visit" not in out.payload
+    assert "score" not in out.payload and "band" not in out.payload
 
     with clean_db.connect() as c:
-        n = c.execute(sa.select(sa.func.count()).select_from(S.evidence)).scalar()
-    assert n == 1
+        assert c.execute(
+            sa.select(sa.func.count()).select_from(S.evidence)).scalar() == 0
+        kinds = c.execute(
+            sa.select(S.message.c.kind).where(S.message.c.session_id == sid)
+            .order_by(S.message.c.seq)
+        ).scalars().all()
+    assert kinds[:2] == ["question", "answer"]
 
 
 def test_every_model_call_is_attributed_and_the_visit_row_precedes_its_own(
@@ -71,15 +90,33 @@ def test_every_model_call_is_attributed_and_the_visit_row_precedes_its_own(
         assert row is not None and row["state"] == "open"
 
 
-def test_the_exchange_is_stored_at_the_answer_turn_before_grading(deps):
+def test_the_exchange_is_written_to_the_transcript_as_it_happens(deps, clean_db):
+    """ISSUE-0042 moved the record out of `topic_visit.exchange`.
+
+    The blob belonged to one question and was written for one grader. The
+    transcript is the Session's own record, in order, append-only, and it is
+    what the end-of-Session grade will read.
+    """
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     vid = first.payload["topic_visit_id"]
     r.submit(sid, "my answer")
+
+    with clean_db.connect() as c:
+        rows = c.execute(
+            sa.select(S.message).where(S.message.c.topic_visit_id == vid)
+            .order_by(S.message.c.seq)
+        ).all()
+    said = [dict(x._mapping) for x in rows]
+    assert said[-1]["text"] == "my answer"
+    assert said[-1]["kind"] == "answer"
+    # Labelled from the plan, deterministically — nothing asked a model.
+    assert said[-1]["topic_ids"] == [first.payload["topic_id"]]
+    assert said[-1]["plan_item_id"]
+
     row = deps.visits.get(vid)
-    assert row["exchange"]["turns"][-1]["text"] == "my answer"
     assert row["answered_at"] is not None
-    assert row["graded_at"] is not None
+    assert row["graded_at"] is None      # a grade arrives once, at the end
 
 
 def test_writing_evidence_twice_for_one_visit_leaves_the_posterior_unchanged(deps):
@@ -88,6 +125,7 @@ def test_writing_evidence_twice_for_one_visit_leaves_the_posterior_unchanged(dep
     vid = first.payload["topic_visit_id"]
     topic_id = first.payload["topic_id"]
     r.submit(sid, "an answer")
+    grade_session(deps, sid)
 
     after_first = deps.confidence.get(CANDIDATE, topic_id)
     again = deps.evidence.write(
@@ -127,7 +165,12 @@ def test_no_topic_is_visited_twice_within_one_session(deps):
     assert len(ids) == len(set(ids))
 
 
-def test_a_session_ends_when_its_scope_is_exhausted(deps):
+def test_a_session_ends_when_its_plan_is_exhausted(deps):
+    """Scope exhaustion became plan exhaustion (ISSUE-0042).
+
+    The Session no longer walks the scope looking for an unvisited Topic; it
+    walks the plan, and it is over when the plan is.
+    """
     r = SessionRunner(deps)
     sid, out = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     for _ in range(20):
@@ -135,7 +178,7 @@ def test_a_session_ends_when_its_scope_is_exhausted(deps):
             break
         out = r.submit(sid, "answer")
     assert out.kind == "session_ended"
-    assert out.payload["reason"] == "scope_exhausted"
+    assert out.payload["reason"] == "plan_exhausted"
     assert deps.sessions.get(sid)["state"] == "ended"
 
 
@@ -150,8 +193,11 @@ def test_the_soft_deadline_ends_after_the_current_visit_never_inside_it(deps):
 
     rows = deps.visits.for_session(sid)
     assert len(rows) == 1
-    assert rows[0]["state"] == "graded"      # it completed
-    assert out.payload["last_visit"]["score"] is not None
+    assert rows[0]["state"] == "answered"     # it completed
+    assert rows[0]["turn_count"] == 1
+    # It completed and it was recorded — but it carries no score, because a
+    # running Session grades nothing (ISSUE-0042).
+    assert "last_visit" not in out.payload
 
 
 def test_an_interrupted_session_writes_no_evidence_for_the_open_visit(deps, clean_db):
@@ -234,6 +280,7 @@ def test_evidence_is_append_only_in_the_database(deps, clean_db):
     r = SessionRunner(deps)
     sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
+    grade_session(deps, sid)
     for stmt in (
         sa.update(S.evidence).values(score=0),
         sa.delete(S.evidence),

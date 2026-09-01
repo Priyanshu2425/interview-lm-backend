@@ -124,7 +124,43 @@ def create_core(engine: Engine) -> None:
     metadata.create_all(engine)
     _migrate_core_columns(engine)
     _migrate_core_constraints(engine)
+    _migrate_core_indexes(engine)
     apply_core_triggers(engine)
+
+
+def _migrate_core_indexes(engine: Engine) -> None:
+    """Indexes whose *predicate* changed. `create_all` cannot see the difference.
+
+    ISSUE-0042 narrowed `uq_visit_one_open_per_session` from
+    `state IN ('open','answered')` to `state = 'open'`: the loop no longer
+    grades between questions, so an answered question is finished rather than
+    unresolved, and a Session that asked twice would otherwise collide with
+    itself. `create_all` finds an index of that name already there and leaves
+    the old predicate in place, so the old one is dropped by hand — and only
+    when it is actually the old one, which is why this reads the definition
+    rather than dropping and rebuilding on every boot.
+    """
+    with engine.begin() as c:
+        current = c.execute(
+            text(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE schemaname = :s AND indexname = :n"
+            ),
+            {"s": CORE, "n": "uq_visit_one_open_per_session"},
+        ).scalar()
+        if current and "answered" in current:
+            c.execute(
+                text(f"DROP INDEX {CORE}.uq_visit_one_open_per_session")
+            )
+            current = None
+        if current is None:
+            c.execute(
+                text(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS "
+                    f"uq_visit_one_open_per_session ON {CORE}.topic_visit "
+                    f"(session_id) WHERE state = 'open'"
+                )
+            )
 
 
 def apply_core_triggers(engine: Engine) -> None:

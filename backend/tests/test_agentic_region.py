@@ -1,10 +1,17 @@
 """ISSUE-0006 — probe, hint, close.
 
-A Visit may contain many Answer Turns and yields exactly one score. These assert
-that, and the explicit handling we refuse to leave to the model.
+A question may contain many Answer Turns and yields exactly one score. These
+assert that, and the explicit handling we refuse to leave to the model.
+
+`Interviewer.next_move` is untouched by ISSUE-0042 — probe, hint and close
+already do what the product wants. What changed underneath these tests is where
+the record goes and when the score arrives: the whole exchange lands in the
+transcript as it happens, and the grade arrives once, at the end.
 """
 
 import sqlalchemy as sa
+
+from conftest import grade_session
 
 from interviewer.db import schema as S
 from interviewer.service.graph.runner import SessionRunner
@@ -24,9 +31,10 @@ def _script(deps, moves: list[str]):
     deps.ports.model.replies["interviewer"] = moves
 
 
-def test_a_visit_with_four_answer_turns_produces_exactly_one_evidence_row(
+def test_four_answer_turns_are_one_question_and_one_evidence_row(
     deps, clean_db
 ):
+    """Four turns, one question, one score — the score just arrives later."""
     _script(deps, [
         "ACTION: probe\nTEXT: Why does that follow?",
         "ACTION: probe\nTEXT: And what happens to the gradient?",
@@ -40,6 +48,15 @@ def test_a_visit_with_four_answer_turns_produces_exactly_one_evidence_row(
     for answer in ("first", "second", "third", "fourth"):
         out = r.submit(sid, answer)
 
+    row = deps.visits.get(vid)
+    assert row["turn_count"] == 4
+    assert row["state"] == "answered"
+
+    with clean_db.connect() as c:
+        assert c.execute(
+            sa.select(sa.func.count()).select_from(S.evidence)).scalar() == 0
+
+    grade_session(deps, sid)
     with clean_db.connect() as c:
         n = c.execute(
             sa.select(sa.func.count()).select_from(S.evidence)
@@ -47,12 +64,8 @@ def test_a_visit_with_four_answer_turns_produces_exactly_one_evidence_row(
         ).scalar()
     assert n == 1
 
-    row = deps.visits.get(vid)
-    assert row["turn_count"] == 4
-    assert row["state"] == "graded"
 
-
-def test_follow_ups_and_hints_are_all_recorded_in_the_stored_exchange(deps):
+def test_follow_ups_and_hints_are_all_recorded_in_the_transcript(deps):
     _script(deps, [
         "ACTION: probe\nTEXT: Say more about the scaling.",
         "ACTION: hint\nTEXT: Consider the magnitude of the dot products.",
@@ -60,14 +73,19 @@ def test_follow_ups_and_hints_are_all_recorded_in_the_stored_exchange(deps):
     ])
     r = SessionRunner(deps)
     sid, out = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
-    vid = out.payload["topic_visit_id"]
+    vid, topic = out.payload["topic_visit_id"], out.payload["topic_id"]
     for a in ("a1", "a2", "a3"):
         out = r.submit(sid, a)
 
-    turns = deps.visits.get(vid)["exchange"]["turns"]
-    kinds = [t.get("kind") for t in turns]
+    from interviewer.service.graph.transcript import Transcript
+
+    turns = [m for m in Transcript(deps.visits._e).of(sid)
+             if m["topic_visit_id"] == vid]
+    kinds = [t["kind"] for t in turns]
     assert "probe" in kinds and "hint" in kinds
     assert [t["text"] for t in turns if t["role"] == "candidate"] == ["a1", "a2", "a3"]
+    # Every one of them carries the plan's label rather than a model's.
+    assert all(t["topic_ids"] == [topic] for t in turns)
 
 
 def test_a_vague_answer_draws_a_follow_up_rather_than_being_marked_down(deps):
@@ -95,14 +113,14 @@ def test_a_candidate_who_says_they_do_not_know_is_taken_at_their_word(deps):
     r = SessionRunner(deps)
     sid, out = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     nxt = r.submit(sid, "I don't know this one")
-    # closed and graded, then moved on to the next Topic
+    # closed and recorded, then moved on to the next planned question
     assert nxt.kind in ("question", "session_ended")
-    assert nxt.payload["last_visit"]["kind"] == "visit_closed"
+    assert deps.visits.get(out.payload["topic_visit_id"])["state"] == "answered"
     assert not [c for c in deps.ports.model.calls if c["role"] == "interviewer"
                 and "never be reached" in c.get("user", "")]
 
 
-def test_a_visit_that_hits_the_turn_bound_closes_and_grades(deps):
+def test_a_visit_that_hits_the_turn_bound_closes(deps):
     """A single evasive exchange cannot run forever."""
     _script(deps, ["ACTION: probe\nTEXT: go on"] * 20)
     r = SessionRunner(deps)
@@ -111,11 +129,11 @@ def test_a_visit_that_hits_the_turn_bound_closes_and_grades(deps):
 
     for i in range(10):
         out = r.submit(sid, f"evasive {i}")
-        if out.payload.get("last_visit"):
+        if deps.visits.get(vid)["state"] == "answered":
             break
 
     row = deps.visits.get(vid)
-    assert row["state"] == "graded"
+    assert row["state"] == "answered"
     assert row["turn_count"] <= deps.interviewer.max_turns
 
 
@@ -138,6 +156,7 @@ def test_the_judge_still_sees_only_the_answers_after_a_long_exchange(deps):
     sid, out = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "unsure")
     r.submit(sid, "now I see, gradients vanish")
+    grade_session(deps, sid)
 
     judge_call = next(c for c in deps.ports.model.calls if c["role"] == "judge")
     assert "SECRETHINT" not in judge_call["user"]

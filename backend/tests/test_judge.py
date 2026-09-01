@@ -1,6 +1,14 @@
-"""ISSUE-0003 — the Judge contract, tested on what the Judge received."""
+"""ISSUE-0003 — the Judge contract, tested on what the Judge received.
+
+The Judge itself is untouched by ISSUE-0042. What moved is *when* it runs: the
+loop no longer grades between questions, so the tests that need a graded Session
+run one and then grade it with `grade_session` — the same call ISSUE-0044 will
+make at the end of a Session.
+"""
 
 import pytest
+
+from conftest import grade_session
 
 from interviewer.model.corpus import GradingMode
 from interviewer.service.graph.ports import ScriptedModel
@@ -24,6 +32,7 @@ def test_the_judge_is_never_given_the_conversation(deps):
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "my careful answer about broadcasting")
+    grade_session(deps, sid)
 
     call = _judge_calls(deps)[0]
     assert "my careful answer about broadcasting" in call["user"]
@@ -39,6 +48,7 @@ def test_a_ground_truth_call_receives_the_answer_key_for_that_assignment_only(
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     assert first.payload["grading_mode"] == "ground_truth"
     r.submit(sid, "answer")
+    grade_session(deps, sid)
 
     call = _judge_calls(deps)[0]
     assert "AUTHORITATIVE ANSWER" in call["user"]
@@ -65,6 +75,7 @@ def test_a_text_grounded_call_receives_material_and_no_answer_key(deps, corpus):
     sid, first = r.start(candidate_id=CANDIDATE, cfg=cfg)
     assert first.payload["grading_mode"] == "text_grounded"
     r.submit(sid, "answer")
+    grade_session(deps, sid)
 
     call = _judge_calls(deps)[0]
     assert "COURSE MATERIAL" in call["user"]
@@ -176,6 +187,7 @@ def test_both_sub_scores_reach_the_evidence_row(deps):
     sid, _ = r.start(candidate_id="cand_two_dimensions", cfg=_cfg(deps))
     deps.ports.model.replies["judge"] = ["SOURCE: 0.4\nTRUTH: 0.8\nWHY: half of it."]
     r.submit(sid, "an answer that owes little to the material")
+    grade_session(deps, sid)
     row = deps.evidence.rows_for("cand_two_dimensions")[0]
     assert float(row["source_score"]) == 0.4
     assert float(row["truth_score"]) == 0.8
@@ -212,6 +224,7 @@ def test_every_evidence_row_carries_provenance_and_rubric_version(deps):
     r = SessionRunner(deps)
     sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
+    grade_session(deps, sid)
     row = deps.evidence.rows_for(CANDIDATE)[0]
     assert row["grader_kind"] == "server_judge"
     assert row["provider"] == "deepseek"
@@ -223,6 +236,7 @@ def test_the_grading_mode_recorded_matches_the_grounding_used(deps):
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
+    grade_session(deps, sid)
     row = deps.evidence.rows_for(CANDIDATE)[0]
     assert row["grading_mode"] == first.payload["grading_mode"]
     assert float(row["weight"]) == GradingMode(row["grading_mode"]).weight
@@ -236,6 +250,7 @@ def test_hints_are_expressed_in_the_score_never_in_the_weight(deps):
         "SOURCE: 0.5\nTRUTH: 0.5\nWHY: reached after a hint."
     ]
     r.submit(sid, "eventually correct")
+    grade_session(deps, sid)
     row = deps.evidence.rows_for(CANDIDATE)[0]
     assert float(row["score"]) == 0.5
     assert float(row["weight"]) == 1.0     # the mode's weight, undiminished
@@ -247,6 +262,9 @@ def test_the_dsa_track_is_examinable_today(deps):
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id="cand_dsa", cfg=cfg)
     assert first.payload["question"]
-    out = r.submit(sid, "binary search halves the range each step")
-    assert out.payload["last_visit"]["score"] is not None
-    assert out.payload["last_visit"]["weight"] in (0.5, 0.7)
+    r.submit(sid, "binary search halves the range each step")
+    written = grade_session(deps, sid)
+    assert written
+    row = deps.evidence.rows_for("cand_dsa")[0]
+    assert row["score"] is not None
+    assert float(row["weight"]) in (0.5, 0.7)

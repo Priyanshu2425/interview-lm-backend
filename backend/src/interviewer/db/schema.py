@@ -46,6 +46,10 @@ grading_mode = Enum(
     name="grading_mode", schema=CORE,
 )
 session_state = Enum("running", "parked", "ended", name="session_state", schema=CORE)
+# `graded` still exists, and since ISSUE-0042 the managed loop never writes it:
+# a question ends at `answered` and the Session is graded once, at the end
+# (ISSUE-0044). MCP Mode grades per Visit and writes it today, which is why it
+# is still here.
 visit_state = Enum(
     "open", "answered", "graded", "abandoned", name="visit_state", schema=CORE
 )
@@ -152,9 +156,12 @@ topic_visit = Table(
     _ts("answered_at", nullable=True),
     _ts("graded_at", nullable=True),
     Column("turn_count", Integer, nullable=False, server_default="0"),
-    # ISSUE-0039 retires this in favour of `message`, once the loop that writes
-    # it is the loop that reads the transcript back. Until then it is the only
-    # record of an exchange, so it stays.
+    # ISSUE-0039 deferred retiring this to "the slice that replaces its
+    # writers". ISSUE-0042 replaced one of them: the managed loop writes
+    # `message` and nothing else. It did not replace the other. MCP Mode still
+    # records an exchange here and grades that blob against a redemption
+    # ticket, so this column has a live writer and a live reader and stays
+    # until MCP Mode is moved onto the transcript.
     Column("exchange", JSONB, nullable=True),
     Column("grounding_ref", JSONB, nullable=True),
     # ISSUE-0039. A row is now the *question*, not the Topic Visit: it may span
@@ -181,11 +188,21 @@ topic_visit = Table(
 # CONTEXT.md, MCP Mode invariant 1: "the Session will not advance while a Visit
 # is unresolved". A partial unique index is what makes that a property of the
 # store rather than a request to a ReAct agent.
+#
+# ISSUE-0042 narrowed the predicate from `state IN ('open','answered')` to
+# `state = 'open'`, and the narrowing *is* the slice. Grading no longer follows
+# answering inside the loop — it happens once, at the end, against the
+# transcript — so `answered` stopped meaning "waiting on a grade before the
+# Session may move" and started meaning "this question is finished". What the
+# index still refuses is the thing it was always about: two questions open at
+# once in one Session. MCP Mode grades per Visit and still refuses to advance
+# past an `answered` one; it enforces that in `McpServer` through
+# `visits.unresolved`, which is unchanged.
 Index(
     "uq_visit_one_open_per_session",
     topic_visit.c.session_id,
     unique=True,
-    postgresql_where=text("state IN ('open','answered')"),
+    postgresql_where=text("state = 'open'"),
 )
 
 # ADR-0004, restated by ISSUE-0039: the unit of Evidence is the Topic within a

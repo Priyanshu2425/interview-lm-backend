@@ -52,7 +52,14 @@ class SummaryService:
     def for_session(self, session_row: dict) -> SessionSummary:
         sid = session_row["session_id"]
         cid = session_row["candidate_id"]
-        rows = [v for v in self._visits.for_session(sid) if v["state"] == "graded"]
+        # Answered *or* graded. Since ISSUE-0042 the loop stops at `answered`:
+        # a question that was asked and answered examined its Topic whether or
+        # not the Session has been graded yet, and counting only graded ones
+        # would report a Session mid-flight as having examined nothing.
+        rows = [
+            v for v in self._visits.for_session(sid)
+            if v["state"] in ("answered", "graded")
+        ]
         by_mode = {"ground_truth": 0, "text_grounded": 0, "model_judgment": 0}
         for v in rows:
             if v["grading_mode"]:

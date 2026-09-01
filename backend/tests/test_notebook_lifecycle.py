@@ -9,7 +9,7 @@ deletable than the record is permanent. Both hold here, or neither does.
 from __future__ import annotations
 
 import pytest
-from conftest import signed_in_client
+from conftest import grade_session, signed_in_client
 from fastapi.testclient import TestClient
 
 
@@ -50,9 +50,15 @@ def _notebook_with_a_graded_visit(client, ingested, real_notes, candidate="cand-
             f"/v1/sessions/{session_id}/turns",
             json={"answer": "Averaging cancels the differences between resamples."},
         ).json()
-        payload = result.get("payload", {})
-        if payload.get("kind") == "visit_closed":
+        if result.get("kind") == "session_ended":
             break
+    # ISSUE-0042 took grading out of the loop, so answering no longer produces
+    # Evidence. These tests are about Evidence outliving the material, not
+    # about when it is written, so the Session is graded here — the way
+    # ISSUE-0044 will grade it at the end.
+    from interviewer.wiring import wiring
+
+    grade_session(wiring().deps, session_id)
     return notebook_id, module_id, session_id, candidate
 
 
@@ -258,18 +264,20 @@ def test_deleting_a_notebook_mid_session_ends_it_after_the_current_visit(
 
     client.delete(f"/v1/notebooks/{notebook_id}")
 
-    # The Visit in flight still finishes and still writes its Evidence.
+    # The question in flight still finishes and is still recorded.
     for _ in range(6):
         result = client.post(
             f"/v1/sessions/{session_id}/turns",
             json={"answer": "Bagging attacks variance."},
         )
         assert result.status_code == 200, result.text
-        payload = result.json().get("payload", {})
-        if payload.get("kind") in {"visit_closed", "session_ended"}:
+        if result.json().get("kind") == "session_ended":
             break
 
+    from interviewer.wiring import wiring
+
+    grade_session(wiring().deps, session_id)
     rows = EvidenceLedger(engine).for_session(session_id)
-    assert rows, "the Visit in flight wrote nothing"
+    assert rows, "the question in flight wrote nothing"
     session = client.get(f"/v1/sessions/{session_id}").json()
     assert session["state"] == "ended"

@@ -26,6 +26,8 @@ class AsyncVisitLifecycle:
         candidate_id: str,
         topic_id: str,
         visit_index: int,
+        topic_ids: list[str] | tuple[str, ...] | None = None,
+        plan_item_id: str | None = None,
     ) -> str:
         """Open a new topic visit."""
         vid = new_id("visit")
@@ -37,6 +39,8 @@ class AsyncVisitLifecycle:
                 topic_id=topic_id,
                 visit_index=visit_index,
                 state="open",
+                topic_ids=list(topic_ids) if topic_ids else [topic_id],
+                plan_item_id=plan_item_id,
             )
         )
         return vid
@@ -79,6 +83,21 @@ class AsyncVisitLifecycle:
             .where(
                 S.topic_visit.c.session_id == session_id,
                 S.topic_visit.c.state.in_(("open", "answered")),
+            )
+        )
+        row = result.first()
+        return dict(row._mapping) if row else None
+
+    async def being_asked(self, session_id: str) -> dict[str, Any] | None:
+        """The question this Session is in the middle of, if it is in one.
+
+        Narrower than `unresolved`: since ISSUE-0042 an answered question is
+        finished, and only an open one is still being asked.
+        """
+        result = await self._s.execute(
+            sa.select(S.topic_visit).where(
+                S.topic_visit.c.session_id == session_id,
+                S.topic_visit.c.state == "open",
             )
         )
         row = result.first()

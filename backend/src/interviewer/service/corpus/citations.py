@@ -12,6 +12,9 @@ Two rules hold this module in place:
 - **Snapshot, not pointer.** The text travels with the Evidence row, because the
   Evidence outlives the material (ADR-0003) and a dangling citation would make
   the permanent record less honest than no citation at all.
+- **One Topic at a time.** A question may span three (ISSUE-0042), and its
+  `grounding_ref` then holds one part per Topic. Each is resolved against its
+  own dossier, so a citation never claims to come from material it did not.
 """
 
 from __future__ import annotations
@@ -28,6 +31,17 @@ def resolve(dossier: Dossier, grounding_ref: dict | None) -> list[dict]:
         leaves.setdefault(key.id, key)
 
     kind = grounding_ref.get("kind")
+    if kind == "spanning":
+        # A question spanning several Topics is grounded in each of them
+        # separately (ISSUE-0042), and a citation belongs to the Topic it came
+        # from. The part for *this* dossier is resolved; the others belong to
+        # their own dossiers and are resolved against those.
+        part = next(
+            (x for x in grounding_ref.get("parts") or []
+             if x.get("topic_id") == dossier.topic_id),
+            None,
+        )
+        return resolve(dossier, part) if part else []
     if kind == "ground_truth":
         wanted = [grounding_ref.get("prompt_leaf_id")]
     elif kind == "text":

@@ -69,7 +69,8 @@ class SyncToAsyncAdapter:
 
     # --- VisitLifecycle sync wrappers ---
     def visits_open(
-        self, *, session_id: str, candidate_id: str, topic_id: str, visit_index: int
+        self, *, session_id: str, candidate_id: str, topic_id: str, visit_index: int,
+        topic_ids: list[str] | None = None, plan_item_id: str | None = None,
     ) -> str:
         return self._run_async(
             self._async.visits.open(
@@ -77,6 +78,8 @@ class SyncToAsyncAdapter:
                 candidate_id=candidate_id,
                 topic_id=topic_id,
                 visit_index=visit_index,
+                topic_ids=topic_ids,
+                plan_item_id=plan_item_id,
             )
         )
 
@@ -100,6 +103,9 @@ class SyncToAsyncAdapter:
 
     def visits_unresolved(self, session_id: str) -> dict | None:
         return self._run_async(self._async.visits.unresolved(session_id))
+
+    def visits_being_asked(self, session_id: str) -> dict | None:
+        return self._run_async(self._async.visits.being_asked(session_id))
 
     def visits_open_topic_ids(self) -> set[str]:
         return self._run_async(self._async.visits.open_topic_ids())

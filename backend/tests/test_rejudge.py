@@ -1,5 +1,7 @@
 """PRD-0002 §29 — re-judging a batch with a reference grader."""
 
+from conftest import grade_session
+
 from interviewer.service.graph.ports import ScriptedModel
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
@@ -18,6 +20,10 @@ def _session(deps, answers=3):
         if out.kind == "session_ended":
             break
         out = r.submit(sid, "an answer worth grading")
+    # ISSUE-0042 took grading out of the loop. Re-judging is about what an
+    # Evidence row carries, not about when it is written, so the Session is
+    # graded here — the way ISSUE-0044 will grade it at the end.
+    grade_session(deps, sid)
     return sid
 
 

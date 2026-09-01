@@ -16,7 +16,14 @@ from .sessions import SessionConfig, SessionStore
 
 @dataclass(frozen=True, slots=True)
 class TurnResult:
-    kind: str          # question | visit_closed | session_ended
+    """What the graph parked on.
+
+    Since ISSUE-0042 a turn carries the next question and nothing else. There
+    is no score, no band and no `last_visit`, because there is no per-question
+    grade to carry: the Session is graded once, at the end.
+    """
+
+    kind: str          # question | probe | hint | session_ended | session_parked
     payload: dict
 
 
@@ -110,14 +117,14 @@ class SessionRunner:
         """Pick a Session up from where it stopped.
 
         The Answer Turn is already a park, so resumption is another caller of
-        resume rather than bespoke machinery. Where the answer was submitted but
-        grading did not complete, the exchange is already stored — so we grade
-        it and close the Visit rather than discarding the Candidate's work.
-        """
-        pending_visit = self._d.visits.unresolved(session_id)
-        if pending_visit and pending_visit["state"] == "answered":
-            return self._grade_stored_exchange(session_id, pending_visit)
+        resume rather than bespoke machinery.
 
+        ISSUE-0042 removed the grade-the-stored-exchange branch that used to sit
+        in front of this. There is nothing left for it to do: an answer that
+        landed is already in the transcript, and grading no longer happens
+        between questions, so an interrupted Session owes a grade to the end of
+        itself rather than to the question it was in the middle of.
+        """
         snap = self._graph.get_state(self._cfg(session_id))
         if snap.next and snap.tasks and snap.tasks[0].interrupts:
             self._d.sessions.resume(session_id)
@@ -150,55 +157,6 @@ class SessionRunner:
         out = self._graph.invoke(state, self._cfg(session_id))
         return self._interpret(session_id, out)
 
-    def _grade_stored_exchange(self, session_id: str, visit: dict) -> TurnResult:
-        """No Evidence is ever written for a Visit that was not graded — but an
-        answered Visit already holds everything grading needs."""
-        from ...model.corpus import GradingMode
-        from .sessions import RUBRIC_VERSION
-
-        turns = (visit.get("exchange") or {}).get("turns", [])
-        question = next(
-            (t["text"] for t in turns if t.get("kind") == "question"), ""
-        )
-        dossier = self._d.loader.load(visit["topic_id"])
-        mode = GradingMode(visit["grading_mode"])
-        verdict = self._d.judge.grade(
-            question=question, exchange=turns, dossier=dossier, mode=mode,
-            topic_visit_id=visit["topic_visit_id"], model=self._d.ports.model,
-        )
-        written = self._d.evidence.write(
-            topic_visit_id=visit["topic_visit_id"],
-            candidate_id=visit["candidate_id"],
-            topic_id=visit["topic_id"],
-            session_id=session_id,
-            score=verdict.score,
-            source_score=verdict.source_score,
-            truth_score=verdict.truth_score,
-            mode=mode,
-            grader_kind="server_judge",
-            provider=(self._d.sessions.get(session_id) or {}).get("provider_chosen")
-                     or self._d.provider,
-            rubric_version=RUBRIC_VERSION,
-            rationale=verdict.rationale,
-            exchange_snapshot={"turns": turns},
-        )
-        self._d.sessions.resume(session_id)
-        p = written.posterior
-        return TurnResult("visit_closed", {
-            "kind": "visit_closed",
-            "topic_visit_id": visit["topic_visit_id"],
-            "topic_id": visit["topic_id"],
-            "score": verdict.score,
-            "source_score": verdict.source_score,
-            "truth_score": verdict.truth_score,
-            "rationale": verdict.rationale,
-            "band": p.band.value,
-            "coverage": p.coverage,
-            "mastery": p.mastery_or_none,
-            "recovered": True,
-            "already_existed": written.already_existed,
-        })
-
     def pending(self, session_id: str) -> dict | None:
         snap = self._graph.get_state(self._cfg(session_id))
         if snap.tasks and snap.tasks[0].interrupts:
@@ -220,18 +178,20 @@ class SessionRunner:
                 self._d.sessions.park(sid, reason)
             else:
                 self._d.sessions.end(sid, reason)
+                # Whatever the plan still owed when the clock or the material
+                # ran out. A question never reached is not a question answered
+                # badly, and the report has to be able to tell them apart.
+                if self._d.planner is not None:
+                    self._d.planner.mark_unreached(sid)
             payload = {"session_id": sid, "reason": reason}
             if "balance" in out:
                 payload["balance"] = out["balance"]
-            if out.get("last_result"):
-                payload["last_visit"] = out["last_result"]
             return TurnResult("session_ended", payload)
         if pend:
-            # A closed Visit and the next question can arrive together.
-            payload = dict(pend)
-            if out.get("last_result"):
-                payload["last_visit"] = out["last_result"]
             # The kind is whatever the graph parked on: an opening question, or
-            # a probe or hint inside the Visit already running.
-            return TurnResult(payload.get("kind") or "question", payload)
-        return TurnResult("visit_closed", out.get("last_result", {}))
+            # a probe or hint inside the question already running.
+            return TurnResult(pend.get("kind") or "question", dict(pend))
+        # The graph came back neither parked nor finished. It has nowhere left
+        # to go, so the Session is over however it got here.
+        return TurnResult("session_ended",
+                          {"session_id": sid, "reason": out.get("end_reason", "")})

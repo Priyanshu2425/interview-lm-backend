@@ -167,3 +167,27 @@ class AsyncSessionStore:
                 for r in rows
             ],
         }
+
+    async def transcript(self, session_id: str) -> list[dict[str, Any]]:
+        """Every turn of the Session, in the order it happened (ISSUE-0042).
+
+        Read-only, like `plan` above and for the same reason: `message` is
+        append-only at the database, and the one writer is the loop.
+        """
+        rows = (await self._s.execute(
+            sa.select(S.message)
+            .where(S.message.c.session_id == session_id)
+            .order_by(S.message.c.seq)
+        )).all()
+        return [
+            {
+                "seq": r._mapping["seq"],
+                "role": r._mapping["role"],
+                "kind": r._mapping["kind"],
+                "text": r._mapping["text"],
+                "topic_ids": list(r._mapping["topic_ids"] or []),
+                "topic_visit_id": r._mapping["topic_visit_id"],
+                "plan_item_id": r._mapping["plan_item_id"],
+            }
+            for r in rows
+        ]

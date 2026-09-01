@@ -63,8 +63,17 @@ Everything else can be rewritten. These numbers have to survive it.
 13. As the Interviewer, I want Topic selection to favour Topics that are weak or untested, so that a Session spends its time where it is most informative.
 14. As the Interviewer, I want selection to be stochastic rather than always-the-weakest, so that two Sessions in a row are not identical.
 15. As the Interviewer, I want an already-visited Topic excluded within the same Session, so that one Session does not examine the same Topic twice.
-16. As the Interviewer, I want the opening question of a Session drawn by curriculum order rather than by sampling, so that a Session starts on familiar ground.
+16. As the Interviewer, I want the opening question of a Session to be the first item of a plan ranked before the Session began, so that a Session starts where the ranking says it should rather than wherever a mid-Session draw lands.
 17. As the Interviewer, I want selection confined to the Session's chosen Modules, so that scope is enforced by the selector and not by asking the model nicely.
+
+> **Amended by ISSUE-0042 (§16).** The curriculum-order exemption existed
+> because the sampler ran *inside* the loop: the opening Topic had to be spared
+> it, or a Session could open on the hardest thing the Candidate had never seen.
+> The sampler now runs once, before the first question, over the whole scope,
+> and the ranking it produces *is* the order the Session asks in — so there is
+> no mid-Session draw left to exempt the opening from. §12–15 and §17 hold
+> unchanged; what hands the Interviewer its next Topic is the plan rather than
+> a call to the selector.
 18. As the Interviewer, I want to seed a Session's opening difficulty from prior Topic Confidence, so that a returning Candidate is not restarted from scratch.
 19. As the graph, I want to open a Topic Visit and receive an id for it, so that everything that follows — grading, metering, evidence — keys on one identifier.
 20. As the graph, I want an Evidence write to be idempotent on the Topic Visit id, so that a retry, a resume, or a confused host cannot double-count.

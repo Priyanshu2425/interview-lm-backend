@@ -71,9 +71,22 @@ after the current Topic Visit completes, never inside one.
 9. As a Candidate, I want an answer reached after hints to still count as an answer, so that asking for help costs me some score rather than the whole question.
 10. As a Candidate, I want the whole exchange on one Topic scored once, so that being probed three times on one concept does not count as three failures.
 11. As a Candidate, I want to move on when I genuinely do not know something, so that one blank Topic does not consume the Session.
-12. As a Candidate, I want to see the score and the reasoning behind it after a Topic, so that the grade teaches me something.
+12. As a Candidate, I want to see the score and the reasoning behind it once the Session is over, so that the grade teaches me something.
 13. As a Candidate, I want to be told which grader and provider produced my score, so that a grade is attributable.
 14. As a Candidate, I want to never be shown the Answer Key before I have answered, so that the question is worth asking.
+
+> **Amended by ISSUE-0042 (§12–14).** §12 used to promise the score and the
+> reasoning *after every Topic Visit*. There is no longer a per-Visit grade to
+> show: the plan is fixed before the first question, which removes the loop's
+> dependency on a freshly updated posterior, which is what lets grading happen
+> once, at the end, against the transcript (ISSUE-0044) and be read in the
+> report (ISSUE-0045). §13 is unchanged in substance — a score is still
+> attributable to a grader and a Provider — but it is attributable *there*
+> rather than turn by turn. §14 is unchanged and is if anything stronger: no
+> turn response carries a score, a band or a Visit result at all. The
+> consequence outside this repository is deliberate: the surface's
+> visit-result screen becomes report-only, and this slice breaks its contract
+> on purpose rather than by accident.
 15. As a Candidate, I want an interrupted Session to be resumable, so that a dropped connection does not cost me the whole practice.
 16. As a Candidate, I want an answer I submitted before an interruption to still be graded, so that work I did is not thrown away.
 17. As a Candidate, I want to end a Session early, so that I am not held to a duration I no longer have.

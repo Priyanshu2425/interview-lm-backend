@@ -23,6 +23,7 @@ from interviewer.service.confidence.selector import TopicSelector
 from interviewer.service.confidence.store import (
     ConfidenceStore, EvidenceLedger, VisitLifecycle,
 )
+from interviewer.service.confidence.report import ReportService
 from interviewer.service.confidence.summary import SummaryService
 from interviewer.db.engine import create_content, create_core, make_engine
 from interviewer.db.engine_async import make_async_engine
@@ -228,13 +229,28 @@ def summary() -> SummaryService:
     )
 
 
+@lru_cache(maxsize=1)
+def report() -> ReportService:
+    """The end-of-Session report (ISSUE-0045).
+
+    Takes the loader rather than a Corpus, so `refresh_corpus` swapping the
+    material under a running process reaches it without a second rebind.
+    """
+    return ReportService(
+        get_loader(),
+        confidence_store(),
+        evidence_ledger(),
+        plan_store(),
+    )
+
+
 #: Every provider above, in one place, so `wiring.cache_clear()` empties the
 #: process rather than only the facade in front of it.
 _PROVIDERS = (
     sync_engine, async_engine, confidence_store, visit_lifecycle, evidence_ledger,
     session_store, plan_store, transcript_store, credit_ledger, pool_ledger,
     transport, vault,
-    metered_client, session_grader, graph_deps, runner, summary,
+    metered_client, session_grader, graph_deps, runner, summary, report,
 )
 
 
@@ -275,6 +291,10 @@ class Wiring:
     @property
     def summary(self) -> SummaryService:
         return summary()
+
+    @property
+    def report(self) -> ReportService:
+        return report()
 
     @property
     def deps(self) -> Deps:

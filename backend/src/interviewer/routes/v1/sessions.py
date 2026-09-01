@@ -331,6 +331,28 @@ async def spend(
     }
 
 
+@router.get("/sessions/{session_id}/report")
+async def report(
+    session_id: str,
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """The Session's result, in one place (ISSUE-0045).
+
+    The plan as it was fixed and what became of each item, a reading per
+    reached Topic, and the Topics that were planned and never reached — named,
+    with nothing scored against them. A Session that reached nothing still
+    answers: an empty reading is a reading, and a 404 here would read as "no
+    such Session".
+
+    Nothing on this path writes, so the same Session reports the same twice.
+    """
+    row = await _get_owned_session(session_id, candidate_id, sessions)
+    from dataclasses import asdict
+
+    return asdict(wiring().report.for_session(row))
+
+
 @router.get("/sessions/{session_id}/summary")
 async def summary(
     session_id: str,

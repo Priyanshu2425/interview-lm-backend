@@ -70,13 +70,19 @@ class SummaryService:
         # Evidence carries its own titles and its own citations, snapshotted at
         # grading time. They are preferred over the live Corpus because the
         # Evidence outlives the material (ADR-0003, ISSUE-0025).
-        by_visit = {e["topic_visit_id"]: e for e in self._ev.for_session(sid)}
+        #
+        # Keyed by Topic, not by Visit (ISSUE-0044, ISSUE-0045). The unit of
+        # Evidence is the Topic within a Session, so one spanning question
+        # produces three rows that share a `topic_visit_id` — keyed by that,
+        # two of the three would be dropped and the survivor would be read
+        # against the wrong Topic.
+        by_topic = {e["topic_id"]: e for e in self._ev.for_session(sid)}
 
         per_topic = []
         for v in rows:
             p = self._conf.get(cid, v["topic_id"])
             r = read_topic(v["topic_id"], p)
-            row = by_visit.get(v["topic_visit_id"], {})
+            row = by_topic.get(v["topic_id"], {})
             per_topic.append(
                 {
                     **_reading_dict(r),

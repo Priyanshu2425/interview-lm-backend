@@ -93,7 +93,7 @@ the end.
 | 0042 | The Session runs the plan | AFK | 0041 | ✅ resolved (ADR-0001, PRD-0002 §16 and PRD-0003 §12–14 amended) |
 | 0043 | The Judge reads two dimensions | AFK | 0039 | ✅ resolved |
 | 0044 | The Session is graded at the end | AFK | 0042, 0043 | ✅ resolved (ADR-0004 amended) |
-| 0045 | The report | AFK | 0044 | open |
+| 0045 | The report | AFK | 0044 | ✅ resolved |
 | 0046 | The documents catch up | **HITL** | 0045 | open |
 
 > **Note (2026-08-27).** `design-system/` was removed from this repository. The

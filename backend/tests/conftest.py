@@ -118,60 +118,35 @@ def clean_db(engine):
     return engine
 
 
+def session_grader(deps, *, provider: str = "deepseek"):
+    """The real grader, built over whatever this `Deps` was given."""
+    from interviewer.service.judge.session_grader import SessionGrader
+
+    return SessionGrader(
+        sessions=deps.sessions,
+        visits=deps.visits,
+        evidence=deps.evidence,
+        loader=deps.loader,
+        transcript=deps.transcript,
+        judge=deps.judge,
+        model=deps.ports.model,
+        plans=deps.planner,
+        bindings=deps.bindings,
+        metered=deps.metered,
+        provider=provider,
+    )
+
+
 def grade_session(deps, session_id: str, *, provider: str = "deepseek") -> list:
-    """Grade a Session's answered questions, and write the Evidence.
+    """Grade a Session and write its Evidence — the real call, not a stand-in.
 
-    ISSUE-0042 took grading out of the loop; ISSUE-0044 has not yet put it back
-    at the end of the Session. Between the two, a test that needs an Evidence
-    row makes one here rather than by running a loop that no longer produces
-    any — and this is deliberately the shape the deleted `update_confidence`
-    node had, so what it exercises is the store's contract rather than a second
-    grading policy.
-
-    The exchange it grades is the transcript, which is now the only record of
-    what was said.
+    ISSUE-0042 took grading out of the loop and this stood in for it; ISSUE-0044
+    put it at the end of the Session, so this is now `SessionGrader.grade` under
+    the name every test already calls. It is idempotent, so a test that runs a
+    Session to its end — which grades it in the graph — and then calls this gets
+    the same rows rather than a second set.
     """
-    from interviewer.model.corpus import GradingMode
-    from interviewer.service.corpus.citations import resolve
-    from interviewer.service.graph.sessions import RUBRIC_VERSION
-    from interviewer.service.graph.transcript import Transcript
-
-    engine = deps.visits._e
-    messages = Transcript(engine).of(session_id)
-    written = []
-    for visit in deps.visits.for_session(session_id):
-        if visit["state"] != "answered":
-            continue
-        turns = [
-            {"role": m["role"], "kind": m["kind"], "text": m["text"]}
-            for m in messages if m["topic_visit_id"] == visit["topic_visit_id"]
-        ]
-        question = next((t["text"] for t in turns if t["kind"] == "question"), "")
-        dossier = deps.loader.load(visit["topic_id"])
-        mode = GradingMode(visit["grading_mode"])
-        verdict = deps.judge.grade(
-            question=question, exchange=turns, dossier=dossier, mode=mode,
-            topic_visit_id=visit["topic_visit_id"], model=deps.ports.model,
-        )
-        written.append(deps.evidence.write(
-            topic_visit_id=visit["topic_visit_id"],
-            candidate_id=visit["candidate_id"],
-            topic_id=visit["topic_id"],
-            session_id=session_id,
-            score=verdict.score,
-            source_score=verdict.source_score,
-            truth_score=verdict.truth_score,
-            mode=mode,
-            grader_kind="server_judge",
-            provider=provider,
-            rubric_version=RUBRIC_VERSION,
-            rationale=verdict.rationale,
-            exchange_snapshot={"turns": turns},
-            citations=resolve(dossier, visit["grounding_ref"]),
-            topic_title=dossier.topic_title,
-            module_title=dossier.module_title,
-        ))
-    return written
+    return session_grader(deps, provider=provider).grade(session_id)
 
 
 @pytest.fixture()
@@ -224,6 +199,7 @@ def metered_deps(clean_db, loader, corpus):
         bindings=BindingStore(clean_db),
         metered=metered,
     )
+    d.grader = session_grader(d)
     d.transport = transport            # test handle
     d.pool = PoolLedger(clean_db)
     return d
@@ -253,7 +229,7 @@ def deps(clean_db, loader, corpus):
         },
         default="SOURCE: 0.8\nTRUTH: 0.8\nWHY: solid reasoning.",
     )
-    return Deps(
+    d = Deps(
         ports=Ports(clock=__import__("interviewer.service.graph.ports", fromlist=["x"]).FrozenClock(),
                     rng=__import__("numpy").random.default_rng(11),
                     model=model),
@@ -274,6 +250,10 @@ def deps(clean_db, loader, corpus):
         ),
         interviewer=Interviewer(max_turns=4),
     )
+    # The Session grades itself at its end (ISSUE-0044), so the fixture that
+    # runs Sessions has to carry the thing that does it.
+    d.grader = session_grader(d)
+    return d
 
 
 # -- notebooks ---------------------------------------------------------------

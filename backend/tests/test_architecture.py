@@ -166,3 +166,24 @@ def test_every_provider_satisfies_the_port_it_is_injected_through():
             from interviewer.adapters.internal.embedding import ImageEmbedder
 
             assert isinstance(embedder, ImageEmbedder), name
+
+
+def test_the_session_grader_assembles_no_probe_and_no_hint():
+    """ADR-0002, where it is newly at risk (ISSUE-0044).
+
+    Grading at the end reads the transcript, and the transcript holds every
+    probe and hint the Interviewer spent. The bundle handed to the Judge is
+    built from one named kind — the question — and the Candidate's turns, so
+    the only way a probe reaches a grader is for this file to start naming
+    kinds it currently does not. Asserted rather than trusted, because the
+    failure is silent: a Judge shown the hints grades the help.
+    """
+    grader = SRC / "service" / "judge" / "session_grader.py"
+    tree = ast.parse(grader.read_text())
+    literals = {
+        n.value for n in ast.walk(tree)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str)
+        and "\n" not in n.value          # docstrings and prose are free
+    }
+    assert "probe" not in literals and "hint" not in literals
+    assert "question" in literals       # the one interviewer kind it reads

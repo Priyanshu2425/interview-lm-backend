@@ -14,15 +14,20 @@ follow-up is warranted before closing the question.
 > and writes the plan down. Then `select_topic` became `next_planned_item`,
 > `load_dossier` became `load_dossiers` — a question may span up to three
 > Topics — `record_answer` became `record_exchange`, and `grade` and
-> `update_confidence` were **deleted from the loop** (ISSUE-0042).
+> `update_confidence` were **deleted from the loop** (ISSUE-0042). ISSUE-0044
+> then added `grade_session` on the edge to END, so the list now reads
+> `build_plan → next_planned_item → load_dossiers → generate_question →
+> interrupt → interviewer_move → record_exchange → decide_next →
+> grade_session → END`.
 >
 > The deletion does not weaken the argument below; it is the argument applied
 > once more. In-loop grading existed because selection was adaptive: the
 > sampler needed a posterior updated after every Visit before it could pick the
 > next Topic. Fixing the plan before the first question removes that
 > dependency, and removing it is what lets the Evidence write move to the end
-> of the Session (ISSUE-0044). It is still an edge and it still cannot not run;
-> it runs once, over a transcript, instead of once per question. Thompson
+> of the Session (ISSUE-0044), which is where it now is. It is still an edge
+> and it still cannot not run; it runs once, over a transcript, instead of once
+> per question. Thompson
 > sampling did not die either — it moved to plan-construction time.
 
 ## Why not a ReAct agent

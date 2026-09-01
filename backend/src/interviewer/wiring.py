@@ -35,6 +35,7 @@ from interviewer.service.graph.transcript import Transcript
 from interviewer.service.judge.interviewer import Interviewer
 from interviewer.service.judge.judge import Judge
 from interviewer.service.judge.question_writer import QuestionWriter
+from interviewer.service.judge.session_grader import SessionGrader
 from interviewer.service.metering.client import BindingStore, MeteredModelClient
 from interviewer.service.metering.keyvault import (
     AcceptingValidator, KeyVault, LocalKms, OpenRouterValidator,
@@ -156,6 +157,25 @@ def metered_client() -> MeteredModelClient:
 
 
 @lru_cache(maxsize=1)
+def session_grader() -> SessionGrader:
+    """Grades a finished Session. Built outside `graph_deps` because three
+    callers reach for it — the graph, `/end` and the resumption path — and only
+    one of them is a graph node."""
+    return SessionGrader(
+        sessions=session_store(),
+        visits=visit_lifecycle(),
+        evidence=evidence_ledger(),
+        loader=get_loader(),
+        transcript=transcript_store(),
+        judge=Judge(),
+        model=metered_client(),
+        plans=plan_store(),
+        bindings=BindingStore(sync_engine()),
+        metered=metered_client(),
+    )
+
+
+@lru_cache(maxsize=1)
 def graph_deps() -> Deps:
     """What the graph nodes reach for.
 
@@ -185,6 +205,7 @@ def graph_deps() -> Deps:
             plans=plan_store(),
         ),
         interviewer=Interviewer(),
+        grader=session_grader(),
         credits=credit_ledger(),
         bindings=BindingStore(sync_engine()),
         metered=metered_client(),
@@ -213,7 +234,7 @@ _PROVIDERS = (
     sync_engine, async_engine, confidence_store, visit_lifecycle, evidence_ledger,
     session_store, plan_store, transcript_store, credit_ledger, pool_ledger,
     transport, vault,
-    metered_client, graph_deps, runner, summary,
+    metered_client, session_grader, graph_deps, runner, summary,
 )
 
 
@@ -246,6 +267,10 @@ class Wiring:
     @property
     def runner(self) -> SessionRunner:
         return runner()
+
+    @property
+    def grader(self) -> SessionGrader:
+        return session_grader()
 
     @property
     def summary(self) -> SummaryService:

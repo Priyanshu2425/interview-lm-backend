@@ -38,6 +38,22 @@ def weakest(modes) -> GradingMode:
     return min(modes, key=lambda m: m.weight)
 
 
+def mode_for(d: Dossier) -> GradingMode:
+    """The strongest mode one Topic's own material can support.
+
+    Stated once, here, because two readers ask it: the question writer, which
+    grounds a question in whatever the dossier has, and the session grader,
+    which grades a Topic against that same dossier at the end (ISSUE-0044). A
+    second copy of this ladder would let a Topic be asked about on its Answer
+    Key and graded as if it had none.
+    """
+    if d.ground_truth_pairs:
+        return GradingMode.GROUND_TRUTH
+    if d.content:
+        return GradingMode.TEXT_GROUNDED
+    return GradingMode.MODEL_JUDGMENT
+
+
 class QuestionWriter:
     def write(
         self, *, topic_visit_id: str, model: ModelClient,
@@ -104,8 +120,9 @@ class QuestionWriter:
         }
 
     def _ground(self, d: Dossier) -> tuple[GradingMode, dict | None, str]:
+        mode = mode_for(d)
         # 1. An Assignment with its Answer Key — a ready-made question with a rubric.
-        if d.ground_truth_pairs:
+        if mode is GradingMode.GROUND_TRUTH:
             prompt_leaf, key_leaf = d.ground_truth_pairs[0]
             return (
                 GradingMode.GROUND_TRUTH,
@@ -117,7 +134,7 @@ class QuestionWriter:
                 f"{(prompt_leaf.text or '')[:6000]}",
             )
         # 2. Topic text, no Answer Key — a real examination, at reduced weight.
-        if d.content:
+        if mode is GradingMode.TEXT_GROUNDED:
             return (
                 GradingMode.TEXT_GROUNDED,
                 {"kind": "text", "leaf_ids": [l.id for l in d.content[:3]]},

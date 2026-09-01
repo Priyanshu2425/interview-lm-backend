@@ -97,15 +97,26 @@ def test_a_question_never_reached_is_recorded_as_unreached(deps, clean_db):
 
 
 def test_no_evidence_row_is_written_while_the_session_is_running(deps, clean_db):
-    r = SessionRunner(deps)
-    sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
-    _run_to_the_end(r, sid, first)
+    """Rewritten by ISSUE-0044: *while running*, not ever.
 
-    with clean_db.connect() as c:
-        assert c.execute(
-            sa.select(sa.func.count()).select_from(S.evidence)).scalar() == 0
-    assert deps.confidence.all_for(CANDIDATE) == {}
-    assert not [c for c in deps.ports.model.calls if c["role"] == "judge"]
+    The Session is graded now — once, on the edge to END — so the assertion
+    that held for the whole of a Session's life now holds up to the moment it
+    ends. What ISSUE-0042 removed was the in-loop write path, and that is what
+    is checked here: after every turn the Session is still running, there is no
+    Evidence, no posterior and no Judge has been called.
+    """
+    r = SessionRunner(deps)
+    sid, out = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
+    turns = 0
+    while out.kind != "session_ended" and turns < 30:
+        with clean_db.connect() as c:
+            assert c.execute(
+                sa.select(sa.func.count()).select_from(S.evidence)).scalar() == 0
+        assert deps.confidence.all_for(CANDIDATE) == {}
+        assert not [c for c in deps.ports.model.calls if c["role"] == "judge"]
+        out = r.submit(sid, "an answer")
+        turns += 1
+    assert out.kind == "session_ended"
 
 
 def test_no_turn_response_carries_a_score_a_band_or_a_last_visit(deps):

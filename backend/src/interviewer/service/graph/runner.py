@@ -138,6 +138,13 @@ class SessionRunner:
         row = self._d.sessions.get(session_id)
         if row and row["state"] == "parked":
             return self._continue_from_boundary(session_id, row)
+        if row and row["state"] == "ended" and self._d.grader is not None:
+            # The graph reached its end and the process died before the grade
+            # landed — the one gap an in-graph node cannot close by itself.
+            # Grading is idempotent, so a Session that was graded is untouched
+            # and one that was not is graded now. There is still nothing to
+            # resume into: the Session is over, and saying so is the answer.
+            self._d.grader.grade(session_id)
         return None
 
     def _continue_from_boundary(self, session_id: str, row: dict) -> TurnResult | None:
@@ -178,11 +185,6 @@ class SessionRunner:
                 self._d.sessions.park(sid, reason)
             else:
                 self._d.sessions.end(sid, reason)
-                # Whatever the plan still owed when the clock or the material
-                # ran out. A question never reached is not a question answered
-                # badly, and the report has to be able to tell them apart.
-                if self._d.planner is not None:
-                    self._d.planner.mark_unreached(sid)
             payload = {"session_id": sid, "reason": reason}
             if "balance" in out:
                 payload["balance"] = out["balance"]

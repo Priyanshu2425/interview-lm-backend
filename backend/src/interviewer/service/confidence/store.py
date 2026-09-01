@@ -179,8 +179,9 @@ class EvidenceLedger:
                 post = _read_posterior(c, candidate_id, topic_id)
                 return EvidenceWrite(existing, True, post)
 
-            c.execute(
-                sa.insert(S.evidence).values(
+            _insert_evidence(
+                c,
+                values=dict(
                     evidence_id=ev_id,
                     topic_visit_id=topic_visit_id,
                     candidate_id=candidate_id,
@@ -201,36 +202,97 @@ class EvidenceLedger:
                     citations=citations,
                     topic_title_snapshot=topic_title,
                     module_title_snapshot=module_title,
-                )
-            )
-            # Never read-modify-write: a concurrent Visit would be lost.
-            c.execute(
-                text(
-                    # Schema from the constant, never spelled out: the name is a
-                    # deployment's to choose, and a literal here is a table this
-                    # statement cannot find on a database that chose differently.
-                    f"""
-                    INSERT INTO {S.CORE}.topic_confidence
-                        (candidate_id, topic_id, alpha, beta, updated_at)
-                    VALUES (:cid, :tid, :a, :b, now())
-                    ON CONFLICT (candidate_id, topic_id) DO UPDATE
-                       SET alpha = {S.CORE}.topic_confidence.alpha + EXCLUDED.alpha - 1.0,
-                           beta  = {S.CORE}.topic_confidence.beta  + EXCLUDED.beta  - 1.0,
-                           updated_at = now()
-                    """
                 ),
-                {
-                    "cid": candidate_id,
-                    "tid": topic_id,
-                    "a": 1.0 + d.alpha_delta,
-                    "b": 1.0 + d.beta_delta,
-                },
             )
+            _bump_posterior(c, candidate_id, topic_id, d)
             c.execute(
                 sa.update(S.topic_visit)
                 .where(S.topic_visit.c.topic_visit_id == topic_visit_id)
                 .values(state="graded", grading_mode=mode.value, graded_at=sa.func.now())
             )
+            post = _read_posterior(c, candidate_id, topic_id)
+
+        return EvidenceWrite(ev_id, False, post)
+
+    def write_topic(
+        self,
+        *,
+        session_id: str,
+        candidate_id: str,
+        topic_id: str,
+        score: float,
+        mode: GradingMode,
+        source_score: float | None = None,
+        truth_score: float | None = None,
+        question_count: int = 0,
+        topic_visit_id: str | None = None,
+        grader_kind: str,
+        provider: str | None,
+        rubric_version: str,
+        rationale: str = "",
+        exchange_snapshot: dict | None = None,
+        citations: list[dict] | None = None,
+        topic_title: str = "",
+        module_title: str = "",
+    ) -> EvidenceWrite:
+        """One Beta observation for a Topic within a Session (ISSUE-0044).
+
+        The same transaction as `write` above, keyed on the other unique
+        constraint. `uq_evidence_session_topic` *is* ADR-0004 as amended: the
+        count is unchanged, one observation per Topic per Session, and what
+        moved is the unit — an observation may be assembled from several
+        questions, and one spanning question may contribute to several.
+
+        Idempotent on that constraint rather than on a prior read, so grading
+        a Session twice — from the graph, from `/end`, from a resumption —
+        writes nothing the second time even if the two calls race.
+
+        `topic_visit_id` is the last question that examined the Topic, kept so
+        the row stays traceable. It is not what makes the write unique: a
+        spanning question produces one row per Topic and they share it.
+        """
+        d = evidence_delta(score, mode.weight)
+        ev_id = new_id("ev")
+
+        with self._e.begin() as c:
+            inserted = _insert_evidence(
+                c,
+                values=dict(
+                    evidence_id=ev_id,
+                    topic_visit_id=topic_visit_id,
+                    candidate_id=candidate_id,
+                    topic_id=topic_id,
+                    session_id=session_id,
+                    score=Decimal(str(round(score, 3))),
+                    source_score=_unit(source_score),
+                    truth_score=_unit(truth_score),
+                    question_count=question_count,
+                    grading_mode=mode.value,
+                    weight=Decimal(str(mode.weight)),
+                    alpha_delta=Decimal(str(round(d.alpha_delta, 4))),
+                    beta_delta=Decimal(str(round(d.beta_delta, 4))),
+                    grader_kind=grader_kind,
+                    provider=provider,
+                    rubric_version=rubric_version,
+                    rationale=rationale,
+                    exchange_snapshot=exchange_snapshot,
+                    citations=citations,
+                    topic_title_snapshot=topic_title,
+                    module_title_snapshot=module_title,
+                ),
+                on_conflict=("session_id", "topic_id"),
+            )
+            if not inserted:
+                existing = c.execute(
+                    sa.select(S.evidence.c.evidence_id).where(
+                        S.evidence.c.session_id == session_id,
+                        S.evidence.c.topic_id == topic_id,
+                    )
+                ).scalar()
+                return EvidenceWrite(
+                    existing, True, _read_posterior(c, candidate_id, topic_id)
+                )
+            _bump_posterior(c, candidate_id, topic_id, d)
             post = _read_posterior(c, candidate_id, topic_id)
 
         return EvidenceWrite(ev_id, False, post)
@@ -274,6 +336,58 @@ class EvidenceLedger:
                     .order_by(S.evidence.c.created_at)
                 ).all()
             ]
+
+
+def _insert_evidence(
+    c: Connection, *, values: dict, on_conflict: tuple[str, ...] | None = None
+) -> bool:
+    """The row. `on_conflict` names the constraint a repeat write is allowed to
+    lose to, and losing it is the whole of idempotency — returning False rather
+    than raising, so the caller leaves the posterior alone.
+
+    Whether it landed is read from RETURNING rather than from `rowcount`, which
+    a plain INSERT reports as -1 — and -1 is truthy, so the cheap-looking check
+    would call every conflict a write.
+    """
+    if on_conflict is None:
+        c.execute(sa.insert(S.evidence).values(**values))
+        return True
+
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    landed = c.execute(
+        pg_insert(S.evidence)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=list(on_conflict))
+        .returning(S.evidence.c.evidence_id)
+    ).scalar()
+    return landed is not None
+
+
+def _bump_posterior(c: Connection, candidate_id: str, topic_id: str, d) -> None:
+    """Never read-modify-write: a concurrent Visit would be lost."""
+    c.execute(
+        text(
+            # Schema from the constant, never spelled out: the name is a
+            # deployment's to choose, and a literal here is a table this
+            # statement cannot find on a database that chose differently.
+            f"""
+            INSERT INTO {S.CORE}.topic_confidence
+                (candidate_id, topic_id, alpha, beta, updated_at)
+            VALUES (:cid, :tid, :a, :b, now())
+            ON CONFLICT (candidate_id, topic_id) DO UPDATE
+               SET alpha = {S.CORE}.topic_confidence.alpha + EXCLUDED.alpha - 1.0,
+                   beta  = {S.CORE}.topic_confidence.beta  + EXCLUDED.beta  - 1.0,
+                   updated_at = now()
+            """
+        ),
+        {
+            "cid": candidate_id,
+            "tid": topic_id,
+            "a": 1.0 + d.alpha_delta,
+            "b": 1.0 + d.beta_delta,
+        },
+    )
 
 
 def _read_posterior(c: Connection, candidate_id: str, topic_id: str) -> Posterior:
@@ -376,6 +490,26 @@ class VisitLifecycle:
                     answered_at=sa.func.now(),
                 )
             )
+
+    def mark_graded(self, session_id: str) -> int:
+        """Every answered Visit in a Session that has now been graded.
+
+        ISSUE-0042 left `answered` terminal for the managed loop, because
+        nothing graded a question any more. ISSUE-0044 grades the Session, and
+        a question inside a graded Session owes nothing further — so it lands
+        where a graded Visit always landed, and the material it examined can be
+        withdrawn again (`open_topic_ids` reads open and answered).
+
+        Session-wide rather than per Evidence row on purpose: a spanning
+        question belongs to three Topics and is finished when all of them are.
+        """
+        with self._e.begin() as c:
+            return c.execute(
+                sa.update(S.topic_visit)
+                .where(S.topic_visit.c.session_id == session_id,
+                       S.topic_visit.c.state == "answered")
+                .values(state="graded", graded_at=sa.func.now())
+            ).rowcount
 
     def get(self, topic_visit_id: str) -> dict | None:
         with self._e.connect() as c:

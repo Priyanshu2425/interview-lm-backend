@@ -2,19 +2,24 @@
 
     build_plan -> next_planned_item -> load_dossiers -> generate_question
                -> answer_turn -> interviewer_move  ^(probe/hint)
-               -> record_exchange -> decide_next   -> next_planned_item | END
+               -> record_exchange -> decide_next   -> next_planned_item
+                                                    | grade_session -> END
 
 `build_plan` arrived with ISSUE-0041 and runs once, before anything else: the
 Session decides what it will ask before it asks anything, and writes the plan
 down. ISSUE-0042 made the rest of the loop *execute* that plan.
 
-The two nodes that graded are gone from here, and their absence is the point
-rather than an omission. In-loop grading existed because selection was
+The two nodes that graded per Visit are gone from here, and their absence is the
+point rather than an omission. In-loop grading existed because selection was
 adaptive: the sampler needed a posterior updated after every Visit before it
-could pick the next Topic. Fixing the plan up front removes that dependency,
-and removing it is what lets grading move to the end (ISSUE-0044). While a
+could pick the next Topic. Fixing the plan up front removed that dependency,
+and removing it is what let grading move to the end (ISSUE-0044). While a
 Session is running it writes questions, answers and a transcript, and no
 Evidence at all.
+
+`grade_session` is where the Evidence arrives, and it is on the edge to END
+rather than inside the loop — an edge cannot not run, so a Session that reaches
+its end is graded however it got there.
 
 What the loop still owes the record it writes as it goes: one `message` row per
 turn, labelled with the `kind` the loop already knew and the `topic_ids` the
@@ -107,6 +112,7 @@ class Deps:
     transcript: Any = None    # Transcript; None writes no messages
     selector: Any = None
     planner: Any = None       # SessionPlanner; without one there is no plan to run
+    grader: Any = None        # SessionGrader; None grades nothing at the end
     interviewer: Any = None   # the agentic region; None closes after one turn
     credits: Any = None       # CreditLedger; None disables the spend gate
     bindings: Any = None      # BindingStore
@@ -389,8 +395,32 @@ def build_graph(d: Deps):
                 }
         return {"finished": False}
 
-    def _after_item(state: SessionState) -> Literal["load_dossiers", "__end__"]:
-        return "__end__" if state.get("finished") else "load_dossiers"
+    def grade_session(state: SessionState) -> dict:
+        """The Session is over. Grade it — once, here, on the way out.
+
+        An edge cannot not run, which is the reason this is a node on the way
+        to END rather than something the runner remembers to do: a Session that
+        ends because the clock ran out, because the plan was exhausted or
+        because the material was withdrawn all pass through here.
+
+        A Session parked for want of Credits does *not* get graded. It reaches
+        END the same way, but it is not finished — topping up resumes it, and
+        grading it here would write a Beta observation for a Candidate who is
+        about to be asked more questions about the same Topics.
+        """
+        if str(state.get("end_reason") or "").startswith("credits_exhausted"):
+            return {}
+        if d.grader is not None:
+            d.grader.grade(state["session_id"])
+        elif d.planner is not None:
+            # Without a grader there is still a plan whose unasked items are
+            # unreached rather than merely unfinished. The grader does this
+            # itself, so the two paths do not both do it.
+            d.planner.mark_unreached(state["session_id"])
+        return {}
+
+    def _after_item(state: SessionState) -> Literal["load_dossiers", "grade_session"]:
+        return "grade_session" if state.get("finished") else "load_dossiers"
 
     def interviewer_move(state: SessionState) -> dict:
         """The agentic region: probe, hint, or close.
@@ -421,8 +451,9 @@ def build_graph(d: Deps):
     def _after_move(state: SessionState) -> Literal["answer_turn", "record_exchange"]:
         return "record_exchange" if state.get("move") == "close" else "answer_turn"
 
-    def _after_decide(state: SessionState) -> Literal["next_planned_item", "__end__"]:
-        return "__end__" if state.get("finished") else "next_planned_item"
+    def _after_decide(state: SessionState) -> Literal["next_planned_item",
+                                                      "grade_session"]:
+        return "grade_session" if state.get("finished") else "next_planned_item"
 
     g = StateGraph(SessionState)
     g.add_node("build_plan", build_plan)
@@ -433,6 +464,7 @@ def build_graph(d: Deps):
     g.add_node("interviewer_move", interviewer_move)
     g.add_node("record_exchange", record_exchange)
     g.add_node("decide_next", decide_next)
+    g.add_node("grade_session", grade_session)
 
     g.add_edge(START, "build_plan")
     g.add_edge("build_plan", "next_planned_item")
@@ -444,4 +476,5 @@ def build_graph(d: Deps):
     # Nothing between the transcript write and the decision is a decision.
     g.add_edge("record_exchange", "decide_next")
     g.add_conditional_edges("decide_next", _after_decide)
+    g.add_edge("grade_session", END)
     return g

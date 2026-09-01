@@ -193,10 +193,13 @@ def test_the_soft_deadline_ends_after_the_current_visit_never_inside_it(deps):
 
     rows = deps.visits.for_session(sid)
     assert len(rows) == 1
-    assert rows[0]["state"] == "answered"     # it completed
+    # `graded` rather than `answered` since ISSUE-0044: the Visit completed,
+    # and reaching the end of the Session graded the Session it belongs to. It
+    # was not truncated, which is what this test is about.
+    assert rows[0]["state"] == "graded"
     assert rows[0]["turn_count"] == 1
-    # It completed and it was recorded — but it carries no score, because a
-    # running Session grades nothing (ISSUE-0042).
+    # No score travels on the turn either way. The grade is a row in `evidence`
+    # written at the end, never something a turn carries back (ISSUE-0042).
     assert "last_visit" not in out.payload
 
 

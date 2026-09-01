@@ -271,6 +271,12 @@ async def end(
     `being_asked` rather than `unresolved` since ISSUE-0042: an answered
     question is finished, and waiting for it to be graded would mean a Session
     could never be ended early once it had answered anything.
+
+    Ending is also grading (ISSUE-0044). A Session ended here and one ended by
+    the clock reach the same Evidence rows, because both call the same service
+    and it is idempotent on `UNIQUE(session_id, topic_id)` — a Session already
+    graded by the graph is not graded twice, and one the graph never reached
+    is graded now.
     """
     row = await _get_owned_session(session_id, candidate_id, sessions)
     open_visit = await visits.being_asked(session_id)
@@ -281,7 +287,8 @@ async def end(
             "topic_visit_id": open_visit["topic_visit_id"],
         }
     await sessions.end(session_id, "candidate_ended")
-    return {"state": "ended", "reason": "candidate_ended"}
+    graded = wiring().grader.grade(session_id)
+    return {"state": "ended", "reason": "candidate_ended", "graded": len(graded)}
 
 
 @router.get("/sessions/{session_id}/spend")

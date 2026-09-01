@@ -2,7 +2,7 @@
 
 import sqlalchemy as sa
 
-from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.confidence.summary import CandidateReadings
 from interviewer.db import schema as S
 
 CAND = "cand_weak"
@@ -22,7 +22,7 @@ def test_weakest_topics_are_ordered_by_mastery(clean_db, corpus, deps):
         (ids[1], 3.6, 7.4),     # weak
         (ids[2], 6.9, 3.9),     # solid-ish
     ])
-    svc = SummaryService(corpus, deps.confidence, deps.visits, deps.evidence)
+    svc = CandidateReadings(corpus, deps.confidence)
     weak = svc.weakest(CAND)
     assert weak[0]["topic_id"] == ids[1]
     assert weak[0]["band"] == "firm_weak"
@@ -37,7 +37,7 @@ def test_untested_topics_are_excluded_not_sorted_to_the_bottom(clean_db, corpus,
         (ids[0], 3.6, 7.4),     # weak
         (ids[1], 1.0, 1.0),     # the prior
     ])
-    svc = SummaryService(corpus, deps.confidence, deps.visits, deps.evidence)
+    svc = CandidateReadings(corpus, deps.confidence)
     weak = svc.weakest(CAND)
     assert [w["topic_id"] for w in weak] == [ids[0]]
 
@@ -47,7 +47,7 @@ def test_every_weakest_reading_carries_a_number_because_it_cleared_the_floor(
 ):
     ids = [t.id for t in corpus.topics[:2]]
     _seed(clean_db, [(ids[0], 3.6, 7.4), (ids[1], 8.2, 3.2)])
-    svc = SummaryService(corpus, deps.confidence, deps.visits, deps.evidence)
+    svc = CandidateReadings(corpus, deps.confidence)
     for w in svc.weakest(CAND):
         assert w["mastery"] is not None
         assert w["interval"] is not None

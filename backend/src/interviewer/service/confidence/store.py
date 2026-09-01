@@ -17,6 +17,11 @@ from sqlalchemy.engine import Connection, Engine
 
 from ...model.corpus import GradingMode
 from ...db import schema as S
+from ...db.evidence_reads import (
+    for_session_stmt,
+    rejudgeable_stmt,
+    rows_for_stmt,
+)
 from .math import PRIOR, Posterior, evidence_delta
 
 
@@ -298,44 +303,21 @@ class EvidenceLedger:
         return EvidenceWrite(ev_id, False, post)
 
     def rejudgeable(self, *, limit: int = 500, mode: str | None = None) -> list[dict]:
-        """Stored exchanges, ready to be re-scored by a reference grader.
-
-        This is what makes a provider normaliser derivable from production data
-        rather than guessed — and it is why no normaliser is built now.
-        """
-        q = sa.select(
-            S.evidence.c.evidence_id, S.evidence.c.topic_visit_id,
-            S.evidence.c.candidate_id, S.evidence.c.topic_id,
-            S.evidence.c.score, S.evidence.c.grading_mode,
-            S.evidence.c.provider, S.evidence.c.grader_kind,
-            S.evidence.c.rubric_version, S.evidence.c.exchange_snapshot,
-        ).order_by(S.evidence.c.created_at).limit(limit)
-        if mode:
-            q = q.where(S.evidence.c.grading_mode == mode)
-        with self._e.connect() as c:
-            return [dict(r._mapping) for r in c.execute(q).all()]
+        """Stored exchanges, ready to be re-scored by a reference grader."""
+        return self._read(rejudgeable_stmt(limit=limit, mode=mode))
 
     def for_session(self, session_id: str) -> list[dict]:
-        with self._e.connect() as c:
-            return [
-                dict(r._mapping)
-                for r in c.execute(
-                    sa.select(S.evidence)
-                    .where(S.evidence.c.session_id == session_id)
-                    .order_by(S.evidence.c.created_at)
-                ).all()
-            ]
+        return self._read(for_session_stmt(session_id))
 
     def rows_for(self, candidate_id: str) -> list[dict]:
+        return self._read(rows_for_stmt(candidate_id))
+
+    def _read(self, stmt) -> list[dict]:
+        """The projections come from `db.evidence_reads`, which the routes'
+        engine reads through as well — one shape of an Evidence row, whichever
+        engine fetched it."""
         with self._e.connect() as c:
-            return [
-                dict(r._mapping)
-                for r in c.execute(
-                    sa.select(S.evidence)
-                    .where(S.evidence.c.candidate_id == candidate_id)
-                    .order_by(S.evidence.c.created_at)
-                ).all()
-            ]
+            return [dict(r._mapping) for r in c.execute(stmt).all()]
 
 
 def _insert_evidence(

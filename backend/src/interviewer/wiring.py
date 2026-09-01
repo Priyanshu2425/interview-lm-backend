@@ -23,8 +23,8 @@ from interviewer.service.confidence.selector import TopicSelector
 from interviewer.service.confidence.store import (
     ConfidenceStore, EvidenceLedger, VisitLifecycle,
 )
-from interviewer.service.confidence.report import ReportService
-from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.confidence.reading import SessionReadingService
+from interviewer.service.confidence.summary import CandidateReadings
 from interviewer.db.engine import create_content, create_core, make_engine
 from interviewer.db.engine_async import make_async_engine
 from interviewer.service.graph.machine import Deps
@@ -36,6 +36,7 @@ from interviewer.service.graph.transcript import Transcript
 from interviewer.service.judge.interviewer import Interviewer
 from interviewer.service.judge.judge import Judge
 from interviewer.service.judge.question_writer import QuestionWriter
+from interviewer.service.ending import SessionEnding
 from interviewer.service.judge.session_grader import SessionGrader
 from interviewer.service.metering.client import BindingStore, MeteredModelClient
 from interviewer.service.metering.keyvault import (
@@ -177,6 +178,17 @@ def session_grader() -> SessionGrader:
 
 
 @lru_cache(maxsize=1)
+def session_ending() -> SessionEnding:
+    """How a Session ends. One instance, because all three callers of it — the
+    graph node, `/end` and the resumption path — must end one the same way."""
+    return SessionEnding(
+        sessions=session_store(),
+        grader=session_grader(),
+        plans=plan_store(),
+    )
+
+
+@lru_cache(maxsize=1)
 def graph_deps() -> Deps:
     """What the graph nodes reach for.
 
@@ -207,6 +219,7 @@ def graph_deps() -> Deps:
         ),
         interviewer=Interviewer(),
         grader=session_grader(),
+        ending=session_ending(),
         credits=credit_ledger(),
         bindings=BindingStore(sync_engine()),
         metered=metered_client(),
@@ -219,28 +232,29 @@ def runner() -> SessionRunner:
 
 
 @lru_cache(maxsize=1)
-def summary() -> SummaryService:
-    return SummaryService(
-        get_corpus(),
-        confidence_store(),
-        visit_lifecycle(),
-        evidence_ledger(),
-        credit_ledger(),
-    )
+def candidate_readings() -> CandidateReadings:
+    """Coverage and Mastery across every Session a Candidate has sat."""
+    return CandidateReadings(get_corpus(), confidence_store())
 
 
 @lru_cache(maxsize=1)
-def report() -> ReportService:
-    """The end-of-Session report (ISSUE-0045).
+def session_reading() -> SessionReadingService:
+    """One read of a Session, projected into the plan, the report and the
+    summary. Four endpoints used to assemble those separately and disagree.
 
-    Takes the loader rather than a Corpus, so `refresh_corpus` swapping the
-    material under a running process reaches it without a second rebind.
+    Takes the loader rather than a Corpus for titles, so `refresh_corpus`
+    swapping the material under a running process reaches it without a second
+    rebind; the Corpus itself is held for Module structure and is rebound.
     """
-    return ReportService(
-        get_loader(),
-        confidence_store(),
-        evidence_ledger(),
-        plan_store(),
+    return SessionReadingService(
+        sessions=session_store(),
+        visits=visit_lifecycle(),
+        evidence=evidence_ledger(),
+        plans=plan_store(),
+        loader=get_loader(),
+        confidence=confidence_store(),
+        corpus=get_corpus(),
+        credits=credit_ledger(),
     )
 
 
@@ -250,7 +264,8 @@ _PROVIDERS = (
     sync_engine, async_engine, confidence_store, visit_lifecycle, evidence_ledger,
     session_store, plan_store, transcript_store, credit_ledger, pool_ledger,
     transport, vault,
-    metered_client, session_grader, graph_deps, runner, summary, report,
+    metered_client, session_grader, session_ending, graph_deps, runner,
+    candidate_readings, session_reading,
 )
 
 
@@ -289,12 +304,19 @@ class Wiring:
         return session_grader()
 
     @property
-    def summary(self) -> SummaryService:
-        return summary()
+    def ending(self) -> SessionEnding:
+        """How a Session ends — the one `/end` and the graph both close through."""
+        return session_ending()
 
     @property
-    def report(self) -> ReportService:
-        return report()
+    def readings(self) -> CandidateReadings:
+        """What is true of a Candidate, not of one Session."""
+        return candidate_readings()
+
+    @property
+    def reading(self) -> SessionReadingService:
+        """One Session, read once — the plan, the report and the summary."""
+        return session_reading()
 
     @property
     def deps(self) -> Deps:

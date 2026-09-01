@@ -125,7 +125,7 @@ _MAP: dict[str, list[tuple[str, str, str]]] = {
         ("4-5",   "service/metering/operator.py:PriceService","test_remaining_stories.py"),
         ("6",     "service/metering/ledger.py:visit_cost", "test_credits_in_session.py"),
         ("7",     "routes/v1/sessions.py:spend",  "test_remaining_stories.py"),
-        ("8",     "service/confidence/summary.py:SummaryService","test_judge.py"),
+        ("8",     "service/confidence/reading.py:SessionReadingService","test_judge.py"),
         ("9",     "routes/v1/candidate.py:credits","test_api_sessions.py"),
         ("10",    "service/graph/machine.py:decide_next",  "test_credits_in_session.py"),
         ("11",    "service/graph/machine.py:decide_next",  "test_credits_in_session.py"),

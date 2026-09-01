@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from interviewer.service.ending import EndReason
 from interviewer.service.graph.sessions import SessionConfig
 from interviewer.service.graph.runner import SessionRunner
 
@@ -22,7 +23,6 @@ from ...deps_async import (
     get_async_credit_ledger,
     get_async_key_vault,
     get_async_corpus_service,
-    get_async_dossier_loader,
 )
 
 if TYPE_CHECKING:
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     # repository package for no runtime gain.
     from ...repository.async_repositories import (
         AsyncBindingStore,
-        AsyncDossierLoader,
         AsyncConfidenceStore,
         AsyncCorpusService,
         AsyncCreditLedger,
@@ -189,7 +188,6 @@ async def plan(
     session_id: str,
     candidate_id: str = Depends(current_candidate),
     sessions: AsyncSessionStore = Depends(get_async_session_store),
-    loader: AsyncDossierLoader = Depends(get_async_dossier_loader),
 ) -> dict:
     """What this Session will ask, decided before it asked anything.
 
@@ -198,30 +196,16 @@ async def plan(
     no writer on this path. The Candidate can see the shape of their Session in
     advance, which is what fixing the plan bought.
 
-    Titles are resolved here rather than stored on the item. A stored title is a
-    copy of the Corpus that goes stale when a Topic is renamed, and the plan is
-    fixed on `topic_ids` — the identity — not on how they were captioned.
+    The plan is shaped by `SessionReadingService`, which is where `/report`
+    takes it from as well. It was shaped here too until the two shapes started
+    disagreeing about what a plan item looks like, and a third copy of the
+    retired-Topic title rule lived in this handler.
     """
     await _get_owned_session(session_id, candidate_id, sessions)
-    stored = await sessions.plan(session_id)
+    stored = wiring().reading.plan_view(session_id)
     if stored is None:
         raise HTTPException(404, "this session has no plan")
-
-    def title(topic_id: str) -> str:
-        try:
-            return loader.load(topic_id).topic_title
-        except LookupError:
-            # A Topic retired since the plan was fixed. It keeps its place in
-            # the plan under its id rather than vanishing from it.
-            return topic_id
-
-    return {
-        **stored,
-        "items": [
-            {**item, "topic_titles": [title(t) for t in item["topic_ids"]]}
-            for item in stored["items"]
-        ],
-    }
+    return stored
 
 
 @router.get("/sessions/{session_id}/transcript")
@@ -272,11 +256,14 @@ async def end(
     question is finished, and waiting for it to be graded would mean a Session
     could never be ended early once it had answered anything.
 
-    Ending is also grading (ISSUE-0044). A Session ended here and one ended by
-    the clock reach the same Evidence rows, because both call the same service
-    and it is idempotent on `UNIQUE(session_id, topic_id)` — a Session already
-    graded by the graph is not graded twice, and one the graph never reached
-    is graded now.
+    Ending is also grading (ISSUE-0044), and both halves belong to
+    `SessionEnding` — the module the graph's last node closes through too. A
+    Session ended here and one ended by the clock reach the same Evidence rows,
+    in the same order, because it is the same call.
+
+    The row is marked ended by that module rather than here. Marking it on this
+    engine and grading on the graph's is two transactions in the wrong order:
+    the grader would read the Session before the end was committed.
     """
     row = await _get_owned_session(session_id, candidate_id, sessions)
     open_visit = await visits.being_asked(session_id)
@@ -286,9 +273,12 @@ async def end(
             "note": "this Topic will finish before the Session ends",
             "topic_visit_id": open_visit["topic_visit_id"],
         }
-    await sessions.end(session_id, "candidate_ended")
-    graded = wiring().grader.grade(session_id)
-    return {"state": "ended", "reason": "candidate_ended", "graded": len(graded)}
+    ended = wiring().ending.close(session_id, EndReason.CANDIDATE_ENDED.value)
+    return {
+        "state": ended.state,
+        "reason": ended.reason,
+        "graded": len(ended.graded),
+    }
 
 
 @router.get("/sessions/{session_id}/spend")
@@ -350,7 +340,8 @@ async def report(
     row = await _get_owned_session(session_id, candidate_id, sessions)
     from dataclasses import asdict
 
-    return asdict(wiring().report.for_session(row))
+    reading = wiring().reading
+    return asdict(reading.report_of(reading.of_row(row)))
 
 
 @router.get("/sessions/{session_id}/summary")
@@ -362,4 +353,5 @@ async def summary(
     row = await _get_owned_session(session_id, candidate_id, sessions)
     from dataclasses import asdict
 
-    return asdict(wiring().summary.for_session(row))
+    reading = wiring().reading
+    return asdict(reading.summary_of(reading.of_row(row)))

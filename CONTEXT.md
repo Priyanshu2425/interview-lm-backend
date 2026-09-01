@@ -437,6 +437,36 @@ A provider failure mid-Visit is therefore handled exactly like a credit failure:
 the Session parks, errors, and resumes. The retry runs on whichever Provider is
 live when the next Visit opens.
 
+## Session Reading
+
+One read of a **Session**, from which every view of it is a projection: the
+plan and what became of it, a reading per Topic, what was spent.
+
+Named because four endpoints used to assemble it separately and disagreed —
+most visibly about **reached**, which one of them read off the **Evidence** and
+another off the **Topic Visits**. A Session has one reading; `/plan`,
+`/report` and `/summary` select from it.
+
+**Reached** belongs to this term and has one meaning: a **Topic** the
+Candidate answered a **Topic Visit** on. Reached is not graded. A Session
+parked for want of **Credits** reached Topics it holds no Evidence for, and
+calling those unreached is a claim the Candidate can see is false.
+
+## End Reason
+
+Why a **Session** stopped, and therefore what follows from it.
+
+Two things follow and they are decided together: whether the Session is *ended*
+or merely *parked*, and whether it is graded. Running out of **Credits** parks
+and does not grade — topping up resumes the same Session, and grading it would
+write **Evidence** for a **Candidate** who is about to be asked more about the
+same Topics. A **Provider** failure parks for the same reason. Everything else
+is over, and a Session that is over is graded.
+
+A reason nobody has named still ends and still grades. The parking reasons are
+the closed set; refusing to grade an unfamiliar reason would silently discard
+Evidence the Session had already earned.
+
 ---
 
 # Backbone and Adapters
@@ -451,8 +481,8 @@ True of every product built on this: **Corpus**, **Module**, **Topic**,
 **Interviewer**, **Judge**, **Judge Subagent**, **Candidate**, **Session**,
 **Topic Visit**, **Answer Turn**, **Grading Mode**, **Ground Truth**,
 **Evidence**, **Topic Confidence**, **Coverage**, **Mastery**, **Evidence
-Floor**, **Grader Provenance**, **Session Resumption**, **Credit**, **Provider**,
-**Managed Mode**, **MCP Mode**.
+Floor**, **Grader Provenance**, **Session Resumption**, **Session Reading**,
+**End Reason**, **Credit**, **Provider**, **Managed Mode**, **MCP Mode**.
 
 ## Adapter vocabulary
 

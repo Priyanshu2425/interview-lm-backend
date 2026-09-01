@@ -2,7 +2,6 @@
 
 from conftest import grade_session
 
-from interviewer.service.confidence.summary import SummaryService
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
@@ -10,7 +9,21 @@ CAND = "cand_summary"
 
 
 def _svc(deps, corpus):
-    return SummaryService(corpus, deps.confidence, deps.visits, deps.evidence)
+    from interviewer.service.confidence.reading import SessionReadingService
+
+    return SessionReadingService(
+        sessions=deps.sessions, visits=deps.visits, evidence=deps.evidence,
+        plans=None, loader=deps.loader, confidence=deps.confidence,
+        corpus=corpus,
+    )
+
+
+def _readings(corpus, deps):
+    """The Candidate-level readings — not about one Session, and not read
+    through the Session reading."""
+    from interviewer.service.confidence.summary import CandidateReadings
+
+    return CandidateReadings(corpus, deps.confidence)
 
 
 def _run(deps, n_answers=3, n_modules=1):
@@ -27,7 +40,7 @@ def _run(deps, n_answers=3, n_modules=1):
 
 def test_the_summary_reports_coverage_and_mastery_separately(deps, corpus):
     sid = _run(deps)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert "topics_examined" in s.coverage
     assert "looks_solid" in s.mastery
     # nothing merges them
@@ -43,19 +56,19 @@ def test_coverage_counts_against_the_whole_corpus(deps, corpus):
     end, a Session that has only run has moved no posterior.
     """
     sid = _run(deps)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert s.coverage["topics_total"] == 71
     assert s.topics_examined > 0
     assert s.coverage["topics_examined"] == 0
 
     grade_session(deps, sid)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert 0 < s.coverage["topics_examined"] <= 71
 
 
 def test_a_topic_examined_once_carries_no_mastery_number(deps, corpus):
     sid = _run(deps, n_answers=1)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     first = s.per_topic[0]
     assert first["band"] in ("untested", "early")
     if first["band"] == "untested":
@@ -64,7 +77,7 @@ def test_a_topic_examined_once_carries_no_mastery_number(deps, corpus):
 
 def test_the_summary_names_the_topics_never_asked_about(deps, corpus):
     sid = _run(deps, n_answers=2)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert s.untested_modules
     total_untested = sum(u["topics_untested"] for u in s.untested_modules)
     assert total_untested == 71 - s.coverage["topics_examined"]
@@ -72,7 +85,7 @@ def test_the_summary_names_the_topics_never_asked_about(deps, corpus):
 
 def test_untested_modules_say_whether_they_carry_ground_truth(deps, corpus):
     sid = _run(deps, n_answers=1)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     genai = next(u for u in s.untested_modules if u["title"].startswith("Basics of GenAI"))
     assert genai["has_ground_truth"] is False
     assert genai["topics_untested"] == 9
@@ -80,20 +93,20 @@ def test_untested_modules_say_whether_they_carry_ground_truth(deps, corpus):
 
 def test_the_summary_records_which_modes_did_the_grading(deps, corpus):
     sid = _run(deps, n_answers=3)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert (s.ground_truth_visits + s.text_grounded_visits
             + s.model_judgment_visits) == s.topics_examined
 
 
 def test_the_summary_records_the_chosen_duration_for_comparability(deps, corpus):
     sid = _run(deps)
-    s = _svc(deps, corpus).for_session(deps.sessions.get(sid))
+    s = _svc(deps, corpus).summary(sid)
     assert s.duration_seconds == 3600
 
 
 def test_candidate_readings_return_two_readings_and_no_combined_score(deps, corpus):
     _run(deps, n_answers=2)
-    out = _svc(deps, corpus).candidate_readings(CAND)
+    out = _readings(corpus, deps).candidate_readings(CAND)
     assert set(out) == {"coverage", "mastery", "topics"}
     flat = str(out).lower()
     assert "overall" not in flat and "percent" not in flat
@@ -101,7 +114,7 @@ def test_candidate_readings_return_two_readings_and_no_combined_score(deps, corp
 
 def test_a_topic_below_the_floor_reports_none_never_zero(deps, corpus):
     _run(deps, n_answers=1)
-    out = _svc(deps, corpus).candidate_readings(CAND)
+    out = _readings(corpus, deps).candidate_readings(CAND)
     for t in out["topics"]:
         if t["band"] == "untested":
             assert t["mastery"] is None

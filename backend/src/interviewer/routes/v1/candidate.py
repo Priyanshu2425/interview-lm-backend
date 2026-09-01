@@ -132,11 +132,11 @@ async def onboard(
 @router.get("/candidates/me/confidence")
 async def confidence(
     candidate_id: str = Depends(current_candidate),
-    # SummaryService still uses sync - use wiring for now
+    # CandidateReadings still uses sync - use wiring for now
 ) -> dict:
     """Coverage and Mastery, as two separate readings. There is no field here
     that merges them."""
-    return wiring().summary.candidate_readings(candidate_id)
+    return wiring().readings.candidate_readings(candidate_id)
 
 
 @router.get("/candidates/me/topics/{topic_id}/standing")
@@ -229,7 +229,7 @@ async def weakest(
     candidate_id: str = Depends(current_candidate),
 ) -> dict:
     """Topics that look weakest, among those with enough evidence to say."""
-    return {"topics": wiring().summary.weakest(candidate_id, limit)}
+    return {"topics": wiring().readings.weakest(candidate_id, limit)}
 
 
 @router.get("/candidates/me/credits")

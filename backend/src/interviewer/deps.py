@@ -133,7 +133,8 @@ def refresh_corpus() -> None:
     if built():
         w = wiring()
         retain = w.deps.visits.open_topic_ids()
-        w.summary.rebind(corpus)
+        w.readings.rebind(corpus)
+        w.reading.rebind(corpus)
     get_loader().rebind(corpus, retain=retain)
     get_corpus_service().rebind(corpus)
     # Neighbours are read from the same rows the Corpus was rebuilt from, so

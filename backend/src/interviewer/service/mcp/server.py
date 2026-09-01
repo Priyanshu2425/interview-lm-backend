@@ -56,7 +56,7 @@ class McpServer:
     sessions: SessionStore
     visits: VisitLifecycle
     evidence: EvidenceLedger
-    summary: object | None = None
+    reading: object | None = None   # SessionReadingService; None returns no summary
     _tickets: dict[str, _Ticket] = field(default_factory=dict)
 
     # -- tools the host may call ------------------------------------------
@@ -239,10 +239,11 @@ class McpServer:
                 "topic_visit_id": open_visit["topic_visit_id"],
             }
         self.sessions.end(session_id, "candidate_ended")
-        if self.summary is not None:
+        if self.reading is not None:
             from dataclasses import asdict
 
-            return {"ended": True, "summary": asdict(self.summary.for_session(row))}
+            summary = self.reading.summary_of(self.reading.of_row(row))
+            return {"ended": True, "summary": asdict(summary)}
         return {"ended": True}
 
     def record_grading_unreachable(

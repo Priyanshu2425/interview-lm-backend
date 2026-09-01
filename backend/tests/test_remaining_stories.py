@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from interviewer import idempotency
 from interviewer.app import create_app
 from interviewer.wiring import wiring
-from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.confidence.reading import SessionReadingService
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 from interviewer.service.mcp.server import (
@@ -31,7 +31,11 @@ def _mcp(deps, corpus):
     return McpServer(
         loader=deps.loader, corpus=deps.corpus, sessions=deps.sessions,
         visits=deps.visits, evidence=deps.evidence,
-        summary=SummaryService(corpus, deps.confidence, deps.visits, deps.evidence),
+        reading=SessionReadingService(
+            sessions=deps.sessions, visits=deps.visits, evidence=deps.evidence,
+            plans=None, loader=deps.loader, confidence=deps.confidence,
+            corpus=corpus,
+        ),
     )
 
 

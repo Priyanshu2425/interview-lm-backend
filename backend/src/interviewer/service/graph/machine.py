@@ -36,7 +36,7 @@ holding the guarantee.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -46,11 +46,11 @@ from ...service.confidence.store import ConfidenceStore, EvidenceLedger, VisitLi
 from ...model.corpus import GradingMode
 from ...service.corpus.loader import DossierLoader
 from ...service.corpus import CorpusService
-from ...service.judge.interviewer import Interviewer
+from ...service.ending import SessionEnding
 from ...service.judge.judge import Judge
 from ...service.judge.question_writer import QuestionWriter
 from .ports import Ports
-from .sessions import RUBRIC_VERSION, SessionStore
+from .sessions import SessionStore
 
 
 class SessionState(TypedDict, total=False):
@@ -113,6 +113,7 @@ class Deps:
     selector: Any = None
     planner: Any = None       # SessionPlanner; without one there is no plan to run
     grader: Any = None        # SessionGrader; None grades nothing at the end
+    ending: Any = None        # SessionEnding; built from the above when absent
     interviewer: Any = None   # the agentic region; None closes after one turn
     credits: Any = None       # CreditLedger; None disables the spend gate
     bindings: Any = None      # BindingStore
@@ -124,6 +125,13 @@ class Deps:
 
 def build_graph(d: Deps):
     """Compile the machine. The shape is the contract."""
+
+    # One ending, whoever supplied it. Built here when the caller had no reason
+    # to hold one, so that the node below has nothing to decide: there is no
+    # graph in which a Session ends some other way.
+    ending = d.ending or SessionEnding(
+        sessions=d.sessions, grader=d.grader, plans=d.planner
+    )
 
     def _route(state: SessionState) -> str:
         """The Session's route, falling back to the Deps default."""
@@ -396,27 +404,19 @@ def build_graph(d: Deps):
         return {"finished": False}
 
     def grade_session(state: SessionState) -> dict:
-        """The Session is over. Grade it — once, here, on the way out.
+        """The Session is over. Close it — once, here, on the way out.
 
         An edge cannot not run, which is the reason this is a node on the way
         to END rather than something the runner remembers to do: a Session that
         ends because the clock ran out, because the plan was exhausted or
         because the material was withdrawn all pass through here.
 
-        A Session parked for want of Credits does *not* get graded. It reaches
-        END the same way, but it is not finished — topping up resumes it, and
-        grading it here would write a Beta observation for a Candidate who is
-        about to be asked more questions about the same Topics.
+        What closing means — parked or ended, graded or not — belongs to
+        `SessionEnding` and not to this node. A Session out of Credits reaches
+        END the same way but is parked rather than ended, and the node does not
+        need to know that to be correct.
         """
-        if str(state.get("end_reason") or "").startswith("credits_exhausted"):
-            return {}
-        if d.grader is not None:
-            d.grader.grade(state["session_id"])
-        elif d.planner is not None:
-            # Without a grader there is still a plan whose unasked items are
-            # unreached rather than merely unfinished. The grader does this
-            # itself, so the two paths do not both do it.
-            d.planner.mark_unreached(state["session_id"])
+        ending.close(state["session_id"], state.get("end_reason"))
         return {}
 
     def _after_item(state: SessionState) -> Literal["load_dossiers", "grade_session"]:

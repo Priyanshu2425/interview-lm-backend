@@ -16,8 +16,7 @@ import pytest
 
 from conftest import SIGNED_IN_CANDIDATE, grade_session, signed_in_client
 
-from interviewer.service.confidence.report import ReportService
-from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.confidence.reading import SessionReadingService
 from interviewer.service.graph.planner import PlanStore
 from interviewer.service.graph.runner import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
@@ -30,9 +29,11 @@ def _cfg(deps, n=1, seconds=1800):
     return SessionConfig(scope_module_ids=tuple(mods), duration_seconds=seconds)
 
 
-def _svc(deps, clean_db):
-    return ReportService(
-        deps.loader, deps.confidence, deps.evidence, PlanStore(clean_db)
+def _svc(deps, clean_db, corpus=None):
+    return SessionReadingService(
+        sessions=deps.sessions, visits=deps.visits, evidence=deps.evidence,
+        plans=PlanStore(clean_db), loader=deps.loader,
+        confidence=deps.confidence, corpus=corpus,
     )
 
 
@@ -57,7 +58,7 @@ def _outran_its_clock(deps, candidate=CANDIDATE):
 
 
 def _report(deps, clean_db, sid):
-    return _svc(deps, clean_db).for_session(deps.sessions.get(sid))
+    return _svc(deps, clean_db).report(sid)
 
 
 # --- reached and unreached are different things ----------------------------
@@ -208,8 +209,7 @@ def test_a_session_with_no_plan_reports_rather_than_raising(deps, clean_db):
 def test_the_same_session_reports_the_same_reading_twice(deps, clean_db):
     sid = _finished(deps)
     svc = _svc(deps, clean_db)
-    row = deps.sessions.get(sid)
-    assert svc.for_session(row) == svc.for_session(row)
+    assert svc.report(sid) == svc.report(sid)
 
 
 def test_a_retired_topic_keeps_its_place_under_the_name_it_was_examined_by(
@@ -232,8 +232,7 @@ def test_the_summary_reads_evidence_by_session_and_topic(deps, clean_db, corpus)
     would drop every row but the last and read it against the wrong Topic."""
     sid = _finished(deps, n=2, seconds=900)
     grade_session(deps, sid)
-    s = SummaryService(corpus, deps.confidence, deps.visits, deps.evidence)
-    out = s.for_session(deps.sessions.get(sid))
+    out = _svc(deps, clean_db, corpus).summary(sid)
 
     stored = {r["topic_id"]: r for r in deps.evidence.for_session(sid)}
     assert out.per_topic

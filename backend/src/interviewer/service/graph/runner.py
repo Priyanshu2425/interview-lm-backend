@@ -10,8 +10,9 @@ from typing import Any
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
+from ..ending import EndReason, SessionEnding
 from .machine import Deps, build_graph
-from .sessions import SessionConfig, SessionStore
+from .sessions import SessionConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,11 @@ class SessionRunner:
     def __init__(self, deps: Deps, checkpointer=None) -> None:
         self._d = deps
         self._cp = checkpointer or InMemorySaver()
+        # The same ending the graph closes through, so the resumption path
+        # cannot grade a Session on terms the graph would have refused.
+        self._ending = deps.ending or SessionEnding(
+            sessions=deps.sessions, grader=deps.grader, plans=deps.planner
+        )
         self._graph = build_graph(deps).compile(checkpointer=self._cp)
 
     # -- lifecycle ---------------------------------------------------------
@@ -87,7 +93,7 @@ class SessionRunner:
             return None
         from ...service.metering.failures import Cause, Route, classify
 
-        self._d.sessions.park(session_id, "provider_failure")
+        self._ending.close(session_id, EndReason.PROVIDER_FAILURE.value)
         row = self._d.sessions.get(session_id) or {}
         route = Route(row.get("payment_route") or self._d.payment_route)
         cause = (Cause.PROVIDER_TIMEOUT if failure.cause == "provider_timeout"
@@ -138,13 +144,13 @@ class SessionRunner:
         row = self._d.sessions.get(session_id)
         if row and row["state"] == "parked":
             return self._continue_from_boundary(session_id, row)
-        if row and row["state"] == "ended" and self._d.grader is not None:
+        if row and row["state"] == "ended":
             # The graph reached its end and the process died before the grade
             # landed — the one gap an in-graph node cannot close by itself.
             # Grading is idempotent, so a Session that was graded is untouched
             # and one that was not is graded now. There is still nothing to
             # resume into: the Session is over, and saying so is the answer.
-            self._d.grader.grade(session_id)
+            self._ending.grade_finished(session_id)
         return None
 
     def _continue_from_boundary(self, session_id: str, row: dict) -> TurnResult | None:
@@ -176,15 +182,17 @@ class SessionRunner:
         return {"configurable": {"thread_id": sid}}
 
     def _interpret(self, sid: str, out: dict) -> TurnResult:
+        """What the graph did, said as a turn. It does not decide anything.
+
+        The Session was already parked or ended by the `grade_session` node on
+        the way out, through the one module that knows the difference. This
+        used to repeat that judgement here as a second `startswith` on the end
+        reason, and a Session could be ended by one copy of the rule and graded
+        against the other.
+        """
         pend = self.pending(sid)
         if out.get("finished"):
             reason = out.get("end_reason", "duration")
-            if reason.startswith("credits_exhausted"):
-                # Exhaustion at the boundary is a clean park, not an error.
-                # Topping up resumes this Session rather than starting a new one.
-                self._d.sessions.park(sid, reason)
-            else:
-                self._d.sessions.end(sid, reason)
             payload = {"session_id": sid, "reason": reason}
             if "balance" in out:
                 payload["balance"] = out["balance"]

@@ -450,7 +450,11 @@ def test_the_plan_endpoint_serves_the_plan(client, started):
         range(len(body["items"])))
     for item in body["items"]:
         assert 1 <= len(item["topic_ids"]) <= 3
-        assert len(item["topic_titles"]) == len(item["topic_ids"])
+        # One shape of a plan item, shared with the report: each Topic named,
+        # and beside it whether the Session reached it.
+        assert [t["topic_id"] for t in item["topics"]] == item["topic_ids"]
+        assert all(t["title"] for t in item["topics"])
+        assert all(t["reached"] in (True, False) for t in item["topics"])
     # The Session is already running the plan (ISSUE-0042): its first question
     # has been asked and everything after it is still waiting.
     assert [i["state"] for i in body["items"]] == (

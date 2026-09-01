@@ -18,7 +18,7 @@ from .extract import (
 )
 from .figures import as_chunks, attach
 from ..clustering import MAX_TOPIC_TOKENS, TARGET_TOPIC_TOKENS, cluster_chunks
-from ..embedding import DIM, Embedder, HashingEmbedder, ImageEmbedder, cosine
+from interviewer.service.embeddings.hashing import DIM, Embedder, HashingEmbedder, ImageEmbedder, cosine
 from .reingest import MATCH_FLOOR, Match, match_to_frozen
 from .sources import Notebook, Source
 

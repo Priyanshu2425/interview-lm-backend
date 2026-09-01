@@ -56,7 +56,7 @@ def main() -> int:
     env.setdefault("EMBEDDING_ALLOW_PAID", "1")
 
     from interviewer.db.engine import create_content, make_engine
-    from interviewer.service.embeddings.artifacts import S3ObjectStore
+    from interviewer.adapters.s3 import S3ObjectStore
     from interviewer.embeddings import make_embedder
     from interviewer.repository.notebooks import NotebookStore
     from interviewer.service.notebooks import NotebookService

@@ -12,15 +12,15 @@ from __future__ import annotations
 
 from functools import partial
 
-from ...util.chunking import (
+from interviewer.util.chunking import (
     MAX_CHARS,
     TARGET_CHARS,
     Chunk,
     first_heading,
     leaf_title,
 )
-from ...util.chunking import chunk_source as _chunk_source
-from .notebook.extract import Extracted
+from interviewer.util.chunking import chunk_source as _chunk_source
+from .documents.extract import Extracted
 
 
 def answer_boundary(text: str, start: int, end: int) -> bool:

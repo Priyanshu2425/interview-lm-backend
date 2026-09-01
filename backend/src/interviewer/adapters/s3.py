@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from .errors import EmbeddingUnavailable
+from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
 log = logging.getLogger(__name__)
 

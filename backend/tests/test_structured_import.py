@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from conftest import signed_in_client
 
-from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
+from interviewer.service.corpus.sources.notebook.documents.structured import GivenLeaf, GivenTopic
 
 PROSE = (
     "Attention weights every token against every other token, and the softmax "
@@ -76,8 +76,8 @@ def test_a_given_import_keeps_the_ids_it_arrived_with(service):
 
 def test_the_clusterer_and_the_id_minter_are_not_reached(service, monkeypatch):
     """Verified by call count, not by reading the code."""
-    from interviewer.adapters import internal as notebook
-    from interviewer.adapters.internal import adapter, clustering  # noqa: F401
+    from interviewer.service.corpus.sources import notebook
+    from interviewer.service.corpus.sources.notebook import adapter, clustering  # noqa: F401
 
     def forbidden(*a, **kw):
         raise AssertionError("a structured import must derive no structure")
@@ -94,7 +94,7 @@ def test_the_given_branch_imports_no_clusterer_at_all(service):
     A rule held only by a code path that happens not to be taken is a rule the
     next edit re-opens without noticing.
     """
-    from interviewer.adapters.internal.notebook import structured
+    from interviewer.service.corpus.sources.notebook.documents import structured
 
     assert not hasattr(structured, "cluster_chunks")
     assert not hasattr(structured, "Cluster")
@@ -259,7 +259,7 @@ def test_an_import_is_refused_when_the_balance_cannot_cover_it(content_db, clean
 
 
 def _counting():
-    from interviewer.adapters.internal.notebook import HashingEmbedder
+    from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
 
     return HashingEmbedder()
 

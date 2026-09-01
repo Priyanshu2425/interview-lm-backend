@@ -21,7 +21,15 @@ def _imports(path: pathlib.Path) -> set[str]:
 #: rather than its package widened. An embedding call is metered too (ADR-0016),
 #: but it is not a chat completion and cannot go through the chat transport; the
 #: exemption is this file, so the next network import anywhere else still fails.
-_NETWORK_EXEMPT = {"embeddings/http.py", "service/embeddings/http.py"}
+#: The provider transport moved to `adapters/` with ADR-0027 — it talks to a
+#: system we do not own, which is what that directory is now for. The rule it
+#: was exempted from is unchanged: this is still the *only* module outside
+#: metering that may hold an HTTP client to a provider, and `MeteredModelClient`
+#: is still its only caller.
+_NETWORK_EXEMPT = {
+    "embeddings/http.py", "service/embeddings/http.py",
+    "adapters/openrouter.py",
+}
 
 
 def test_no_module_outside_metering_constructs_a_provider_client():
@@ -156,14 +164,14 @@ def test_every_provider_satisfies_the_port_it_is_injected_through():
     register, and fail only where it is finally injected — which is inside an
     ingest, holding a Candidate's upload.
     """
-    from interviewer.adapters.internal.embedding import Embedder
+    from interviewer.service.embeddings.hashing import Embedder
     from interviewer.service.embeddings import make_embedder, registered
 
     for name in registered():
         embedder = make_embedder({"EMBEDDING_PROVIDER": name})
         assert isinstance(embedder, Embedder), name
         if getattr(embedder, "supports_images", False):
-            from interviewer.adapters.internal.embedding import ImageEmbedder
+            from interviewer.service.embeddings.hashing import ImageEmbedder
 
             assert isinstance(embedder, ImageEmbedder), name
 
@@ -187,3 +195,44 @@ def test_the_session_grader_assembles_no_probe_and_no_hint():
     }
     assert "probe" not in literals and "hint" not in literals
     assert "question" in literals       # the one interviewer kind it reads
+
+
+#: What `adapters/` is allowed to be about (ADR-0027): one file per system we
+#: do not own. Adding a file here means adding a dependency on somebody else's
+#: uptime, so the list is written down rather than inferred.
+_FOREIGN_SYSTEMS = {"gatehouse.py", "openrouter.py", "s3.py"}
+
+
+def test_adapters_holds_foreign_systems_and_nothing_else():
+    """ADR-0027: the directory answers one question — what do we depend on that
+    we do not control? The notebook ingest pipeline lived here and answered it
+    wrongly, because nothing is on the other side of it."""
+    found = {
+        f.name for f in (SRC / "adapters").glob("*.py") if f.name != "__init__.py"
+    }
+    assert found == _FOREIGN_SYSTEMS, found
+
+
+def test_a_corpus_source_is_not_an_adapter_directory():
+    """The *word* Adapter still means a Corpus Source (ADR-0007, CONTEXT.md).
+    The three implementations live beside the contract they satisfy."""
+    sources = SRC / "service" / "corpus" / "sources"
+    assert (sources / "interview_lm.py").is_file()
+    assert (sources / "markdown_folder.py").is_file()
+    assert (sources / "notebook").is_dir()
+    assert (SRC / "service" / "corpus" / "conformance.py").is_file()
+
+
+def test_every_embedder_lives_with_the_other_embedders():
+    """ADR-0027: `HashingEmbedder` sat under `adapters/` while `SiglipEmbedder`
+    sat under `service/embeddings/`, so the registry imported back out of the
+    adapters tree to build its default."""
+    from interviewer.service.embeddings.hashing import HashingEmbedder  # noqa: F401
+
+    strays = [
+        f"{f.relative_to(SRC)} -> {mod}"
+        for f in SRC.rglob("*.py")
+        for mod in _imports(f)
+        if "adapters" in mod and "embedd" in mod
+    ]
+    assert not strays, strays

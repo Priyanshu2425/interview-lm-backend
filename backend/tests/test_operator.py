@@ -12,7 +12,7 @@ from interviewer.wiring import wiring
 from interviewer.service.metering.client import Binding, MeteredModelClient
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger
 from interviewer.service.metering.operator import POOL_HEADROOM_ALERT, OperatorService
-from interviewer.service.metering.transport import ScriptedTransport
+from interviewer.adapters.openrouter import ScriptedTransport
 
 HDR = {"x-operator-token": "dev-operator-token"}
 

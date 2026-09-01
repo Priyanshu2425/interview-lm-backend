@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from ..adapters.interview_lm import AdapterError, ingest
+from ..service.corpus.sources.interview_lm import AdapterError, ingest
 from ..service.corpus.conformance import validate
 
 

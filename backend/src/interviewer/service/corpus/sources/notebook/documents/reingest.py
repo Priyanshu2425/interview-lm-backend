@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from ..adapter import FrozenTopic
 from ..chunking import Chunk
 from ..clustering import cluster_chunks
-from ..embedding import cosine
+from interviewer.service.embeddings.hashing import cosine
 
 #: How alike a chunk must be to a frozen centroid to join the Topic it belongs
 #: to. Deliberately below the clusterer's own floor: joining an established

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from interviewer.service.embeddings.artifacts import (
+from interviewer.adapters.s3 import (
     LocalObjectStore, ModelSpec, ensure_local, sha256_of,
 )
 from interviewer.service.embeddings.errors import EmbeddingUnavailable

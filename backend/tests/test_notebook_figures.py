@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 import sqlalchemy as sa
 
-from interviewer.adapters.internal.notebook import Chunk, Figure, as_chunks, attach
+from interviewer.service.corpus.sources.notebook.documents import Chunk, Figure, as_chunks, attach
 from interviewer.db.content import notebook_chunk
 from pdf_fixtures import image_pdf, text_pdf
 

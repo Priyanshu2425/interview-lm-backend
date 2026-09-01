@@ -58,8 +58,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from interviewer.adapters.interview_lm import ingest
-    from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.service.corpus.sources.interview_lm import ingest
+    from interviewer.service.corpus.sources.notebook.documents.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import SHARED
     from interviewer.db.engine import create_content, create_core, make_engine
     from interviewer.embeddings import make_embedder

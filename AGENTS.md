@@ -85,6 +85,14 @@ service at all.
 | *(no suffix)* | a concept: data and the rules that are true of it | it imports with no engine, no config, no clock |
 | `_util.py`, and it lives in `util/` | a helper with no domain in it | could it exist in a project that has never heard of a Candidate? |
 
+`adapters/` is a directory, not a category: it holds one file per system we do
+not own, named after that system — `gatehouse.py`, `openrouter.py`, `s3.py`
+(ADR-0027). It answers one question, *what do we depend on that we do not
+control?*, and `test_architecture.py` fails if a fourth file appears without
+that being a deliberate answer. The **Adapter** of ADR-0007 is a different
+thing wearing the same word: a Corpus Source, living in
+`service/corpus/sources/` beside the contract it satisfies.
+
 Rules that follow from the table:
 
 - **A domain folder is not required to be all services.** It holds its concepts

@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..model.corpus import (
+from interviewer.model.corpus import (
     Corpus,
     CorpusProvenance,
     Leaf,

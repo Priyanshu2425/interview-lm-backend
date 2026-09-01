@@ -30,7 +30,7 @@ FIGURE_PAGES = [
 
 @pytest.fixture()
 def store(tmp_path):
-    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.adapters.s3 import LocalObjectStore
 
     return LocalObjectStore(tmp_path)
 
@@ -82,7 +82,7 @@ def test_the_object_key_is_the_content_hash(service):
     data = b"# Attention\n\nSoftmax over scaled dot products.\n" * 20
     _upload(service, notebook_id, source_id="src-1", title="A.md", data=data)
     source = service.store.get(notebook_id).sources[0]
-    from interviewer.adapters.internal.notebook.sources import digest
+    from interviewer.service.corpus.sources.notebook.documents.sources import digest
 
     assert digest(data.decode()) in source.object_key or _hash_of(data) in source.object_key
 
@@ -148,7 +148,7 @@ def test_the_object_is_written_before_the_row(
     content_db, counting, tmp_path, monkeypatch
 ):
     """A row pointing at bytes that are not there is the failure to prevent."""
-    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.adapters.s3 import LocalObjectStore
     from interviewer.service.notebooks import NotebookService
     from interviewer.repository.notebooks import NotebookStore
 
@@ -267,7 +267,7 @@ def test_deleting_a_corpus_deletes_its_objects_in_the_same_call_path(
 
 def test_figures_still_land_under_their_own_key(content_db, seeing, tmp_path):
     """Sources and figures share a bucket and must not share a key."""
-    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.adapters.s3 import LocalObjectStore
     from interviewer.service.notebooks import NotebookService
     from pdf_fixtures import image_pdf
 

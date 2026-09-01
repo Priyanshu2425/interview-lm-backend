@@ -82,7 +82,7 @@ def test_the_key_never_appears_in_a_call_record(clean_db):
 
     from interviewer.service.metering.client import Binding, MeteredModelClient
     from interviewer.service.metering.ledger import CreditLedger
-    from interviewer.service.metering.transport import ScriptedTransport
+    from interviewer.adapters.openrouter import ScriptedTransport
 
     v = KeyVault(clean_db, LocalKms(), AcceptingValidator())
     v.attach(CAND, KEY)

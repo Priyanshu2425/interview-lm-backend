@@ -110,7 +110,7 @@ def test_a_version_event_survives_the_notebook_it_describes(
 
 
 def test_re_ingest_never_re_clusters_a_frozen_source(notebooks, base, real_notes):
-    from interviewer.adapters.internal.notebook import reingest
+    from interviewer.service.corpus.sources.notebook.documents import reingest
 
     calls = []
     original = reingest.cluster_chunks
@@ -166,7 +166,7 @@ def test_the_similarity_floor_is_named_not_buried():
     """The one judgement call in the matcher is a named, explained constant."""
     import inspect
 
-    from interviewer.adapters.internal.notebook import reingest
+    from interviewer.service.corpus.sources.notebook.documents import reingest
 
     assert isinstance(reingest.MATCH_FLOOR, float)
     assert 0.0 < reingest.MATCH_FLOOR < 1.0

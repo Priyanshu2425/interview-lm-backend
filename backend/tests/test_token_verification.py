@@ -14,7 +14,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from interviewer.adapters.gatehouse_adpater import (
+from interviewer.adapters.gatehouse import (
     InvalidToken,
     TokenVerifier,
     audience,

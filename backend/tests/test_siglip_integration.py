@@ -107,7 +107,7 @@ def _centroids(corpus, model) -> dict[str, tuple[float, ...]]:
     not about the store, and a database is not needed to measure whether a model
     can tell two subjects apart.
     """
-    from interviewer.adapters.internal.embedding import centroid_of
+    from interviewer.service.embeddings.hashing import centroid_of
     from interviewer.util.chunking import chunk_source
 
     out: dict[str, tuple[float, ...]] = {}
@@ -139,7 +139,7 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     """
     from pathlib import Path
 
-    from interviewer.adapters.interview_lm import ingest
+    from interviewer.service.corpus.sources.interview_lm import ingest
     from interviewer.service.corpus.related import rank
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
@@ -176,7 +176,7 @@ def test_the_space_spreads_out_once_centred(model):
     """Directly: the cone is real, and centring opens it."""
     from pathlib import Path
 
-    from interviewer.adapters.interview_lm import ingest
+    from interviewer.service.corpus.sources.interview_lm import ingest
     from interviewer.service.corpus.related import _mean, centre
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")

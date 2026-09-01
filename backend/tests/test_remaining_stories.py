@@ -98,7 +98,7 @@ def test_provider_prices_are_history_and_say_they_are_not_a_forecast(client):
 
 def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
     from interviewer.service.metering.client import Binding, MeteredModelClient
-    from interviewer.service.metering.transport import ScriptedTransport
+    from interviewer.adapters.openrouter import ScriptedTransport
 
     for provider, cost, visit in (
         ("deepseek", Decimal("0.18"), "v1"),

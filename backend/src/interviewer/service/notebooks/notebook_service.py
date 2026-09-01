@@ -13,15 +13,15 @@ from hashlib import sha256
 
 from sqlalchemy.engine import Engine
 
-from interviewer.adapters.internal.notebook import (
+from interviewer.service.corpus.sources.notebook.documents import (
     HashingEmbedder, Notebook, Source, as_chunks, attach, extract_figures,
     ingest_notebook, module_id_for, match_to_frozen, topic_id_for,
 )
-from interviewer.adapters.internal.adapter import FrozenTopic
-from interviewer.adapters.internal.chunking import chunk_source, leaf_title
-from interviewer.adapters.internal.notebook.extract import extract
-from interviewer.adapters.internal.notebook.sources import digest
-from interviewer.adapters.internal.embedding import centroid_of
+from interviewer.service.corpus.sources.notebook.adapter import FrozenTopic
+from interviewer.service.corpus.sources.notebook.chunking import chunk_source, leaf_title
+from interviewer.service.corpus.sources.notebook.documents.extract import extract
+from interviewer.service.corpus.sources.notebook.documents.sources import digest
+from interviewer.service.embeddings.hashing import centroid_of
 from interviewer.model.corpus import Corpus
 from interviewer.db.content import PERSONAL, SHARED
 
@@ -498,7 +498,7 @@ class NotebookService:
         The bytes are fetched only for the figure lane, which genuinely needs
         them, and their absence costs pictures rather than the Module.
         """
-        from interviewer.adapters.internal.notebook.extract import Extracted, Page
+        from interviewer.service.corpus.sources.notebook.documents.extract import Extracted, Page
 
         text = source_text(self._store, source.source_id)
         pages = source.pages or ((Page(1, 0, len(text)),) if text else ())
@@ -533,7 +533,7 @@ class NotebookService:
         scope is keyed on it, so a shipped Module that keeps its id survives the
         move off disk instead of becoming a new Module nobody's scope names.
         """
-        from interviewer.adapters.internal.notebook.structured import ingest_given
+        from interviewer.service.corpus.sources.notebook.documents.structured import ingest_given
 
         record = self._store.get(notebook_id)
         if record is None:
@@ -652,7 +652,7 @@ class NotebookService:
         if not data or media_type != "application/pdf":
             return base
         try:
-            from interviewer.adapters.internal.notebook.extract import extract_figures
+            from interviewer.service.corpus.sources.notebook.documents.extract import extract_figures
 
             figures = len(extract_figures(data, media_type=media_type))
         except Exception:  # pragma: no cover - counting must not fail an upload

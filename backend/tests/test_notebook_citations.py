@@ -153,7 +153,7 @@ def test_no_citation_path_queries_anything_during_a_session(
 ):
     """ADR-0005 as amended: the index is read at ingest and for attribution,
     never to answer a question."""
-    from interviewer.adapters.internal import embedding
+    from interviewer.service.embeddings import hashing as embedding
 
     embedded = []
     original = embedding.HashingEmbedder.embed

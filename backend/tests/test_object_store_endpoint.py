@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.service.embeddings.artifacts import R2_REGION, _client, endpoint_url
+from interviewer.adapters.s3 import R2_REGION, _client, endpoint_url
 from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
 R2 = "https://acc0unt.r2.cloudflarestorage.com"

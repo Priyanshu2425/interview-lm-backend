@@ -11,7 +11,7 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.adapters.internal.notebook.extract import (
+from interviewer.service.corpus.sources.notebook.documents.extract import (
     extract, extract_html, extract_pdf,
 )
 from pdf_fixtures import scanned_pdf, text_pdf

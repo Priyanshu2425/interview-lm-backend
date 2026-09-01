@@ -19,7 +19,7 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..service.identity.store import IdentityStore
-from ..adapters.gatehouse_adpater import InvalidToken, TokenVerifier
+from ..adapters.gatehouse import InvalidToken, TokenVerifier
 from ..exception.definitions import Refusal
 
 

@@ -25,13 +25,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from ....service.corpus.conformance import validate
-from ....model.corpus import (
+from interviewer.service.corpus.conformance import validate
+from interviewer.model.corpus import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 from ..adapter import ADAPTER_NAME, ADAPTER_VERSION, FrozenTopic, Ingested, IngestReport
 from ..chunking import Chunk, chunk_source, leaf_title
-from ..embedding import Embedder, HashingEmbedder
+from interviewer.service.embeddings.hashing import Embedder, HashingEmbedder
 
 _LEAF_KINDS = {
     "content": LeafKind.CONTENT,
@@ -204,6 +204,6 @@ def _chunks_of(topic: GivenTopic, source_id: str) -> list[Chunk]:
 
 
 def _centroid(chunks: Sequence[Chunk]) -> tuple[float, ...]:
-    from ..embedding import centroid_of
+    from interviewer.service.embeddings.hashing import centroid_of
 
     return centroid_of([c.embedding for c in chunks])

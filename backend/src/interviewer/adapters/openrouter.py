@@ -11,7 +11,7 @@ from decimal import Decimal
 
 import httpx
 
-from .client import ProviderFailure, ProviderResponse
+from interviewer.service.metering.client import ProviderFailure, ProviderResponse
 
 MODELS = {
     "deepseek": "deepseek/deepseek-chat",

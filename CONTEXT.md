@@ -502,6 +502,11 @@ internal wiki, a set of specifications, authored material.
 A Source is reached through an **Adapter**, which is the only part that knows
 the source's shape. `backend/scripts/scrape.mjs` is the InterviewLM Adapter.
 
+Adapters live in `backend/src/interviewer/service/corpus/sources/`, beside the
+contract they satisfy — not in `adapters/`, which holds foreign systems and
+nothing else (ADR-0027). The word is unchanged; the directory is somebody
+else's.
+
 ## Adapter
 
 The component that turns a **Corpus Source** into a Corpus satisfying the

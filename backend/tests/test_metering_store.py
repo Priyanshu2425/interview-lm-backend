@@ -10,7 +10,7 @@ from interviewer.service.metering.client import (
     Binding, BindingStore, MeteredModelClient, ProviderFailure,
 )
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger
-from interviewer.service.metering.transport import ScriptedTransport
+from interviewer.adapters.openrouter import ScriptedTransport
 
 CAND = "cand_meter"
 VISIT = "visit_meter_1"

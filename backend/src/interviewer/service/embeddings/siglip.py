@@ -16,7 +16,7 @@ import logging
 import os
 from typing import ClassVar, Sequence
 
-from .artifacts import ModelSpec, ensure_local
+from interviewer.adapters.s3 import ModelSpec, ensure_local
 from .base import BaseEmbedder, normalise
 from .errors import EmbeddingContractError, EmbeddingUnavailable
 from .registry import register

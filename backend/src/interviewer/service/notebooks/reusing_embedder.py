@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from interviewer.adapters.internal.notebook.sources import digest
+from interviewer.service.corpus.sources.notebook.documents.sources import digest
 
 
 class ReusingEmbedder:

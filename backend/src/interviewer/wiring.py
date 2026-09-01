@@ -43,7 +43,7 @@ from interviewer.service.metering.keyvault import (
     AcceptingValidator, KeyVault, LocalKms, OpenRouterValidator,
 )
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger
-from interviewer.service.metering.transport import OpenRouterTransport, ScriptedTransport
+from interviewer.adapters.openrouter import OpenRouterTransport, ScriptedTransport
 
 from .deps import get_corpus, get_corpus_service, get_loader
 

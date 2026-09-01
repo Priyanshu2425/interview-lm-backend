@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from typing import Callable, Type
 
-from interviewer.adapters.internal.embedding import DIM, HashingEmbedder
+from interviewer.service.embeddings.hashing import DIM, HashingEmbedder
 
 from .base import BaseEmbedder
 from .errors import PaidProviderRefused

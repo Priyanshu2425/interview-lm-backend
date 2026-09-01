@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from interviewer.adapters.internal.embedding import DIM, Embedder
+from interviewer.service.embeddings.hashing import DIM, Embedder
 from interviewer.service.embeddings import make_embedder, registered
 from interviewer.service.embeddings.base import BaseEmbedder
 from interviewer.service.embeddings.errors import PaidProviderRefused

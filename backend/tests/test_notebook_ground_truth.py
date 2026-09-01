@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.adapters.internal.notebook import (
+from interviewer.service.corpus.sources.notebook.documents import (
     HashingEmbedder, Notebook, Source, ingest_notebook,
 )
 from interviewer.service.corpus.conformance import validate

@@ -110,7 +110,7 @@ def test_it_is_refused_while_nobody_has_said_to_spend_money():
 
 
 def test_it_satisfies_the_port_it_is_injected_through():
-    from interviewer.adapters.internal.embedding import Embedder, ImageEmbedder
+    from interviewer.service.embeddings.hashing import Embedder, ImageEmbedder
 
     embedder = build()
     assert isinstance(embedder, Embedder)

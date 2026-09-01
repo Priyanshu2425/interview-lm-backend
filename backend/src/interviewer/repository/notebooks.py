@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
-from interviewer.adapters.internal.notebook import (
+from interviewer.service.corpus.sources.notebook.documents import (
     Chunk,
     FrozenTopic,
     Ingested,
@@ -961,7 +961,7 @@ def _pages_to(pages) -> str:
 def _pages_from(raw: str | None) -> tuple:
     import json
 
-    from interviewer.adapters.internal.notebook.extract import Page
+    from interviewer.service.corpus.sources.notebook.documents.extract import Page
 
     try:
         return tuple(

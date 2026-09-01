@@ -2,7 +2,7 @@
 
 import pytest
 
-from interviewer.adapters import markdown_folder
+from interviewer.service.corpus.sources import markdown_folder
 from interviewer.service.corpus.conformance import (
     CONFORMANCE_EXPECTATIONS, diff_topics, fixture_corpus, validate,
 )
@@ -78,7 +78,7 @@ def test_a_topic_that_is_all_stubs_is_flagged_rather_than_rejected():
 
 
 def test_a_reingest_that_moves_topic_boundaries_is_reported(corpus, corpus_path):
-    from interviewer.adapters.interview_lm import ingest
+    from interviewer.service.corpus.sources.interview_lm import ingest
 
     same = diff_topics(corpus, ingest(corpus_path))
     assert same == {"added": [], "removed": [], "leaves_changed": [], "stable": 71}

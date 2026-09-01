@@ -21,7 +21,7 @@ from ..notebooks import (
     _provenance_from,
     _seconds,
 )
-from ...adapters.internal.notebook import (
+from ...service.corpus.sources.notebook.documents import (
     Chunk,
     FrozenTopic,
     Notebook,
@@ -540,10 +540,10 @@ class AsyncNotebookStore:
         whole of it: ingestion (`ingest_source`) always runs on the sync path,
         in `ingest_worker`'s background thread, whichever route uploaded.
         """
-        from ...adapters.internal.adapter import module_id_for
-        from ...adapters.internal.chunking import chunk_source
-        from ...adapters.internal.notebook.extract import extract
-        from ...adapters.internal.notebook.sources import digest
+        from ...service.corpus.sources.notebook.adapter import module_id_for
+        from ...service.corpus.sources.notebook.chunking import chunk_source
+        from ...service.corpus.sources.notebook.documents.extract import extract
+        from ...service.corpus.sources.notebook.documents.sources import digest
         from ...db.content import SHARED
         from ...service.notebooks import SharedCorpusIsNotYours, UploadedSource
 

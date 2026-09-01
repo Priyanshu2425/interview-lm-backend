@@ -19,7 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .chunking import Chunk
-from .embedding import centroid_of
+from interviewer.service.embeddings.hashing import centroid_of
 
 #: A Topic aims for what InterviewLM's own Topics measured: ~5k tokens at the median.
 TARGET_TOPIC_TOKENS = 5_000

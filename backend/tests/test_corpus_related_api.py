@@ -91,7 +91,7 @@ def test_the_route_embeds_nothing(client, library, monkeypatch):
     Every vector this compares was written at ingest. If anything on this path
     reached an embedder, this would fail.
     """
-    from interviewer.adapters.internal.embedding import HashingEmbedder
+    from interviewer.service.embeddings.hashing import HashingEmbedder
 
     def forbidden(*a, **kw):
         raise AssertionError("the related route must not embed anything")

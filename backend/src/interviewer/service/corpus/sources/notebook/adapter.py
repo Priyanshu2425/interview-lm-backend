@@ -16,16 +16,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Mapping, Sequence
 
-from ...service.corpus.conformance import Report, validate
-from ...model.corpus import (
+from interviewer.service.corpus.conformance import Report, validate
+from interviewer.model.corpus import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 from .chunking import Chunk, chunk_source, leaf_title
 from .clustering import Cluster, cluster_chunks
-from .embedding import Embedder, HashingEmbedder
+from interviewer.service.embeddings.hashing import Embedder, HashingEmbedder
 from .mining import answered_by, classify
-from .notebook.extract import Extracted
-from .notebook.sources import Notebook, Source, digest
+from .documents.extract import Extracted
+from .documents.sources import Notebook, Source, digest
 
 ADAPTER_NAME = "notebook"
 

@@ -36,7 +36,7 @@ def get_embedder():
 @lru_cache(maxsize=1)
 def get_object_store():
     """Where figure bytes live. S3 where configured, local disk otherwise."""
-    from interviewer.service.embeddings.artifacts import object_store
+    from interviewer.adapters.s3 import object_store
 
     return object_store()
 

@@ -264,7 +264,7 @@ async def import_structured(
     full-pipeline path, so it calls the sync `NotebookService` directly.
     """
     _guard(x_operator_token)
-    from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.service.corpus.sources.notebook.documents.structured import GivenLeaf, GivenTopic
 
     topics = [
         GivenTopic(

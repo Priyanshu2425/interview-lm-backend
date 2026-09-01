@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from interviewer.adapters.internal.notebook import HashingEmbedder
+from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
 from interviewer.service.notebooks.ingest_cost import InsufficientBalance, estimate
 
 

@@ -27,7 +27,7 @@ if os.environ.get("INTERVIEW_LM_TEST_ALLOW_REMOTE_DB") != "1":
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "backend" / "src"))
 
-from interviewer.adapters.interview_lm import ingest  # noqa: E402
+from interviewer.service.corpus.sources.interview_lm import ingest  # noqa: E402
 from interviewer.service.corpus.loader import DossierLoader  # noqa: E402
 
 
@@ -171,7 +171,7 @@ def metered_deps(clean_db, loader, corpus):
     from interviewer.service.judge.question_writer import QuestionWriter
     from interviewer.service.metering.client import BindingStore, MeteredModelClient
     from interviewer.service.metering.ledger import CreditLedger, PoolLedger
-    from interviewer.service.metering.transport import ScriptedTransport
+    from interviewer.adapters.openrouter import ScriptedTransport
 
     ledger = CreditLedger(clean_db)
     transport = ScriptedTransport(cost_usd=Decimal("0.06"))
@@ -303,7 +303,7 @@ def counting():
     Used where the assertion is about *not spending* — a deduplicated upload
     must reach no provider at all.
     """
-    from interviewer.adapters.internal.notebook import HashingEmbedder
+    from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
 
     class Counting(HashingEmbedder):
         def __init__(self):
@@ -325,7 +325,7 @@ def seeing():
     two different vectors and the same picture twice is the same vector — which
     is all the pipeline actually asks of an image tower.
     """
-    from interviewer.adapters.internal.notebook import HashingEmbedder
+    from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
 
     class Seeing(HashingEmbedder):
         model_name = "seeing-v1"
@@ -350,7 +350,7 @@ def seeing():
 @pytest.fixture()
 def objects(tmp_path):
     """Figure bytes on disk. The same contract S3 answers, without a bucket."""
-    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.adapters.s3 import LocalObjectStore
 
     return LocalObjectStore(tmp_path / "content")
 
@@ -415,9 +415,9 @@ def shipped_template(engine, corpus_path):
     """
     from sqlalchemy import text
 
-    from interviewer.adapters.interview_lm import ingest as ingest_corpus
-    from interviewer.adapters.internal.notebook import HashingEmbedder
-    from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.service.corpus.sources.interview_lm import ingest as ingest_corpus
+    from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
+    from interviewer.service.corpus.sources.notebook.documents.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import CONTENT, PLATFORM_OWNER, SHARED
     from interviewer.db.engine import create_content
     from interviewer.service.notebooks import NotebookService

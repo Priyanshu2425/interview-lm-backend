@@ -81,10 +81,27 @@ message_kind = Enum(
 )
 
 
+# ISSUE-0048. What a Candidate tells us about themselves, and nothing more.
+# ADR-0026 keeps the credential and the address at Gatehouse; these four are
+# answers to a form, defaulted so a row that predates the form reads as
+# *unanswered* rather than as unknown.
+#
+# `target_role`, `experience_level` and `goal` are **read by nothing yet**, and
+# that is deliberate rather than an oversight: the form is the only moment a
+# person will answer, and the calibration that would consume them is later work.
+# Said here so they are not mistaken for dead columns and deleted.
 candidate = Table(
     "candidate", metadata,
     Column("candidate_id", String, primary_key=True),
     Column("display_name", String, nullable=True),
+    # Null means never completed. A timestamp rather than a boolean because the
+    # permanent record should say *when*, as the rest of `core` does — and
+    # because "onboarded" is derived from it, so there is one fact and not two
+    # that can disagree.
+    _ts("onboarded_at", nullable=True),
+    Column("target_role", String, nullable=False, server_default=""),
+    Column("experience_level", String, nullable=False, server_default=""),
+    Column("goal", String, nullable=False, server_default=""),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
 )
 

@@ -18,14 +18,59 @@ class AsyncSessionStore:
     def __init__(self, session: AsyncSession) -> None:
         self._s = session
 
-    def ensure_candidate(self, candidate_id: str, name: str | None = None) -> str:
-        """Ensure candidate exists (upsert)."""
-        stmt = (
+    async def ensure_candidate(self, candidate_id: str, name: str | None = None) -> str:
+        """The Candidate row exists after this, whoever created it.
+
+        It built this statement and returned without executing it, and was a
+        sync `def` on an async store — so awaiting it was impossible and calling
+        it did nothing. Harmless only because `IdentityStore.resolve` inserts the
+        row first, which meant the one place that could write a name was a no-op
+        nobody had reason to notice. ISSUE-0048 gives the name a writer, so the
+        statement has to run.
+
+        Still an upsert that does nothing on conflict: a Candidate who has
+        already answered must not have their answers reset by a later sign-in.
+        """
+        await self._s.execute(
             sa.dialects.postgresql.insert(S.candidate)
             .values(candidate_id=candidate_id, display_name=name)
             .on_conflict_do_nothing(index_elements=["candidate_id"])
         )
         return candidate_id
+
+    async def profile(self, candidate_id: str) -> dict[str, Any] | None:
+        """What this Candidate has told us. None if there is no row yet."""
+        result = await self._s.execute(
+            sa.select(S.candidate).where(S.candidate.c.candidate_id == candidate_id)
+        )
+        row = result.first()
+        return dict(row._mapping) if row else None
+
+    async def record_onboarding(
+        self, candidate_id: str, answers: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Write the answers given, and stamp `onboarded_at` only the first time.
+
+        `answers` carries the fields the caller actually sent; the ones it omits
+        are absent from the UPDATE rather than written as defaults, so a
+        correction to one answer cannot erase the other three.
+
+        The stamp is `COALESCE(onboarded_at, now())` rather than a read followed
+        by a conditional write. Two requests arriving together would both read
+        null and both stamp, and the second would move a date whose only job is
+        to record when the person actually finished. Postgres settles it in the
+        row, so there is no window in which it can be settled wrongly.
+        """
+        result = await self._s.execute(
+            sa.update(S.candidate)
+            .where(S.candidate.c.candidate_id == candidate_id)
+            .values(
+                **answers,
+                onboarded_at=sa.func.coalesce(S.candidate.c.onboarded_at, sa.func.now()),
+            )
+            .returning(S.candidate)
+        )
+        return dict(result.first()._mapping)
 
     async def create(self, candidate_id: str, cfg: SessionConfig) -> str:
         """Create a new session."""

@@ -1,6 +1,6 @@
 # ISSUE-0048 — A Candidate says who they are
 
-Status: open
+Status: resolved — backend landed; the surface gate is a frontend-repo slice
 Type: AFK
 Source: ADR-0026 (what may be stored); ISSUE-0038 (the table keeps its name)
 Covers: the first-login step that is currently missing entirely
@@ -89,3 +89,64 @@ not start.
 ## Blocked by
 
 Nothing. ISSUE-0038 settled where these columns live.
+
+
+## What landed
+
+The four columns are on `core.candidate` in `db/schema.py`, defaulted so every
+row that predates the form reads as *unanswered*, and the comment above the
+table says outright that `target_role`, `experience_level` and `goal` are read by
+nothing yet — the thing the ticket asked to be stated rather than discovered.
+
+`_CORE_ADDED_COLUMNS` gained the four entries. The ticket says `create_core` has
+no column migrator; ISSUE-0039 had already added one by the time this ran, so the
+existing tuple was extended rather than a second migrator written. It looks
+before it ALTERs, so a second boot over a populated database changes neither the
+catalogue nor a Candidate's answers, and there is a test that snapshots both.
+
+`GET /v1/candidates/me` and `PATCH /v1/candidates/me` sit beside the rest of the
+family in `routes/v1/candidate.py` and take no id from anybody. The reading is
+the three fields the ticket named and no more: the answers are collected and not
+served, because a value on the wire is a value something starts depending on.
+`onboarded` is derived from `onboarded_at` rather than stored beside it.
+
+`AsyncSessionStore.ensure_candidate` is `async` and executes. The one caller that
+already awaited it — `service/graph/async_adapters.py`, which passed the returned
+string to `_run_async` — becomes correct as a side effect.
+
+## Deviations, and why
+
+- **PATCH leaves omitted fields alone.** The ticket says a second PATCH "updates
+  the fields"; written literally that lets a surface correcting a display name
+  erase a goal it never asked about. `exclude_unset` keeps the verb honest.
+- **A body carrying an unknown field is refused, not ignored.** `extra: "forbid"`
+  on `OnboardingIn`. "No route accepts a `candidate_id` in a body" is stronger as
+  a 422 than as a silent drop — a surface that sent one and got a 200 would go on
+  believing the field meant something.
+- **The stamp is `COALESCE(onboarded_at, now())` in the UPDATE**, not a read
+  followed by a conditional write. Two PATCHes arriving together would both read
+  null and both stamp, and the later one would move a date whose only job is to
+  say when the person actually finished.
+- **GET does not mint the row.** A real token has already been through
+  `IdentityStore.resolve`, so a GET that inserted would exist for a case that
+  cannot happen — and an absent row and an unanswered form are the same reading
+  either way.
+
+## Left for the surface
+
+All of it, and it is a separate repository. `RequireSession` needs its second
+gate: on first authenticated load read `/v1/candidates/me`, and if `onboarded` is
+false route to the form, PATCH, continue. No `candidate_id` is involved anywhere,
+so `shared/stores/session.ts` keeps its promise unchanged.
+
+## Suite
+
+`13` new tests in `tests/test_candidate_onboarding.py`; the two routes added to
+`GUARDED` in `tests/test_api_authentication.py`.
+
+Run on a checkout with no `data/` material, where 38 notebook tests fail and 169
+skip for want of it, before this slice and identically after: **727 passed, 38
+failed, 169 skipped** against a baseline of 712/38/169 — the same 38, and every
+one of them a fixture reading `data/markdown/aiml`, which this repository does
+not ship (ADR: there is no Corpus on disk). ISSUE-0039 recorded 911/8 on a
+machine that had that material locally.

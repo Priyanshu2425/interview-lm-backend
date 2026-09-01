@@ -21,6 +21,7 @@ from ...deps_async import (
     get_async_corpus_service,
     get_async_related_topics,
     get_async_notebook_service,
+    get_async_session_store,
 )
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
         AsyncCreditLedger,
         AsyncKeyVault,
         AsyncNotebookService,
+        AsyncSessionStore,
     )
 
 router = APIRouter(tags=["candidate"])
@@ -46,10 +48,85 @@ class KeyIn(BaseModel):
     openrouter_key: str
 
 
+class OnboardingIn(BaseModel):
+    """What the form asks. No candidate_id, and nothing ADR-0026 refuses.
+
+    Whose answers these are comes from the token, as everywhere else under
+    `/candidates/me`. There is no field here for a credential or an address, and
+    a body carrying one is refused rather than ignored — the surface should hear
+    about it at the point it sent it, not discover the value never arrived.
+
+    A PATCH, and it means it: an omitted field is left as it was rather than
+    reset to its default. A person correcting one answer should not have to
+    restate the other three, and a form that posts only what changed should not
+    be able to erase what it did not ask about.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    display_name: str | None = None
+    target_role: str | None = None
+    experience_level: str | None = None
+    goal: str | None = None
+
+
 class GrantIn(BaseModel):
     candidate_id: str
     credits: int
     payment_ref: str
+
+
+def _me(row: dict | None, candidate_id: str) -> dict:
+    """The `/me` reading, from a row that may not exist yet.
+
+    Three fields and no more. The three answers the form collects are not
+    returned, because nothing reads them and a value on the wire is a value
+    something will start depending on.
+
+    `onboarded` is derived here rather than stored beside the timestamp: one
+    fact, so there is no second one to fall out of step with it. A Candidate the
+    row has never seen and one who has never finished the form are the same
+    answer — `false` — which is the answer the surface needs either way.
+    """
+    return {
+        "candidate_id": candidate_id,
+        "display_name": (row or {}).get("display_name"),
+        "onboarded": bool(row and row.get("onboarded_at")),
+    }
+
+
+@router.get("/candidates/me")
+async def me(
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """Who the surface is looking at, and whether it has ever been told.
+
+    Read-only on purpose: a real token has already minted the row on its way
+    through `IdentityStore.resolve`, so a GET that also inserted would exist
+    only for a case that cannot happen — and a first authenticated load is the
+    last place to hide a write.
+    """
+    return _me(await sessions.profile(candidate_id), candidate_id)
+
+
+@router.patch("/candidates/me")
+async def onboard(
+    body: OnboardingIn,
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """The Candidate tells us who they are (ISSUE-0048).
+
+    Idempotent in the way that matters: the answers are whatever was last sent,
+    and `onboarded_at` is stamped once and never moved. A second PATCH is a
+    correction, not a second completion.
+    """
+    await sessions.ensure_candidate(candidate_id)
+    row = await sessions.record_onboarding(
+        candidate_id, body.model_dump(exclude_unset=True)
+    )
+    return _me(row, candidate_id)
 
 
 @router.get("/candidates/me/confidence")

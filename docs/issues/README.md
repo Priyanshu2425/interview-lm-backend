@@ -77,7 +77,7 @@ over time.
 | 0037 | Retire the disk path | AFK | 0034, 0036 | ✅ resolved |
 | 0038 | Rename `candidate` table to `users` | **HITL** | — | ✅ resolved — decided against (ADR-0026) |
 | 0047 | A partial ingest resumes | **HITL** | 0035 | open |
-| 0048 | A Candidate says who they are | AFK | 0038 | open |
+| 0048 | A Candidate says who they are | AFK | 0038 | ✅ resolved (backend; surface pending) |
 
 ### Interview Mode — plan up front, grade at the end
 

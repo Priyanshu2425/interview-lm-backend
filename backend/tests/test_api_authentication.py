@@ -22,6 +22,8 @@ OPERATOR = {"x-operator-token": "dev-operator-token"}
 
 #: Every Candidate-scoped route, and the method that reaches it.
 GUARDED = [
+    ("get", "/v1/candidates/me"),
+    ("patch", "/v1/candidates/me"),
     ("get", "/v1/candidates/me/confidence"),
     ("get", "/v1/candidates/me/credits"),
     ("get", "/v1/candidates/me/weakest"),
@@ -48,7 +50,7 @@ def test_a_candidate_scoped_route_refuses_an_unauthenticated_caller(
     anonymous, method, path
 ):
     call = getattr(anonymous, method)
-    r = call(path, json={}) if method == "post" else call(path)
+    r = call(path, json={}) if method in ("post", "patch") else call(path)
     assert r.status_code == 401, f"{method.upper()} {path} answered {r.status_code}"
     assert r.json()["code"] == "not_signed_in"
 

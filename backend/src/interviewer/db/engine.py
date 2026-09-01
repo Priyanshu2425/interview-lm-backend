@@ -138,14 +138,23 @@ def apply_core_triggers(engine: Engine) -> None:
             c.execute(text(trigger))
 
 
-#: Columns ISSUE-0039 added to tables that already existed. `create_all` will
-#: not add them to a live database, so they are listed and applied here.
+#: Columns added to tables that already existed. `create_all` will not add them
+#: to a live database, so they are listed and applied here.
 _CORE_ADDED_COLUMNS = (
+    # ISSUE-0039.
     ("topic_visit", "topic_ids", "text[]"),
     ("topic_visit", "plan_item_id", "text"),
     ("evidence", "source_score", "numeric(4,3)"),
     ("evidence", "truth_score", "numeric(4,3)"),
     ("evidence", "question_count", "integer NOT NULL DEFAULT 0"),
+    # ISSUE-0048. Every existing row is a Candidate who was never asked, so the
+    # defaults have to make that readable: a null `onboarded_at` says the form
+    # was never completed, and the three empty strings say the same of each
+    # answer. Nothing here backfills, because there is nothing to backfill from.
+    ("candidate", "onboarded_at", "timestamptz"),
+    ("candidate", "target_role", "text NOT NULL DEFAULT ''"),
+    ("candidate", "experience_level", "text NOT NULL DEFAULT ''"),
+    ("candidate", "goal", "text NOT NULL DEFAULT ''"),
 )
 
 

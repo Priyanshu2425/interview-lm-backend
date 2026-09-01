@@ -11,7 +11,7 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.corpus.adapters.notebook.extract import (
+from interviewer.adapters.internal.notebook.extract import (
     extract, extract_html, extract_pdf,
 )
 from pdf_fixtures import scanned_pdf, text_pdf
@@ -176,8 +176,8 @@ def test_a_notebook_of_only_stubs_is_valid(notebooks):
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -203,7 +203,7 @@ def test_a_stub_module_is_listed_unselectable_and_unreachable(client):
     listed = {
         m["module_id"]: m
         for m in client.get(
-            "/v1/corpus/modules", params={"candidate_id": "cand-s"}
+            "/v1/skills/modules", params={"candidate_id": "cand-s"}
         ).json()
     }
     assert module_id in listed, "a stub Module was hidden rather than shown"

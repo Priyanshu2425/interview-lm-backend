@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from interviewer.corpus.adapters.interview_lm import AdapterError, ingest
-from interviewer.corpus.contract import (
+from interviewer.adapters.interview_lm import AdapterError, ingest
+from interviewer.model.corpus import (
     Corpus,
     CorpusProvenance,
     GradingMode,
@@ -22,7 +22,7 @@ from interviewer.corpus.contract import (
     Topic,
     Track,
 )
-from interviewer.corpus.loader import DossierLoader, TopicNotFound
+from interviewer.service.corpus.loader import DossierLoader, TopicNotFound
 
 
 # -- the real Corpus ingests, and reports what the documents claim -----------

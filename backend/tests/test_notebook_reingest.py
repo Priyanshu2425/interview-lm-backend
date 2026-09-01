@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.corpus.conformance import validate
+from interviewer.service.corpus.conformance import validate
 
 
 @pytest.fixture()
@@ -110,7 +110,7 @@ def test_a_version_event_survives_the_notebook_it_describes(
 
 
 def test_re_ingest_never_re_clusters_a_frozen_source(notebooks, base, real_notes):
-    from interviewer.corpus.adapters.notebook import reingest
+    from interviewer.adapters.internal.notebook import reingest
 
     calls = []
     original = reingest.cluster_chunks
@@ -166,7 +166,7 @@ def test_the_similarity_floor_is_named_not_buried():
     """The one judgement call in the matcher is a named, explained constant."""
     import inspect
 
-    from interviewer.corpus.adapters.notebook import reingest
+    from interviewer.adapters.internal.notebook import reingest
 
     assert isinstance(reingest.MATCH_FLOOR, float)
     assert 0.0 < reingest.MATCH_FLOOR < 1.0
@@ -201,7 +201,7 @@ def test_evidence_accumulated_before_a_re_ingest_still_reads_after_it(
     re-minted ids would leave that posterior orphaned — no error, just a number
     that stopped meaning what it meant.
     """
-    from interviewer.confidence.store import ConfidenceStore
+    from interviewer.service.confidence.store import ConfidenceStore
     from interviewer.db import schema as S
     import sqlalchemy as sa
 

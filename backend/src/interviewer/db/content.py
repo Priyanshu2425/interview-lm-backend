@@ -61,6 +61,11 @@ notebook = Table(
     # Personal is the default, so a deployment that never creates a shared
     # Corpus behaves exactly as it did before this column existed.
     Column("visibility", String, nullable=False, server_default=PERSONAL),
+    # Discovery only, not deletion. A shared Corpus taken off active duty
+    # disappears from module listings and new-Session scoping, but a Topic it
+    # already produced Evidence for stays fully readable — the same "Evidence
+    # stays" boundary ISSUE-0027 already draws for a deleted notebook.
+    Column("active", sa.Boolean, nullable=False, server_default=sa.true()),
     # Recorded, not assumed: a change of model re-embeds, and Topic membership
     # is carried across rather than recomputed (ISSUE-0022).
     Column("embedding_model", String, nullable=False),

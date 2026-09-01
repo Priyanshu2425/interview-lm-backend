@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from interviewer._audit.coverage import COVERAGE
+from interviewer.service._audit.coverage import COVERAGE
 
 DOCS = pathlib.Path(__file__).resolve().parents[2] / "docs" / "prd"
 SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "interviewer"

@@ -11,8 +11,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from interviewer.corpus.adapters.notebook import HashingEmbedder
-from interviewer.notebooks.metering import InsufficientBalance, estimate
+from interviewer.adapters.internal.notebook import HashingEmbedder
+from interviewer.service.notebooks.metering import InsufficientBalance, estimate
 
 
 class Priced(HashingEmbedder):
@@ -43,8 +43,8 @@ class Priced_Setup:
 
 @pytest.fixture()
 def priced(content_db, clean_db):
-    from interviewer.metering.ledger import CreditLedger
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.metering.ledger import CreditLedger
+    from interviewer.service.notebooks import NotebookService
 
     embedder = Priced()
     ledger = CreditLedger(clean_db)

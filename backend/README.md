@@ -1,4 +1,4 @@
-# backend
+  # backend
 
 The Python implementation (ADR-0009), built from the slices in `docs/issues/`.
 Every module names the ADR or PRD that decides its shape.
@@ -27,7 +27,7 @@ the scrapers address `data/` and `.auth/` relative to the working directory:
 
 | | |
 |---|---|
-| `import_corpus.py` | a conformant Corpus into Postgres. Resumable, no-op per Module on a re-run |
+| `import_corpus.py` | **deprecated** — a conformant Corpus into Postgres. Resumable, no-op per Module on a re-run. Create and populate a shared Skill through the admin dashboard instead; this script still backs bulk structured loads via `POST /operator/skills/{id}/import` |
 | `pin_requirements.py` | regenerates `requirements.txt` from the environment the suite passes in |
 | `reset_embeddings.py` | re-embeds every notebook with the configured provider |
 | `publish_model.py` | a Hugging Face checkpoint to the bucket, so a boot needs no hub |
@@ -47,14 +47,14 @@ Local only. The deployment is a VPS talking to Neon — `.env.prod.example` in
 this directory is that set, and `deploy.sh` is what runs it.
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements-dev.txt
-.venv/bin/pip install -e backend
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements-dev.txt
+backend/.venv/bin/pip install -e backend
 docker run -d --name cortex-pg -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex \
   -e POSTGRES_DB=cortex -p 55432:5432 pgvector/pgvector:pg16
 
-.venv/bin/python -m pytest backend/tests -q           # 840 tests, ~100s
-.venv/bin/uvicorn interviewer.api.app:app --port 8000 # the API
+backend/.venv/bin/python -m pytest backend/tests -q           # 840 tests, ~100s
+backend/.venv/bin/uvicorn interviewer.app:app --port 8000 # the API
 ```
 
 The container keeps the name it was created with. It is local scratch: drop it
@@ -69,12 +69,6 @@ to install.
 
 Without `OPENROUTER_API_KEY` the provider transport is a deterministic
 stand-in, so everything runs offline. With it, real calls are metered.
-
-Validate a Corpus on its own:
-
-```bash
-.venv/bin/python -m interviewer.corpus.cli data/corpus.json
-```
 
 ## Database
 
@@ -131,7 +125,7 @@ What guards you, and what does not:
 
   ```bash
   DATABASE_URL="$(grep '^DATABASE_URL=' backend/.env | cut -d= -f2-)" \
-    .venv/bin/python -m interviewer.corpus.cli ...
+    backend/.venv/bin/python backend/scripts/import_corpus.py ...
   ```
 
   The prefix form matters: it exports for that one command. A bare assignment
@@ -143,7 +137,7 @@ What guards you, and what does not:
 ### Which database am I on?
 
 ```bash
-.venv/bin/python -c "import sys;sys.path.insert(0,'backend/src');\
+backend/.venv/bin/python -c "import sys;sys.path.insert(0,'backend/src');\
 import sqlalchemy as sa;from interviewer.db.engine import dsn;\
 print(sa.engine.make_url(dsn()).host)"
 ```
@@ -160,11 +154,14 @@ an absent graph schema on a fresh deployment is expected, not a fault. The role 
 installed on the shared project already.
 
 Importing the shipped Corpus is a separate, resumable step, and a no-op per
-Module on a re-run:
+Module on a re-run. **This script is deprecated** — the admin dashboard's "New
+Skill" plus drag-and-drop upload is the documented way to create and populate a
+shared Skill going forward; this remains the way to bulk-load pre-structured
+material (it drives the same `POST /operator/skills/{id}/import` route):
 
 ```bash
 DATABASE_URL="$(grep '^INTERVIEW_LM_DATABASE_URL=' backend/.env | cut -d= -f2-)" \
-  .venv/bin/python backend/scripts/import_corpus.py --title "InterviewLM"
+  backend/.venv/bin/python backend/scripts/import_corpus.py --title "InterviewLM"
 ```
 
 One variable, for one command, and never exported — which is the whole point.

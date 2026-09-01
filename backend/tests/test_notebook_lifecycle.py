@@ -15,8 +15,8 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -114,7 +114,7 @@ def test_a_session_can_be_scoped_to_ready_modules_while_others_are_stubs(
 def test_deleting_a_notebook_empties_content_and_keeps_every_evidence_row(
     client, ingested, real_notes, engine
 ):
-    from interviewer.confidence.store import ConfidenceStore, EvidenceLedger
+    from interviewer.service.confidence.store import ConfidenceStore, EvidenceLedger
 
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
         client, ingested, real_notes
@@ -144,7 +144,7 @@ def test_a_retired_topic_is_gone_from_the_picker_and_refused_by_a_session(
     client.delete(f"/v1/notebooks/{notebook_id}")
 
     listed = client.get(
-        "/v1/corpus/modules", params={"candidate_id": candidate}
+        "/v1/skills/modules", params={"candidate_id": candidate}
     ).json()
     assert module_id not in {m["module_id"] for m in listed}
 
@@ -224,7 +224,7 @@ def test_deleting_one_source_retires_only_that_modules_topics(
     listed = {
         m["module_id"]
         for m in client.get(
-            "/v1/corpus/modules", params={"candidate_id": "cand-one"}
+            "/v1/skills/modules", params={"candidate_id": "cand-one"}
         ).json()
     }
     assert first["module_id"] not in listed
@@ -235,7 +235,7 @@ def test_deleting_a_notebook_mid_session_ends_it_after_the_current_visit(
     client, ingested, real_notes, engine
 ):
     """The soft deadline already built for duration, reused for deletion."""
-    from interviewer.confidence.store import EvidenceLedger
+    from interviewer.service.confidence.store import EvidenceLedger
 
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-mid", "title": "Notes"}

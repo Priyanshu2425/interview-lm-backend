@@ -7,10 +7,10 @@ that, and the explicit handling we refuse to leave to the model.
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
-from interviewer.judge.interviewer import Interviewer
-from interviewer.graph.ports import ScriptedModel
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
+from interviewer.service.judge.interviewer import Interviewer
+from interviewer.service.graph.ports import ScriptedModel
 
 CANDIDATE = "cand_region"
 
@@ -154,8 +154,8 @@ def test_a_model_that_returns_nothing_useful_closes_rather_than_looping():
 
 
 def _dossier():
-    from interviewer.corpus.contract import GradingMode
-    from interviewer.corpus.loader import Dossier
+    from interviewer.model.corpus import GradingMode
+    from interviewer.service.corpus.loader import Dossier
 
     return Dossier(
         topic_id="t", topic_title="T", module_id="m", module_title="M",

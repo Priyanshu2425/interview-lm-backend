@@ -1,8 +1,8 @@
 """ISSUE-0004/0005 — the Session summary a Candidate reads at the end."""
 
-from interviewer.confidence.summary import SummaryService
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
+from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
 
 CAND = "cand_summary"
 

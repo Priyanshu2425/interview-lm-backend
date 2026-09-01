@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.corpus.adapters.notebook import (
+from interviewer.adapters.internal.notebook import (
     HashingEmbedder, Notebook, Source, ingest_notebook,
 )
-from interviewer.corpus.conformance import validate
-from interviewer.corpus.contract import GradingMode, LeafKind
+from interviewer.service.corpus.conformance import validate
+from interviewer.model.corpus import GradingMode, LeafKind
 
 WORKED = """# Exercises: bias and variance
 
@@ -107,7 +107,7 @@ def test_every_key_is_text_that_came_from_the_source(mined):
 
 
 def test_ground_truth_never_reaches_the_question_asker(mined):
-    from interviewer.corpus.loader import DossierLoader
+    from interviewer.service.corpus.loader import DossierLoader
 
     loader = DossierLoader(mined.corpus)
     for topic in mined.corpus.topics:
@@ -120,7 +120,7 @@ def test_ground_truth_never_reaches_the_question_asker(mined):
 
 
 def test_a_key_is_retrievable_by_the_prompt_it_answers(mined):
-    from interviewer.corpus.loader import DossierLoader
+    from interviewer.service.corpus.loader import DossierLoader
 
     loader = DossierLoader(mined.corpus)
     for topic in mined.corpus.topics:
@@ -152,7 +152,7 @@ def test_the_picker_reports_the_ground_truth_a_notebook_carries(notebooks):
     added = notebooks.add_source(
         "nb-gt2", source_id="s1", title="Exercises", text=WORKED
     )
-    from interviewer.corpus.service import CorpusService
+    from interviewer.service.corpus import CorpusService
 
     reading = CorpusService(notebooks.corpus("nb-gt2")).modules()[0]
     assert reading.ground_truth_topic_count >= 1

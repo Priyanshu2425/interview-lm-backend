@@ -16,13 +16,13 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.corpus.related import MIN_SCORE, TOP_K, centre, rank
+from interviewer.service.corpus.related import MIN_SCORE, TOP_K, centre, rank
 
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -42,7 +42,7 @@ def library(served_corpus):
 
 
 def _first_topic(notebook_id: str) -> str:
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     return sorted(get_notebook_service().store.frozen_topics(notebook_id))[0]
 
@@ -51,7 +51,7 @@ def _first_topic(notebook_id: str) -> str:
 
 def test_a_topic_returns_its_neighbours(client, library):
     topic_id = _first_topic(library)
-    response = client.get(f"/v1/corpus/topics/{topic_id}/related")
+    response = client.get(f"/v1/skills/topics/{topic_id}/related")
     assert response.status_code == 200
     body = response.json()
     assert 1 <= len(body) <= TOP_K
@@ -63,7 +63,7 @@ def test_a_topic_returns_its_neighbours(client, library):
 def test_neighbours_arrive_ranked_and_the_surface_reorders_nothing(client, library):
     """ADR-0009: the client draws what the server decided."""
     body = client.get(
-        f"/v1/corpus/topics/{_first_topic(library)}/related"
+        f"/v1/skills/topics/{_first_topic(library)}/related"
     ).json()
     scores = [row["score"] for row in body]
     assert scores == sorted(scores, reverse=True)
@@ -72,17 +72,17 @@ def test_neighbours_arrive_ranked_and_the_surface_reorders_nothing(client, libra
 
 def test_a_topic_is_never_returned_as_its_own_neighbour(client, library):
     wanted = _first_topic(library)
-    body = client.get(f"/v1/corpus/topics/{wanted}/related").json()
+    body = client.get(f"/v1/skills/topics/{wanted}/related").json()
     assert wanted not in {row["topic_id"] for row in body}
 
 
 def test_an_unknown_topic_is_a_404(client, library):
-    assert client.get("/v1/corpus/topics/nope/related").status_code == 404
+    assert client.get("/v1/skills/topics/nope/related").status_code == 404
 
 
 def test_a_deployment_holding_no_corpus_still_serves_the_route(client):
     """Nothing stored is a real deployment, not a broken one."""
-    assert client.get("/v1/corpus/topics/anything/related").status_code == 404
+    assert client.get("/v1/skills/topics/anything/related").status_code == 404
 
 
 def test_the_route_embeds_nothing(client, library, monkeypatch):
@@ -91,7 +91,7 @@ def test_the_route_embeds_nothing(client, library, monkeypatch):
     Every vector this compares was written at ingest. If anything on this path
     reached an embedder, this would fail.
     """
-    from interviewer.corpus.adapters.notebook.embedding import HashingEmbedder
+    from interviewer.adapters.internal.embedding import HashingEmbedder
 
     def forbidden(*a, **kw):
         raise AssertionError("the related route must not embed anything")
@@ -99,7 +99,7 @@ def test_the_route_embeds_nothing(client, library, monkeypatch):
     monkeypatch.setattr(HashingEmbedder, "embed", forbidden)
     monkeypatch.setattr(HashingEmbedder, "embed_images", forbidden, raising=False)
     assert client.get(
-        f"/v1/corpus/topics/{_first_topic(library)}/related"
+        f"/v1/skills/topics/{_first_topic(library)}/related"
     ).status_code == 200
 
 
@@ -119,10 +119,10 @@ def test_a_topic_from_another_library_is_never_a_neighbour(
         json={"title": "More notes", "text": real_notes + "\n\nAnd more.\n"},
     )
     ingested(client, other)
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     mine = set(get_notebook_service().store.frozen_topics(library))
-    body = client.get(f"/v1/corpus/topics/{_first_topic(library)}/related").json()
+    body = client.get(f"/v1/skills/topics/{_first_topic(library)}/related").json()
     assert {row["topic_id"] for row in body} <= mine
 
 
@@ -197,10 +197,10 @@ def test_a_library_of_a_handful_of_topics_has_no_neighbours(client, ingested, re
         json={"title": "AIML notes", "text": real_notes},
     )
     ingested(client, notebook_id)
-    from interviewer.api.deps import get_notebook_service, refresh_corpus
+    from interviewer.deps import get_notebook_service, refresh_corpus
 
     refresh_corpus()
     topics = sorted(get_notebook_service().store.frozen_topics(notebook_id))
     assert len(topics) < 10
-    body = client.get(f"/v1/corpus/topics/{topics[0]}/related").json()
+    body = client.get(f"/v1/skills/topics/{topics[0]}/related").json()
     assert body == []

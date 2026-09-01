@@ -180,7 +180,7 @@ Two consequences worth stating outright:
   is fixed or justified in `docs/qa/2026-08-22-issue-0020-pass.md`. Both need a
   real API on port 8000, or `BASE` pointing at one.
 
-Backend: `.venv/bin/python -m pytest backend/tests -q` (751 tests in about 70
+Backend: `backend/.venv/bin/python -m pytest backend/tests -q` (751 tests in about 70
 seconds, plus eight skipped until `INTERVIEWER_MODEL_TESTS=1` loads real weights
 — those eight include the quality floor for Related Topics, which is the only
 check that would notice the embedding space collapsing).
@@ -189,3 +189,22 @@ Roughly half the runtime is one fixture. `served_corpus` gives a test an API
 serving imported material, which after ISSUE-0037 means an embed and eight
 hundred inserts; it is done once per session and copied out of a template schema
 per test. If it starts dominating again, that copy is the thing to look at.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as files in `docs/issues/`, one tracer-bullet slice per file, indexed by
+set in `docs/issues/README.md`. The GitHub Issues tab is not the tracker. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, unrenamed, written on an issue's `Status:` line. The
+existing `Type: AFK` / `Type: **HITL**` axis is separate and untouched. See
+`docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and one `docs/adr/` at the root, both halves under
+them. See `docs/agents/domain.md`.

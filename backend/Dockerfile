@@ -74,4 +74,4 @@ EXPOSE 8000
 # `PORT` because platforms assign one. One worker on purpose: the LangGraph
 # checkpointer and the connection pool are per-process, and a free tier has
 # neither the memory nor the traffic to want more.
-CMD ["sh", "-c", "uvicorn interviewer.api.app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "uvicorn interviewer.app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

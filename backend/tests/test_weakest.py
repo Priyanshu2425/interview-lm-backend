@@ -2,7 +2,7 @@
 
 import sqlalchemy as sa
 
-from interviewer.confidence.summary import SummaryService
+from interviewer.service.confidence.summary import SummaryService
 from interviewer.db import schema as S
 
 CAND = "cand_weak"

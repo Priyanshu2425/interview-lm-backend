@@ -12,9 +12,9 @@ import math
 
 import pytest
 
-from interviewer.embeddings import make_embedder
-from interviewer.embeddings.errors import EmbeddingContractError
-from interviewer.embeddings.openrouter import PRICES, OpenRouterEmbedder
+from interviewer.service.embeddings import make_embedder
+from interviewer.service.embeddings.errors import EmbeddingContractError
+from interviewer.service.embeddings.openrouter import PRICES, OpenRouterEmbedder
 
 
 def build(**kw) -> OpenRouterEmbedder:
@@ -100,7 +100,7 @@ def test_it_reports_a_price_so_an_ingest_can_be_costed():
 
 def test_it_is_refused_while_nobody_has_said_to_spend_money():
     """ADR-0016's gate outlives ADR-0016's problem: paid is still opt-in."""
-    from interviewer.embeddings.errors import PaidProviderRefused
+    from interviewer.service.embeddings.errors import PaidProviderRefused
 
     with pytest.raises(PaidProviderRefused):
         make_embedder({
@@ -110,7 +110,7 @@ def test_it_is_refused_while_nobody_has_said_to_spend_money():
 
 
 def test_it_satisfies_the_port_it_is_injected_through():
-    from interviewer.corpus.adapters.notebook.embedding import Embedder, ImageEmbedder
+    from interviewer.adapters.internal.embedding import Embedder, ImageEmbedder
 
     embedder = build()
     assert isinstance(embedder, Embedder)

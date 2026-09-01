@@ -3,8 +3,8 @@
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_resume"
 
@@ -33,7 +33,7 @@ def test_an_answer_submitted_before_an_interruption_is_still_graded(deps, clean_
     vid = first.payload["topic_visit_id"]
 
     # simulate: answer accepted and stored, then the process dies before grading
-    from interviewer.corpus.contract import GradingMode
+    from interviewer.model.corpus import GradingMode
     deps.visits.record_answer(
         vid,
         exchange={"turns": [
@@ -92,8 +92,8 @@ def test_session_state_is_readable_without_instantiating_a_graph(deps):
     sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     r.submit(sid, "answer")
 
-    from interviewer.confidence.store import ConfidenceStore
-    from interviewer.graph.sessions import SessionStore
+    from interviewer.service.confidence.store import ConfidenceStore
+    from interviewer.service.graph.sessions import SessionStore
 
     assert SessionStore(deps.sessions._e).get(sid)["state"] in ("running", "ended")
     assert ConfidenceStore(deps.confidence._e).all_for(CANDIDATE)
@@ -103,8 +103,8 @@ def test_session_state_is_readable_without_instantiating_a_graph(deps):
 
 def _run(deps, seed, answers):
     import numpy as np
-    from interviewer.graph.ports import Ports, FrozenClock, ScriptedModel
-    from interviewer.graph.machine import Deps
+    from interviewer.service.graph.ports import Ports, FrozenClock, ScriptedModel
+    from interviewer.service.graph.machine import Deps
 
     model = ScriptedModel(default="SCORE: 0.8\nWHY: fine.")
     d = Deps(
@@ -144,8 +144,8 @@ def test_a_different_injected_randomness_can_produce_a_different_session(deps):
 def test_replaying_with_a_changed_rubric_produces_different_scores(deps):
     """The property that makes grading measurable rather than asserted."""
     import numpy as np
-    from interviewer.graph.machine import Deps
-    from interviewer.graph.ports import FrozenClock, Ports, ScriptedModel
+    from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.ports import FrozenClock, Ports, ScriptedModel
 
     def run_with(score_text, cand):
         model = ScriptedModel(default=score_text)

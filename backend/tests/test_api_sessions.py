@@ -8,9 +8,9 @@ from conftest import signed_in_client
 OPERATOR = {"x-operator-token": "dev-operator-token"}
 from fastapi.testclient import TestClient
 
-from interviewer.api import idempotency
-from interviewer.api.app import create_app
-from interviewer.api.wiring import wiring
+from interviewer import idempotency
+from interviewer.app import create_app
+from interviewer.wiring import wiring
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ def client(clean_db, served_corpus):
 @pytest.fixture()
 def module_ids(client):
     return [m["module_id"] for m in
-            client.get("/v1/corpus/modules", params={"track": "aiml"}).json()]
+            client.get("/v1/skills/modules", params={"track": "aiml"}).json()]
 
 
 def _start(client, module_ids, cand="c_api", seconds=1800, **kw):
@@ -144,7 +144,7 @@ def test_no_candidate_facing_route_returns_an_answer_key(client, module_ids, cor
 
     for path in (
         f"/v1/sessions/{b['session_id']}",
-        f"/v1/corpus/topics/{b['topic_id']}",
+        f"/v1/skills/topics/{b['topic_id']}",
         "/v1/candidates/me/confidence",
     ):
         assert key_text[:120] not in client.get(path).text

@@ -170,7 +170,7 @@ const DB = "docker exec cortex-pg psql -U cortex -t -c";
 const PLAN = [
 {n:"00",t:"Bring the whole thing up",note:"Frontend and backend are one origin: the API serves the surface.",items:[
  {id:"a1",t:"The stack starts and the surface is served by the API",why:"SPEC-0003 §1a — one origin, so no CORS",steps:[
-   {k:"ui",s:"Start Postgres and the API.",cmd:"docker start cortex-pg 2>/dev/null || docker run -d --name cortex-pg \\\n  -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex -e POSTGRES_DB=cortex \\\n  -p 55432:5432 postgres:16-alpine\n.venv/bin/uvicorn interviewer.api.app:app --port 8000"},
+   {k:"ui",s:"Start Postgres and the API.",cmd:"docker start cortex-pg 2>/dev/null || docker run -d --name cortex-pg \\\n  -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex -e POSTGRES_DB=cortex \\\n  -p 55432:5432 postgres:16-alpine\n.venv/bin/uvicorn interviewer.app:app --port 8000"},
    {k:"ui",s:"Open the surface and confirm it is served from the same origin as the API.",cmd:"open http://127.0.0.1:8000/"},
    {k:"ui",s:"Open the browser console and keep it open for the whole pass."}],
   expect:"The setup screen renders. <b>No CORS error and no failed asset</b> in the console — the surface is static files served by FastAPI, not a second server."},

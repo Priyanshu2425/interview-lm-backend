@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from conftest import signed_in_client
-from interviewer.api.app import create_app
+from interviewer.app import create_app
 
 OPERATOR = {"x-operator-token": "dev-operator-token"}
 
@@ -30,8 +30,8 @@ GUARDED = [
     ("post", "/v1/candidates/me/byok"),
     ("delete", "/v1/candidates/me/byok/key_1"),
     ("get", "/v1/notebooks"),
-    ("get", "/v1/corpus/modules"),
-    ("get", "/v1/corpus/provenance"),
+    ("get", "/v1/skills/modules"),
+    ("get", "/v1/skills/provenance"),
     ("post", "/v1/notebooks"),
     ("post", "/v1/sessions"),
 ]
@@ -140,7 +140,7 @@ def test_no_route_takes_a_candidate_id_from_the_caller():
 
 
 def _a_session(client, monkeypatch=None):
-    modules = client.get("/v1/corpus/modules", params={"track": "aiml"}).json()
+    modules = client.get("/v1/skills/modules", params={"track": "aiml"}).json()
     client.post("/v1/credits/grants", headers=OPERATOR, json={
         "candidate_id": "cand_owner", "credits": 90_000, "payment_ref": "p1"})
     r = client.post("/v1/sessions", json={
@@ -199,7 +199,7 @@ def test_a_shared_corpus_stays_readable_by_everyone(clean_db):
     Candidate's route that would create one (ISSUE-0032).
     """
     owner = signed_in_client("cand_owner")
-    created = owner.post("/v1/operator/corpora", json={"title": "Shared"},
+    created = owner.post("/v1/operator/skills", json={"title": "Shared"},
                          headers=OPERATOR)
     assert created.status_code == 201, created.text
     notebook_id = created.json()["notebook_id"]

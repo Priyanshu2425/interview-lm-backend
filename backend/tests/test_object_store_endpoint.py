@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.embeddings.artifacts import R2_REGION, _client, endpoint_url
-from interviewer.embeddings.errors import EmbeddingUnavailable
+from interviewer.service.embeddings.artifacts import R2_REGION, _client, endpoint_url
+from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
 R2 = "https://acc0unt.r2.cloudflarestorage.com"
 CREDS = {"R2_ACCESS_KEY_ID": "token-id", "R2_SECRET_ACCESS_KEY": "token-secret"}

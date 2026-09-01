@@ -22,8 +22,8 @@ HDR = {"x-operator-token": "dev-operator-token"}
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -38,7 +38,7 @@ def _personal(client, candidate="cand-own", title="My notes"):
 
 
 def _shared(client, title="InterviewLM"):
-    response = client.post("/v1/operator/corpora", json={"title": title}, headers=HDR)
+    response = client.post("/v1/operator/skills", json={"title": title}, headers=HDR)
     assert response.status_code == 201, response.text
     return response.json()["notebook_id"]
 
@@ -85,16 +85,16 @@ def test_a_candidate_cannot_create_a_shared_corpus(client):
 
 def test_an_operator_can_create_a_shared_corpus(client):
     notebook_id = _shared(client)
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     record = get_notebook_service().store.get(notebook_id)
     assert record.visibility == "shared"
 
 
 def test_creating_a_shared_corpus_is_authenticated_as_an_operator(client):
-    assert client.post("/v1/operator/corpora", json={"title": "X"}).status_code == 401
+    assert client.post("/v1/operator/skills", json={"title": "X"}).status_code == 401
     assert client.post(
-        "/v1/operator/corpora", json={"title": "X"},
+        "/v1/operator/skills", json={"title": "X"},
         headers={"x-operator-token": "wrong"},
     ).status_code == 401
 
@@ -124,7 +124,7 @@ def test_a_candidate_may_not_add_a_source_to_a_shared_corpus(client, real_notes)
 def test_an_operator_may_add_a_source_to_a_shared_corpus(client, real_notes):
     notebook_id = _shared(client)
     response = client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
     )
     assert response.status_code == 201
@@ -139,8 +139,8 @@ def test_deleting_a_shared_corpus_is_refused_at_the_service(client, real_notes):
     A constraint that holds only because nobody wrote the call is a constraint
     that lasts until somebody does.
     """
-    from interviewer.api.deps import get_notebook_service
-    from interviewer.notebooks import SharedCorpusIsNotYours
+    from interviewer.deps import get_notebook_service
+    from interviewer.service.notebooks import SharedCorpusIsNotYours
 
     notebook_id = _shared(client)
     svc = get_notebook_service()
@@ -160,7 +160,7 @@ def test_deleting_one_source_of_a_shared_corpus_is_refused_too(client, real_note
     """The retire path is the damage, and a Source carries Topics like a Corpus."""
     notebook_id = _shared(client)
     source_id = client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
     ).json()["source_id"]
     response = client.delete(f"/v1/notebooks/{notebook_id}/sources/{source_id}")
@@ -175,7 +175,7 @@ def test_the_guard_reads_visibility_and_not_the_owner_string(content_db):
     called `platform` undeletable, and a shared Corpus imported under an
     operator's own id deletable.
     """
-    from interviewer.notebooks import NotebookStore
+    from interviewer.repository.notebooks import NotebookStore
 
     store = NotebookStore(content_db)
     store.create("nb-odd", "platform", "Owned by a candidate called platform",
@@ -200,7 +200,7 @@ def test_deleting_a_personal_corpus_behaves_exactly_as_before(client, real_notes
 def test_a_shared_corpus_is_visible_to_every_candidate(client, real_notes):
     notebook_id = _shared(client)
     client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
     )
     for candidate in ("cand-a", "cand-b"):
@@ -212,11 +212,11 @@ def test_a_shared_corpus_is_visible_to_every_candidate(client, real_notes):
 def test_a_shared_corpus_appears_in_the_picker_for_everyone(client, real_notes):
     notebook_id = _shared(client)
     module_id = client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
     ).json()["module_id"]
     for candidate in ("cand-a", "cand-b"):
-        modules = client.get(f"/v1/corpus/modules?candidate_id={candidate}").json()
+        modules = client.get(f"/v1/skills/modules?candidate_id={candidate}").json()
         assert module_id in {m["module_id"] for m in modules}
 
 
@@ -241,14 +241,14 @@ def test_two_candidates_examined_on_a_shared_topic_hold_the_same_topic_id(
     """
     notebook_id = _shared(client)
     module_id = client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
     ).json()["module_id"]
 
     def topics_for(candidate: str) -> set[str]:
-        modules = client.get(f"/v1/corpus/modules?candidate_id={candidate}").json()
+        modules = client.get(f"/v1/skills/modules?candidate_id={candidate}").json()
         assert module_id in {m["module_id"] for m in modules}
-        from interviewer.api.deps import get_corpus
+        from interviewer.deps import get_corpus
 
         return {
             t.id for m in get_corpus().modules if m.id == module_id for t in m.topics
@@ -266,13 +266,13 @@ def test_a_personal_corpus_yields_no_comparison(client, real_notes):
     Said out loud anyway, because the absence of a rule is not obvious to the
     next reader — and ISSUE-0036 will be reaching for exactly this seam.
     """
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     notebook_id = _personal(client)
     assert get_notebook_service().comparable(notebook_id) is False
 
 
 def test_a_shared_corpus_is_what_a_comparison_may_be_drawn_over(client):
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     assert get_notebook_service().comparable(_shared(client)) is True

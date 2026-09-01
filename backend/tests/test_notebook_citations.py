@@ -11,8 +11,8 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.corpus.citations import render, resolve
-from interviewer.corpus.loader import DossierLoader
+from interviewer.service.corpus.citations import render, resolve
+from interviewer.service.corpus.loader import DossierLoader
 
 
 @pytest.fixture()
@@ -76,8 +76,8 @@ def test_a_cortex_topic_cites_nothing_and_still_renders(corpus, loader):
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -124,7 +124,7 @@ def test_a_graded_visit_carries_the_spans_that_grounded_its_question(
     session_id, payload = _run_one_visit(client, ingested, real_notes)
     assert payload, "no Visit closed"
 
-    from interviewer.confidence.store import EvidenceLedger
+    from interviewer.service.confidence.store import EvidenceLedger
 
     rows = EvidenceLedger(engine).for_session(session_id)
     assert rows, "a graded Visit wrote no Evidence"
@@ -149,7 +149,7 @@ def test_no_citation_path_queries_anything_during_a_session(
 ):
     """ADR-0005 as amended: the index is read at ingest and for attribution,
     never to answer a question."""
-    from interviewer.corpus.adapters.notebook import embedding
+    from interviewer.adapters.internal import embedding
 
     embedded = []
     original = embedding.HashingEmbedder.embed

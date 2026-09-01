@@ -2,17 +2,17 @@
 
 import pytest
 
-from interviewer.corpus.adapters import markdown_folder
-from interviewer.corpus.conformance import (
+from interviewer.adapters import markdown_folder
+from interviewer.service.corpus.conformance import (
     CONFORMANCE_EXPECTATIONS, diff_topics, fixture_corpus, validate,
 )
-from interviewer.corpus.contract import GradingMode
-from interviewer.corpus.loader import DossierLoader
+from interviewer.model.corpus import GradingMode
+from interviewer.service.corpus.loader import DossierLoader
 
 
 def test_the_report_names_every_violation_not_only_the_first():
     """An Adapter author fixing one error at a time is the failure mode."""
-    from interviewer.corpus.contract import (
+    from interviewer.model.corpus import (
         Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
     )
 
@@ -56,7 +56,7 @@ def test_leaves_with_no_content_are_kept_as_stubs_not_omitted(corpus):
 
 
 def test_a_topic_that_is_all_stubs_is_flagged_rather_than_rejected():
-    from interviewer.corpus.contract import (
+    from interviewer.model.corpus import (
         Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
     )
 
@@ -78,7 +78,7 @@ def test_a_topic_that_is_all_stubs_is_flagged_rather_than_rejected():
 
 
 def test_a_reingest_that_moves_topic_boundaries_is_reported(corpus, corpus_path):
-    from interviewer.corpus.adapters.interview_lm import ingest
+    from interviewer.adapters.interview_lm import ingest
 
     same = diff_topics(corpus, ingest(corpus_path))
     assert same == {"added": [], "removed": [], "leaves_changed": [], "stable": 71}
@@ -90,7 +90,7 @@ def test_a_reingest_that_moves_topic_boundaries_is_reported(corpus, corpus_path)
 
 
 def test_the_cli_validates_a_corpus_locally(corpus_path, capsys):
-    from interviewer.corpus.cli import main
+    from interviewer.util.cli import main
 
     assert main(["cli", str(corpus_path)]) == 0
     out = capsys.readouterr().out
@@ -98,7 +98,7 @@ def test_the_cli_validates_a_corpus_locally(corpus_path, capsys):
 
 
 def test_the_cli_reports_a_broken_corpus_rather_than_crashing(tmp_path, capsys):
-    from interviewer.corpus.cli import main
+    from interviewer.util.cli import main
 
     bad = tmp_path / "corpus.json"
     bad.write_text("{ not json", encoding="utf-8")

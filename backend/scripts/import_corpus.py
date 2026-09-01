@@ -29,7 +29,21 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 
+#: Deprecated. The admin dashboard's "New Skill" + drag-and-drop upload
+#: replaces this for text and file sources; its structured-import route
+#: (`POST /operator/skills/{id}/import`) replaces it for bulk pre-divided
+#: material like this file still loads. Kept working, not deleted: nothing in
+#: the dashboard's v1 builds a form for a full corpus.json yet.
+_DEPRECATION_NOTICE = (
+    "import_corpus.py is deprecated. Create and populate a shared Skill "
+    "through the admin dashboard instead, or call "
+    "POST /operator/skills/{notebook_id}/import directly for a bulk "
+    "structured load like this one."
+)
+
+
 def main() -> int:
+    print(f"warning: {_DEPRECATION_NOTICE}", file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", default=os.environ.get("CORPUS_PATH")
                         or str(ROOT / "data" / "corpus.json"))
@@ -44,12 +58,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from interviewer.corpus.adapters.interview_lm import ingest
-    from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.adapters.interview_lm import ingest
+    from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import SHARED
     from interviewer.db.engine import create_content, create_core, make_engine
     from interviewer.embeddings import make_embedder
-    from interviewer.metering.ledger import CreditLedger
+    from interviewer.service.metering.ledger import CreditLedger
     from interviewer.notebooks import NotebookService
 
     path = Path(args.corpus)

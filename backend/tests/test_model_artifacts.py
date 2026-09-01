@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from interviewer.embeddings.artifacts import (
+from interviewer.service.embeddings.artifacts import (
     LocalObjectStore, ModelSpec, ensure_local, sha256_of,
 )
-from interviewer.embeddings.errors import EmbeddingUnavailable
+from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
 
 class FakeS3:

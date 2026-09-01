@@ -16,7 +16,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from interviewer.db.content import CONTENT, EMBEDDING_DIM, notebook_chunk, notebook_topic
-from interviewer.notebooks import NotebookService
+from interviewer.service.notebooks import NotebookService
 from pdf_fixtures import image_pdf
 
 #: Long enough to be cut into several chunks, so that adding material to the
@@ -127,7 +127,7 @@ def test_a_model_change_re_embeds_rather_than_reusing(content_db, objects):
     model — two geometries inside one notebook, and nothing anywhere reporting
     it. Keyed on the model as well, a change simply re-embeds.
     """
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook import HashingEmbedder
 
     class Named(HashingEmbedder):
         def __init__(self, name):
@@ -157,7 +157,7 @@ def test_a_model_change_re_embeds_rather_than_reusing(content_db, objects):
 
 def test_the_same_model_still_reuses_across_sources(content_db, objects):
     """The saving is real and must survive the fix that scopes it to a model."""
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook import HashingEmbedder
 
     class Named(HashingEmbedder):
         def __init__(self, name):

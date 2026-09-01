@@ -6,11 +6,11 @@ import pytest
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.metering.client import (
+from interviewer.service.metering.client import (
     Binding, BindingStore, MeteredModelClient, ProviderFailure,
 )
-from interviewer.metering.ledger import CreditLedger, PoolLedger
-from interviewer.metering.transport import ScriptedTransport
+from interviewer.service.metering.ledger import CreditLedger, PoolLedger
+from interviewer.service.metering.transport import ScriptedTransport
 
 CAND = "cand_meter"
 VISIT = "visit_meter_1"

@@ -7,9 +7,9 @@ exhausted balance, and the Session stops at the boundary instead.
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
-from interviewer.metering.credits import HEADROOM_CREDITS
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
+from interviewer.service.metering.credits import HEADROOM_CREDITS
 
 CAND = "cand_credit_session"
 

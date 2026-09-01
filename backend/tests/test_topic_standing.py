@@ -13,11 +13,11 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.confidence.comparison import (
+from interviewer.service.confidence.comparison import (
     COHORT_FLOOR, CoverageStanding, Standing, coverage_percentile,
     rank_within_topic,
 )
-from interviewer.confidence.math import Posterior
+from interviewer.service.confidence.math import Posterior
 
 TOPIC = "aiml-attention"
 
@@ -120,7 +120,7 @@ def test_fewer_than_the_cohort_floor_yields_no_rank_and_a_stated_reason():
 def test_the_cohort_floor_is_one_named_constant_documented_as_provisional():
     """One constant, labelled a guess. Unlike the Evidence Floor it is derived
     from nothing — it is a privacy judgement, and it says so where it is set."""
-    from interviewer.confidence import comparison
+    from interviewer.service.confidence import comparison
 
     assert COHORT_FLOOR == 10
     source = __import__("inspect").getsource(comparison)
@@ -155,7 +155,7 @@ def test_no_function_takes_both_a_rank_and_a_coverage():
     """The refusal, enforced by the absence of a call rather than by review."""
     import inspect
 
-    from interviewer.confidence import comparison
+    from interviewer.service.confidence import comparison
 
     for _, fn in inspect.getmembers(comparison, inspect.isfunction):
         params = inspect.signature(fn).parameters
@@ -189,8 +189,8 @@ HDR = {"x-operator-token": "dev-operator-token"}
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -200,13 +200,13 @@ def client(content_db, clean_db):
 
 def _shared_topic(client, real_notes) -> str:
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
+        "/v1/operator/skills", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     client.post(
-        f"/v1/operator/corpora/{notebook_id}/sources",
+        f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "AIML", "text": real_notes}, headers=HDR,
     )
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     return sorted(get_notebook_service().store.frozen_topics(notebook_id))[0]
 
@@ -220,7 +220,7 @@ def _personal_topic(client, real_notes, ingested) -> str:
         json={"title": "AIML", "text": real_notes},
     )
     ingested(client, notebook_id)
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     return sorted(get_notebook_service().store.frozen_topics(notebook_id))[0]
 
@@ -300,7 +300,7 @@ def test_a_standing_is_asked_for_one_topic_at_a_time(client):
 
 def test_the_two_comparisons_are_never_returned_together(client):
     """Coverage is compared as Coverage, in its own response and nowhere else."""
-    topic = client.get("/v1/corpus/modules").json()
+    topic = client.get("/v1/skills/modules").json()
     body = client.get("/v1/candidates/me/coverage-standing").json()
     assert "rank" not in body and "shared" not in body
     assert topic is not None

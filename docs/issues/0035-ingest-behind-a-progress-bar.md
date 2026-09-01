@@ -123,6 +123,12 @@ Resuming a partial ingest. Re-embedding costs about two cents, and resuming
 would mean chunks belonging to no Module — a class of partial state worth
 considerably more than the two cents it saves.
 
+> **Reopened by ISSUE-0047.** The objection above is unchanged and is not
+> contested: a chunk belonging to no Module is worth more than the embedding.
+> What 0047 puts is that the vectors a killed run leaves behind are not chunks —
+> they carry no Topic, no Module and no order — and that the cost premise, two
+> cents, is from a smaller document and an earlier embedder.
+
 A stall deadline. A worker that stalls inside a live process reports elapsed
 time and time since last progress, and how long is too long is left to whoever
 is reading it: it is unknown until real documents have been through this.

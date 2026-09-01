@@ -12,10 +12,10 @@ import sys
 
 import pytest
 
-from interviewer.corpus.adapters.notebook.embedding import DIM, Embedder
-from interviewer.embeddings import make_embedder, registered
-from interviewer.embeddings.base import BaseEmbedder
-from interviewer.embeddings.errors import PaidProviderRefused
+from interviewer.adapters.internal.embedding import DIM, Embedder
+from interviewer.service.embeddings import make_embedder, registered
+from interviewer.service.embeddings.base import BaseEmbedder
+from interviewer.service.embeddings.errors import PaidProviderRefused
 
 
 def test_the_default_is_the_stub_and_is_explicit():

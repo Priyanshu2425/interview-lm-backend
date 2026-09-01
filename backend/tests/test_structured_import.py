@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from conftest import signed_in_client
 
-from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
+from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
 
 PROSE = (
     "Attention weights every token against every other token, and the softmax "
@@ -48,7 +48,7 @@ GIVEN = [
 
 @pytest.fixture()
 def service(content_db, counting):
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     svc = NotebookService(content_db, embedder=counting)
     svc.create("nb-import", "platform", "InterviewLM")
@@ -76,7 +76,8 @@ def test_a_given_import_keeps_the_ids_it_arrived_with(service):
 
 def test_the_clusterer_and_the_id_minter_are_not_reached(service, monkeypatch):
     """Verified by call count, not by reading the code."""
-    from interviewer.corpus.adapters import notebook
+    from interviewer.adapters import internal as notebook
+    from interviewer.adapters.internal import adapter, clustering  # noqa: F401
 
     def forbidden(*a, **kw):
         raise AssertionError("a structured import must derive no structure")
@@ -93,7 +94,7 @@ def test_the_given_branch_imports_no_clusterer_at_all(service):
     A rule held only by a code path that happens not to be taken is a rule the
     next edit re-opens without noticing.
     """
-    from interviewer.corpus.adapters.notebook import structured
+    from interviewer.adapters.internal.notebook import structured
 
     assert not hasattr(structured, "cluster_chunks")
     assert not hasattr(structured, "Cluster")
@@ -172,7 +173,7 @@ def test_importing_the_same_material_twice_is_the_same_corpus(service):
 
 def test_two_corpora_built_from_one_import_are_byte_identical(content_db, counting):
     """Ids come from the source, so the same material is the same Corpus."""
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     def built(notebook_id: str) -> list[str]:
         svc = NotebookService(content_db, embedder=counting)
@@ -205,7 +206,7 @@ def _dossiers(service) -> dict[str, str]:
 # -- it is an ordinary ingest in every other respect -------------------------
 
 def test_the_imported_corpus_passes_conformance_with_zero_violations(service):
-    from interviewer.corpus.conformance import validate
+    from interviewer.service.corpus.conformance import validate
 
     _import(service)
     report = validate(service.corpus("nb-import"))
@@ -220,8 +221,8 @@ def test_an_import_is_metered_like_any_other_ingest(content_db, counting, clean_
     "this embedder costs nothing", which is exactly what an unpriced route is
     supposed to report rather than collapse into.
     """
-    from interviewer.metering.ledger import CreditLedger
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.metering.ledger import CreditLedger
+    from interviewer.service.notebooks import NotebookService
 
     ledger = CreditLedger(content_db)
     ledger.grant("platform", 100_000, "seed")
@@ -238,9 +239,9 @@ def test_an_import_is_metered_like_any_other_ingest(content_db, counting, clean_
 
 def test_an_import_is_refused_when_the_balance_cannot_cover_it(content_db, clean_db):
     """The gate is the same one, and it stops before the first embedding call."""
-    from interviewer.metering.ledger import CreditLedger
-    from interviewer.notebooks import NotebookService
-    from interviewer.notebooks.metering import InsufficientBalance
+    from interviewer.service.metering.ledger import CreditLedger
+    from interviewer.service.notebooks import NotebookService
+    from interviewer.service.notebooks.metering import InsufficientBalance
 
     class Priced(type(_counting())):
         credits_per_1k_tokens = 500.0
@@ -258,14 +259,14 @@ def test_an_import_is_refused_when_the_balance_cannot_cover_it(content_db, clean
 
 
 def _counting():
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook import HashingEmbedder
 
     return HashingEmbedder()
 
 
 def test_an_import_is_atomic_per_source(content_db, counting):
     """A failure leaves no Module, no Topic and no chunk."""
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     class Exploding(type(counting)):
         def embed(self, texts):
@@ -284,7 +285,7 @@ def test_an_import_is_atomic_per_source(content_db, counting):
 
 def test_a_candidate_cannot_import_into_a_shared_corpus(content_db, counting):
     from interviewer.db.content import SHARED
-    from interviewer.notebooks import NotebookService, SharedCorpusIsNotYours
+    from interviewer.service.notebooks import NotebookService, SharedCorpusIsNotYours
 
     svc = NotebookService(content_db, embedder=counting)
     svc.create("nb-shared", "platform", "InterviewLM", visibility=SHARED)
@@ -304,8 +305,8 @@ HDR = {"x-operator-token": "dev-operator-token"}
 def client(content_db, clean_db):
     from fastapi.testclient import TestClient
 
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -315,10 +316,10 @@ def client(content_db, clean_db):
 
 def _imported_module(client) -> str:
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
+        "/v1/operator/skills", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     response = client.post(
-        f"/v1/operator/corpora/{notebook_id}/import",
+        f"/v1/operator/skills/{notebook_id}/import",
         headers=HDR,
         json={
             "title": "AIML",
@@ -345,7 +346,7 @@ def _imported_module(client) -> str:
 def test_an_import_lands_in_a_shared_corpus_over_the_wire(client):
     module_id = _imported_module(client)
     assert module_id == "m-aiml"
-    modules = client.get("/v1/corpus/modules?candidate_id=cand-any").json()
+    modules = client.get("/v1/skills/modules?candidate_id=cand-any").json()
     listed = next(m for m in modules if m["module_id"] == "m-aiml")
     assert listed["topic_count"] == 3
 
@@ -367,10 +368,10 @@ def test_a_session_scoped_to_an_imported_module_asks_from_its_topics(client):
 
 def test_a_candidate_cannot_reach_the_import_route(client):
     notebook_id = client.post(
-        "/v1/operator/corpora", json={"title": "InterviewLM"}, headers=HDR
+        "/v1/operator/skills", json={"title": "InterviewLM"}, headers=HDR
     ).json()["notebook_id"]
     assert client.post(
-        f"/v1/operator/corpora/{notebook_id}/import",
+        f"/v1/operator/skills/{notebook_id}/import",
         json={"title": "AIML", "topics": [{"topic_id": "t", "title": "T",
                                            "order": 1, "leaves": []}]},
     ).status_code == 401

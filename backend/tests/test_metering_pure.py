@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import pytest
 
-from interviewer.metering.credits import (
+from interviewer.service.metering.credits import (
     HEADROOM_CREDITS,
     Cost,
     CostStatus,
@@ -17,7 +17,7 @@ from interviewer.metering.credits import (
     clears_headroom,
     usd_to_credits,
 )
-from interviewer.metering.failures import (
+from interviewer.service.metering.failures import (
     CREDIT_EVENTS,
     Cause,
     Event,

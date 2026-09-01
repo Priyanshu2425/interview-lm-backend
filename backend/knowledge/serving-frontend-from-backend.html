@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The One-Door House</title>
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --card: #ffffff;
+    --ink: #2b2b2b;
+    --sub: #6b6b6b;
+    --line: #e7dfc9;
+    --house: #4f8a63;
+    --house-2: #b5563c;
+    --shadow: rgba(0,0,0,0.08);
+    --accent: #2f6fed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Verdana, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  header .kicker {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--house);
+    background: #e8f3ec;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+    font-weight: 700;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    margin: 0 0 10px;
+  }
+  header p {
+    color: var(--sub);
+    font-size: 17px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 26px 28px;
+    margin-bottom: 22px;
+    box-shadow: 0 6px 18px var(--shadow);
+  }
+  h2 {
+    font-size: 21px;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    background: var(--house);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  p { margin: 0 0 12px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* --- house diagram --- */
+  .house-diagram {
+    margin: 18px 0 6px;
+    display: flex;
+    justify-content: center;
+  }
+  svg { max-width: 100%; height: auto; }
+
+  .caption {
+    text-align: center;
+    color: var(--sub);
+    font-size: 14px;
+    margin-top: 8px;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  @media (max-width: 560px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+  .box {
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+  .box.no {
+    background: #fdeceb;
+    border: 1px solid #f3bdb6;
+  }
+  .box.yes {
+    background: #e8f3ec;
+    border: 1px solid #bfe0cb;
+  }
+  .box strong { display: block; margin-bottom: 4px; }
+
+  .badge {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    background: #eef2ff;
+    color: #364fc7;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--sub);
+    font-size: 13px;
+    margin-top: 30px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a17;
+      --card: #242320;
+      --ink: #f1ece0;
+      --sub: #a9a397;
+      --line: #37352f;
+      --shadow: rgba(0,0,0,0.35);
+      --house: #6fbf8b;
+      --house-2: #e08a6f;
+      --accent: #7ea6ff;
+    }
+    .box.no { background: #3a2321; border-color: #6b3a34; }
+    .box.yes { background: #223227; border-color: #3d6a4d; }
+    .badge { background: #262c45; color: #a9b8ff; }
+    header .kicker { background: #1f2e24; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="kicker">a little explainer</span>
+    <h1>The One-Door House 🏠</h1>
+    <p>Why the same little server that answers your questions also hands you the picture book.</p>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span> Imagine a lemonade stand</h2>
+    <p>
+      Your friend has a lemonade stand. It's just <em>one</em> little stand,
+      with <em>one</em> window. You walk up to that same window whether you
+      want to <strong>buy lemonade</strong> or just <strong>read the
+      menu</strong> taped to the front.
+    </p>
+    <p>
+      One stand. One window. Everything happens right there.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Two ways to build a house</h2>
+    <p>
+      Now think about apps the same way. An app has two parts: the
+      <strong>frontend</strong> (the pretty screen you tap and see, like the
+      menu) and the <strong>backend</strong> (the brain that knows the
+      answers, like whoever mixes the lemonade).
+    </p>
+    <div class="house-diagram">
+      <svg viewBox="0 0 640 220" width="640" role="img" aria-labelledby="diagramTitle diagramDesc">
+        <title id="diagramTitle">Two houses, one door vs two doors</title>
+        <desc id="diagramDesc">Left: one house with one door serving both the picture book and the answers. Right: two separate houses, each with its own door, needing a bridge between them.</desc>
+
+        <!-- LEFT: one door house -->
+        <g transform="translate(20,20)">
+          <polygon points="90,10 10,70 170,70" fill="var(--house)" />
+          <rect x="20" y="70" width="140" height="110" rx="4" fill="var(--house)" opacity="0.85" />
+          <rect x="75" y="120" width="30" height="60" fill="var(--bg)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="90" y="205" text-anchor="middle" font-size="13" fill="var(--ink)" font-weight="600">one door</text>
+          <text x="90" y="-2" text-anchor="middle" font-size="13" fill="var(--house)" font-weight="700"></text>
+        </g>
+
+        <!-- RIGHT: two houses two doors -->
+        <g transform="translate(330,20)">
+          <polygon points="60,10 10,55 110,55" fill="var(--house-2)" />
+          <rect x="20" y="55" width="80" height="70" rx="3" fill="var(--house-2)" opacity="0.85"/>
+          <rect x="50" y="90" width="20" height="35" fill="var(--bg)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="60" y="145" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="600">frontend</text>
+
+          <polygon points="220,10 170,55 270,55" fill="var(--house)"/>
+          <rect x="180" y="55" width="80" height="70" rx="3" fill="var(--house)" opacity="0.85"/>
+          <rect x="210" y="90" width="20" height="35" fill="var(--bg)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="220" y="145" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="600">backend</text>
+
+          <line x1="100" y1="90" x2="182" y2="90" stroke="var(--accent)" stroke-width="3" stroke-dasharray="6,5"/>
+          <text x="140" y="78" text-anchor="middle" font-size="11" fill="var(--accent)" font-weight="700">a bridge!</text>
+        </g>
+      </svg>
+    </div>
+    <p class="caption">Left: one house, one door. Right: two houses that need a little bridge (a network call) between them.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> "Serving the frontend from the backend"</h2>
+    <p>
+      That's the fancy grown-up phrase for the <strong>one-door house</strong>.
+    </p>
+    <p>
+      Instead of building the picture-book part (frontend) in its own
+      separate house, the backend just keeps a copy of the finished
+      picture-book pages in its closet. When someone knocks on the door and
+      asks for a page, the backend hands over a page. When someone knocks
+      and asks a real question ("how many candies do I have left?"), the
+      backend answers that too — from the very same door.
+    </p>
+    <div class="two-col">
+      <div class="box no">
+        <strong>Two houses</strong>
+        The picture book lives in its own house. Every time it needs an
+        answer, it has to run all the way to the other house and knock.
+      </div>
+      <div class="box yes">
+        <strong>One house</strong>
+        The picture book AND the answers live behind the same door. No
+        running back and forth needed.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Why grown-ups sometimes like the one-door house</h2>
+    <p>
+      It's simpler to remember — there's only one address to visit. And
+      since it's the same house, nobody has to explain to the guard at the
+      door "hey, I promise I'm allowed to come in from that other house" —
+      a rule called <span class="badge">CORS</span> that two-house apps have
+      to deal with.
+    </p>
+    <p>
+      But sometimes grown-ups <em>do</em> want two separate houses — maybe
+      the picture-book house needs to grow much bigger someday, on its own,
+      without waiting for the answer-house to grow too. Both ways are fine!
+      It's a choice, like deciding whether your lemonade stand and your
+      cookie stand should be the same table or two tables.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> The tiny trick behind the door</h2>
+    <p>
+      There's one more clever bit. Say someone knocks and asks for a page
+      that doesn't exist yet in the closet — like page 47 of a book that only
+      has 10 pages. A grumpy house would just say "nope!" and slam the door
+      (that's a <span class="badge">404</span>).
+    </p>
+    <p>
+      But the picture book has its own little map inside it that knows how
+      to find <em>any</em> page once you're holding the book. So instead of
+      slamming the door, the one-door house just hands over the cover of the
+      book again, and lets the book's own map figure out page 47 by itself.
+      That's the trick that makes deep links (like a bookmark to page 47)
+      still work.
+    </p>
+  </section>
+
+  <footer>
+    That's it — same door, different questions. 🏠
+  </footer>
+
+</div>
+</body>
+</html>

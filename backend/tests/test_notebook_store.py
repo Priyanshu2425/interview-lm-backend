@@ -11,9 +11,9 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.api.app import create_app
+from interviewer.app import create_app
 
-from interviewer.corpus.conformance import validate
+from interviewer.service.corpus.conformance import validate
 
 
 @pytest.fixture()
@@ -91,8 +91,8 @@ def test_deleting_a_notebook_empties_content_and_touches_nothing_else(
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -121,7 +121,7 @@ def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(
     assert added.json()["progress_total"] >= 1
     assert ingested(client, notebook_id)["state"] == "ready"
 
-    modules = client.get("/v1/corpus/modules", params={"candidate_id": "cand-9"})
+    modules = client.get("/v1/skills/modules", params={"candidate_id": "cand-9"})
     listed = {m["module_id"]: m for m in modules.json()}
     assert module_id in listed
     assert listed[module_id]["title"] == "AIML notes"
@@ -143,7 +143,7 @@ def test_the_picker_lists_the_notebook_and_a_session_runs_on_it(
 
     # The question was asked from a Topic of the notebook, not from the
     # shipped Corpus that happens to be loaded alongside it.
-    topic = client.get(f"/v1/corpus/topics/{body['topic_id']}")
+    topic = client.get(f"/v1/skills/topics/{body['topic_id']}")
     assert topic.status_code == 200
     assert topic.json()["module_id"] == module_id
 
@@ -164,9 +164,9 @@ def test_a_notebook_is_not_listed_for_another_candidate(
     module_id = added.json()["module_id"]
     ingested(owner, notebook_id)
 
-    mine = owner.get("/v1/corpus/modules")
-    theirs = other.get("/v1/corpus/modules")
-    anonymous = TestClient(create_app()).get("/v1/corpus/modules")
+    mine = owner.get("/v1/skills/modules")
+    theirs = other.get("/v1/skills/modules")
+    anonymous = TestClient(create_app()).get("/v1/skills/modules")
 
     assert module_id in {m["module_id"] for m in mine.json()}
     assert module_id not in {m["module_id"] for m in theirs.json()}
@@ -176,4 +176,4 @@ def test_a_notebook_is_not_listed_for_another_candidate(
     # rather than a refusal. There is no Corpus that belongs to nobody any more
     # (ISSUE-0037), so a shared Library would show here and this deployment has
     # none.
-    assert other.get("/v1/corpus/modules").json() == []
+    assert other.get("/v1/skills/modules").json() == []

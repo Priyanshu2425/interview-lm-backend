@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from interviewer.api import deps
-from interviewer.api.app import create_app
+from interviewer import deps
+from interviewer.app import create_app
 
 
 class _Unreachable:

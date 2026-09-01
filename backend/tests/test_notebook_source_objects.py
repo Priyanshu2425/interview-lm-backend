@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 from conftest import signed_in_client
 
-from interviewer.embeddings.errors import EmbeddingUnavailable
+from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
 FIGURE_PAGES = [
     "Attention weights are a softmax over scaled dot products, and the scaling "
@@ -30,14 +30,14 @@ FIGURE_PAGES = [
 
 @pytest.fixture()
 def store(tmp_path):
-    from interviewer.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
 
     return LocalObjectStore(tmp_path)
 
 
 @pytest.fixture()
 def service(content_db, counting, store):
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     return NotebookService(content_db, embedder=counting, objects=store)
 
@@ -82,7 +82,7 @@ def test_the_object_key_is_the_content_hash(service):
     data = b"# Attention\n\nSoftmax over scaled dot products.\n" * 20
     _upload(service, notebook_id, source_id="src-1", title="A.md", data=data)
     source = service.store.get(notebook_id).sources[0]
-    from interviewer.corpus.adapters.notebook.sources import digest
+    from interviewer.adapters.internal.notebook.sources import digest
 
     assert digest(data.decode()) in source.object_key or _hash_of(data) in source.object_key
 
@@ -148,8 +148,9 @@ def test_the_object_is_written_before_the_row(
     content_db, counting, tmp_path, monkeypatch
 ):
     """A row pointing at bytes that are not there is the failure to prevent."""
-    from interviewer.embeddings.artifacts import LocalObjectStore
-    from interviewer.notebooks import NotebookService, NotebookStore
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.notebooks import NotebookService
+    from interviewer.repository.notebooks import NotebookStore
 
     seen: list[str] = []
 
@@ -178,7 +179,7 @@ def test_the_object_is_written_before_the_row(
 
 def test_a_deployment_without_an_object_store_still_ingests(content_db, counting):
     """Storage is an addition, not a precondition. Nothing regresses without it."""
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     service = NotebookService(content_db, embedder=counting, objects=None)
     service.create("nb-none", "cand-none", "Notes")
@@ -210,7 +211,7 @@ def test_re_ingest_re_extracts_from_the_stored_object(service, store):
 
 
 def test_a_source_whose_object_is_missing_reports_a_named_failure(service, store):
-    from interviewer.notebooks import SourceBytesMissing
+    from interviewer.service.notebooks import SourceBytesMissing
 
     notebook_id = _notebook(service)
     _upload(
@@ -228,7 +229,7 @@ def test_a_source_whose_object_is_missing_reports_a_named_failure(service, store
 
 def test_a_source_stored_before_this_slice_says_so_rather_than_guessing(service):
     """No object key is a different state from a missing object."""
-    from interviewer.notebooks import SourceBytesMissing
+    from interviewer.service.notebooks import SourceBytesMissing
 
     notebook_id = _notebook(service)
     service.add_source(notebook_id, source_id="src-1", title="A.md", text="short")
@@ -266,8 +267,8 @@ def test_deleting_a_corpus_deletes_its_objects_in_the_same_call_path(
 
 def test_figures_still_land_under_their_own_key(content_db, seeing, tmp_path):
     """Sources and figures share a bucket and must not share a key."""
-    from interviewer.embeddings.artifacts import LocalObjectStore
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.notebooks import NotebookService
     from pdf_fixtures import image_pdf
 
     store = LocalObjectStore(tmp_path)
@@ -301,8 +302,8 @@ def test_an_upload_is_refused_rather_than_half_kept(content_db, counting):
     this deployment cannot keep, and the Candidate would find out weeks later
     when a retry asked for it.
     """
-    from interviewer.embeddings.errors import EmbeddingUnavailable
-    from interviewer.notebooks import DocumentStoreUnavailable, NotebookService
+    from interviewer.service.embeddings.errors import EmbeddingUnavailable
+    from interviewer.service.notebooks import DocumentStoreUnavailable, NotebookService
 
     class Unreachable:
         def source_key_for(self, notebook_id, content_hash, suffix="bin"):
@@ -326,7 +327,7 @@ def test_a_deployment_with_no_bucket_is_not_the_same_as_one_it_cannot_reach(
     content_db, counting
 ):
     """No bucket keeps documents on disk and says so by having none configured."""
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     service = NotebookService(content_db, embedder=counting, objects=None)
     service.create("nb-nobucket", "cand-nobucket", "Notes")
@@ -340,9 +341,9 @@ def test_a_deployment_with_no_bucket_is_not_the_same_as_one_it_cannot_reach(
 def test_the_refusal_reaches_the_surface_with_a_code(content_db, clean_db, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from interviewer.api import deps
-    from interviewer.api.app import create_app
-    from interviewer.embeddings.errors import EmbeddingUnavailable
+    from interviewer import deps
+    from interviewer.app import create_app
+    from interviewer.service.embeddings.errors import EmbeddingUnavailable
 
     class Unreachable:
         def source_key_for(self, notebook_id, content_hash, suffix="bin"):

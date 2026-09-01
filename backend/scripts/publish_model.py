@@ -90,7 +90,7 @@ def publish(args) -> int:
     # would resolve AWS's endpoint and publish the weights somewhere no
     # deployment reads from, successfully and silently.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-    from interviewer.embeddings.artifacts import _client
+    from interviewer.service.embeddings.artifacts import _client
 
     client = _client()
     for entry in manifest["files"]:

@@ -2,10 +2,10 @@
 
 import numpy as np
 
-from interviewer.confidence.math import apply_evidence
-from interviewer.confidence.selector import TopicSelector
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
+from interviewer.service.confidence.math import apply_evidence
+from interviewer.service.confidence.selector import TopicSelector
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_sel"
 

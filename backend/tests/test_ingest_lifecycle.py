@@ -26,8 +26,8 @@ PROSE = (
 
 @pytest.fixture()
 def client(content_db, clean_db):
-    from interviewer.api.app import create_app
-    from interviewer.api.deps import refresh_corpus
+    from interviewer.app import create_app
+    from interviewer.deps import refresh_corpus
 
     refresh_corpus()
     with signed_in_client() as c:
@@ -100,13 +100,13 @@ def test_a_completed_ingest_is_a_usable_module_the_moment_it_reads_ready(
 # -- not ready is listed, not selectable, and says why -----------------------
 
 def test_a_document_that_is_not_ready_is_listed_and_not_selectable(client, notebook):
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     svc = get_notebook_service()
     svc.upload_source(
         notebook, source_id="src-waiting", title="Waiting", text=PROSE * 40
     )
-    modules = client.get("/v1/corpus/modules?candidate_id=cand-bg").json()
+    modules = client.get("/v1/skills/modules?candidate_id=cand-bg").json()
     listed = next(m for m in modules if m["title"] == "Waiting")
     assert listed["selectable"] is False
     assert listed["state"] == "uploaded"
@@ -122,7 +122,7 @@ def test_a_stub_still_states_why_it_carries_nothing(client, notebook, ingested):
         data={"title": "A scan"},
     )
     ingested(client, notebook)
-    modules = client.get("/v1/corpus/modules?candidate_id=cand-bg").json()
+    modules = client.get("/v1/skills/modules?candidate_id=cand-bg").json()
     listed = next(m for m in modules if m["title"] == "A scan")
     assert listed["state"] == "stub"
     assert listed["selectable"] is False
@@ -130,7 +130,7 @@ def test_a_stub_still_states_why_it_carries_nothing(client, notebook, ingested):
 
 
 def test_a_session_cannot_be_scoped_to_a_document_that_is_not_ready(client, notebook):
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     uploaded = get_notebook_service().upload_source(
         notebook, source_id="src-waiting", title="Waiting", text=PROSE * 40
@@ -148,7 +148,7 @@ def test_a_session_cannot_be_scoped_to_a_document_that_is_not_ready(client, note
 def test_a_failed_ingest_leaves_the_document_listed_and_marked_failed(
     content_db, counting
 ):
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     class Exploding(type(counting)):
         def embed(self, texts):
@@ -172,8 +172,8 @@ def test_a_failed_ingest_leaves_the_document_listed_and_marked_failed(
 
 
 def test_a_killed_run_leaves_no_ledger_entry(content_db, clean_db, counting):
-    from interviewer.metering.ledger import CreditLedger
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.metering.ledger import CreditLedger
+    from interviewer.service.notebooks import NotebookService
 
     class Exploding(type(counting)):
         credits_per_1k_tokens = 1.0
@@ -195,9 +195,9 @@ def test_a_killed_run_leaves_no_ledger_entry(content_db, clean_db, counting):
 
 def test_rows_left_ingesting_are_reset_at_startup(content_db, counting):
     """No timeout, and none invented: no worker survives a restart."""
-    from interviewer.api import ingest_worker
-    from interviewer.api.deps import get_notebook_service
-    from interviewer.notebooks import NotebookService
+    from interviewer import ingest_worker
+    from interviewer.deps import get_notebook_service
+    from interviewer.service.notebooks import NotebookService
 
     svc = NotebookService(content_db, embedder=counting)
     svc.create("nb-stale", "cand-stale", "Notes")
@@ -221,7 +221,7 @@ def test_a_stalled_worker_reports_elapsed_time_and_last_progress(
     client, content_db, counting
 ):
     """The harder case, reported rather than guessed at."""
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     svc = get_notebook_service()
     svc.create("nb-stall", "cand-bg", "Notes")
@@ -240,7 +240,7 @@ def test_a_stalled_worker_reports_elapsed_time_and_last_progress(
 # -- retry -------------------------------------------------------------------
 
 def test_a_retry_re_ingests_without_re_uploading(client, notebook, ingested, tmp_path):
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
 
     svc = get_notebook_service()
     uploaded = svc.upload_source(
@@ -271,8 +271,8 @@ def test_a_completed_ingest_cannot_be_retried_and_so_cannot_bill_twice(
 
 def test_a_source_already_ingesting_refuses_a_second_start(client, notebook):
     """Two tabs race in the database, and exactly one of them wins."""
-    from interviewer.api.deps import get_notebook_service
-    from interviewer.notebooks import IngestNotClaimable
+    from interviewer.deps import get_notebook_service
+    from interviewer.service.notebooks import IngestNotClaimable
 
     svc = get_notebook_service()
     uploaded = svc.upload_source(
@@ -285,7 +285,7 @@ def test_a_source_already_ingesting_refuses_a_second_start(client, notebook):
 
 
 def test_retrying_a_document_in_a_shared_corpus_is_refused(client):
-    from interviewer.api.deps import get_notebook_service
+    from interviewer.deps import get_notebook_service
     from interviewer.db.content import SHARED
 
     svc = get_notebook_service()

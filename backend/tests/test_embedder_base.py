@@ -12,8 +12,8 @@ import math
 
 import pytest
 
-from interviewer.embeddings.base import BaseEmbedder
-from interviewer.embeddings.errors import (
+from interviewer.service.embeddings.base import BaseEmbedder
+from interviewer.service.embeddings.errors import (
     EmbeddingContractError, EmbeddingTimeout, UnsupportedModality,
 )
 

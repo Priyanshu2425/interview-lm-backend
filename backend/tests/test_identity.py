@@ -3,7 +3,7 @@
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.identity.store import IdentityStore
+from interviewer.service.identity.store import IdentityStore
 
 
 def test_a_candidate_id_is_ours_and_is_not_the_provider_subject(clean_db):
@@ -43,8 +43,8 @@ def test_one_candidate_may_hold_several_identities(clean_db):
 def test_merging_repoints_identities_and_leaves_permanent_rows_untouched(
     clean_db, deps
 ):
-    from interviewer.graph.runner import SessionRunner
-    from interviewer.graph.sessions import SessionConfig
+    from interviewer.service.graph.runner import SessionRunner
+    from interviewer.service.graph.sessions import SessionConfig
 
     s = IdentityStore(clean_db)
     keep = s.resolve(issuer="iss", subject="primary").candidate_id
@@ -68,8 +68,8 @@ def test_merging_repoints_identities_and_leaves_permanent_rows_untouched(
 
 
 def test_swapping_the_provider_leaves_every_permanent_row_untouched(clean_db, deps):
-    from interviewer.graph.runner import SessionRunner
-    from interviewer.graph.sessions import SessionConfig
+    from interviewer.service.graph.runner import SessionRunner
+    from interviewer.service.graph.sessions import SessionConfig
 
     s = IdentityStore(clean_db)
     cid = s.resolve(issuer="old-idp", subject="u1").candidate_id
@@ -97,8 +97,8 @@ def test_a_subject_is_unique_per_issuer(clean_db):
 
 
 def test_a_candidate_keeps_their_balance_and_key_across_a_provider_change(clean_db):
-    from interviewer.metering.keyvault import AcceptingValidator, KeyVault, LocalKms
-    from interviewer.metering.ledger import CreditLedger
+    from interviewer.service.metering.keyvault import AcceptingValidator, KeyVault, LocalKms
+    from interviewer.service.metering.ledger import CreditLedger
 
     s = IdentityStore(clean_db)
     cid = s.resolve(issuer="old", subject="x").candidate_id

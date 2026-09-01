@@ -5,17 +5,17 @@ from conftest import signed_in_client
 from decimal import Decimal
 from fastapi.testclient import TestClient
 
-from interviewer.api import idempotency
-from interviewer.api.app import create_app
-from interviewer.api.wiring import wiring
-from interviewer.confidence.summary import SummaryService
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
-from interviewer.mcp.server import (
+from interviewer import idempotency
+from interviewer.app import create_app
+from interviewer.wiring import wiring
+from interviewer.service.confidence.summary import SummaryService
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
+from interviewer.service.mcp.server import (
     TOOL_DESCRIPTIONS, HOST_TOOLS, SUBAGENT_TOOLS, McpServer,
 )
-from interviewer.metering.ledger import CreditLedger, PoolLedger
-from interviewer.metering.operator import PriceService
+from interviewer.service.metering.ledger import CreditLedger, PoolLedger
+from interviewer.service.metering.operator import PriceService
 
 
 @pytest.fixture()
@@ -93,8 +93,8 @@ def test_provider_prices_are_history_and_say_they_are_not_a_forecast(client):
 
 
 def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
-    from interviewer.metering.client import Binding, MeteredModelClient
-    from interviewer.metering.transport import ScriptedTransport
+    from interviewer.service.metering.client import Binding, MeteredModelClient
+    from interviewer.service.metering.transport import ScriptedTransport
 
     for provider, cost, visit in (
         ("deepseek", Decimal("0.18"), "v1"),
@@ -113,7 +113,7 @@ def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
 
 def test_a_running_total_is_available_mid_session(client, served_corpus):
     mods = [m["module_id"] for m in
-            client.get("/v1/corpus/modules", params={"track": "aiml"}).json()][:1]
+            client.get("/v1/skills/modules", params={"track": "aiml"}).json()][:1]
     client.post("/v1/credits/grants",
                 headers={"x-operator-token": "dev-operator-token"},
                 json={"candidate_id": "c_run", "credits": 50_000, "payment_ref": "p"})

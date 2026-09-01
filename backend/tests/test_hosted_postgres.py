@@ -117,7 +117,7 @@ def test_no_cors_headers_when_nothing_is_configured(monkeypatch):
     """Empty is the original deployment, and it must stay untouched."""
     from fastapi.testclient import TestClient
 
-    from interviewer.api.app import allowed_origins, create_app
+    from interviewer.app import allowed_origins, create_app
 
     monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
     assert allowed_origins() == []
@@ -129,7 +129,7 @@ def test_no_cors_headers_when_nothing_is_configured(monkeypatch):
 def test_a_named_origin_is_allowed_and_may_send_credentials(monkeypatch):
     from fastapi.testclient import TestClient
 
-    from interviewer.api.app import create_app
+    from interviewer.app import create_app
 
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
     client = signed_in_client()
@@ -143,7 +143,7 @@ def test_a_named_origin_is_allowed_and_may_send_credentials(monkeypatch):
 def test_an_origin_nobody_named_is_not_allowed(monkeypatch):
     from fastapi.testclient import TestClient
 
-    from interviewer.api.app import create_app
+    from interviewer.app import create_app
 
     monkeypatch.setenv("ALLOWED_ORIGINS", "https://cortex.pages.dev")
     client = signed_in_client()
@@ -152,7 +152,7 @@ def test_an_origin_nobody_named_is_not_allowed(monkeypatch):
 
 
 def test_several_origins_may_be_named(monkeypatch):
-    from interviewer.api.app import allowed_origins
+    from interviewer.app import allowed_origins
 
     monkeypatch.setenv(
         "ALLOWED_ORIGINS", "https://a.pages.dev, https://b.pages.dev/ ,"
@@ -168,7 +168,7 @@ def test_a_wildcard_is_refused_at_startup(monkeypatch):
     """
     import pytest
 
-    from interviewer.api.app import create_app
+    from interviewer.app import create_app
 
     monkeypatch.setenv("ALLOWED_ORIGINS", "*")
     with pytest.raises(ValueError, match="may not be"):

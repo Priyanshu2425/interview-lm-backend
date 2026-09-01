@@ -6,7 +6,7 @@ that `padding="max_length"` is the right call, that `get_text_features` returns
 a pooled vector rather than one per token, or that the checkpoint really is 768
 dimensions wide.
 
-    INTERVIEWER_MODEL_TESTS=1 .venv/bin/python -m pytest backend/tests/test_siglip_integration.py
+    INTERVIEWER_MODEL_TESTS=1 backend/.venv/bin/python -m pytest backend/tests/test_siglip_integration.py
 
 Off by default, and skipped rather than failed when the extra is not installed.
 """
@@ -29,7 +29,7 @@ CHECKPOINT = "google/siglip2-base-patch16-224"
 def model():
     pytest.importorskip("torch")
     pytest.importorskip("transformers")
-    from interviewer.embeddings import make_embedder
+    from interviewer.service.embeddings import make_embedder
 
     embedder = make_embedder({
         "EMBEDDING_PROVIDER": "siglip",
@@ -91,7 +91,7 @@ def test_the_image_tower_answers_in_the_same_space(model):
 
 
 def test_a_corrupt_image_is_refused_rather_than_embedded(model):
-    from interviewer.embeddings.errors import EmbeddingContractError
+    from interviewer.service.embeddings.errors import EmbeddingContractError
 
     with pytest.raises(EmbeddingContractError):
         model.embed_images([b"this is not a png"])
@@ -107,8 +107,8 @@ def _centroids(corpus, model) -> dict[str, tuple[float, ...]]:
     not about the store, and a database is not needed to measure whether a model
     can tell two subjects apart.
     """
-    from interviewer.corpus.adapters.notebook.embedding import centroid_of
-    from interviewer.corpus.chunking import chunk_source
+    from interviewer.adapters.internal.embedding import centroid_of
+    from interviewer.util.chunking import chunk_source
 
     out: dict[str, tuple[float, ...]] = {}
     for topic in corpus.topics:
@@ -139,8 +139,8 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     """
     from pathlib import Path
 
-    from interviewer.corpus.adapters.interview_lm import ingest
-    from interviewer.corpus.related import rank
+    from interviewer.adapters.interview_lm import ingest
+    from interviewer.service.corpus.related import rank
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
     centroids = _centroids(corpus, model)
@@ -176,8 +176,8 @@ def test_the_space_spreads_out_once_centred(model):
     """Directly: the cone is real, and centring opens it."""
     from pathlib import Path
 
-    from interviewer.corpus.adapters.interview_lm import ingest
-    from interviewer.corpus.related import _mean, centre
+    from interviewer.adapters.interview_lm import ingest
+    from interviewer.service.corpus.related import _mean, centre
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
     centroids = _centroids(corpus, model)

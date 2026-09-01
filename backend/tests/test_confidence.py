@@ -7,7 +7,7 @@ no storage, clock or randomness it does not receive.
 import numpy as np
 import pytest
 
-from interviewer.confidence.math import (
+from interviewer.service.confidence.math import (
     BAND_FIRM,
     BAND_UNKNOWN,
     PRIOR,
@@ -17,7 +17,7 @@ from interviewer.confidence.math import (
     apply_evidence,
     evidence_delta,
 )
-from interviewer.confidence.reporting import coverage, mastery, read_topic
+from interviewer.service.confidence.reporting import coverage, mastery, read_topic
 
 
 # -- the update rule --------------------------------------------------------

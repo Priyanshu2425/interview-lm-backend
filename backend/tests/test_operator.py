@@ -6,13 +6,13 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.api import idempotency
-from interviewer.api.app import create_app
-from interviewer.api.wiring import wiring
-from interviewer.metering.client import Binding, MeteredModelClient
-from interviewer.metering.ledger import CreditLedger, PoolLedger
-from interviewer.metering.operator import POOL_HEADROOM_ALERT, OperatorService
-from interviewer.metering.transport import ScriptedTransport
+from interviewer import idempotency
+from interviewer.app import create_app
+from interviewer.wiring import wiring
+from interviewer.service.metering.client import Binding, MeteredModelClient
+from interviewer.service.metering.ledger import CreditLedger, PoolLedger
+from interviewer.service.metering.operator import POOL_HEADROOM_ALERT, OperatorService
+from interviewer.service.metering.transport import ScriptedTransport
 
 HDR = {"x-operator-token": "dev-operator-token"}
 
@@ -87,7 +87,7 @@ def test_failure_rate_is_reported_per_provider(clean_db, svc):
 
 
 def test_byok_and_mcp_sessions_render_null_not_zero(clean_db, svc, deps):
-    from interviewer.graph.sessions import SessionConfig
+    from interviewer.service.graph.sessions import SessionConfig
 
     mods = [m.module_id for m in deps.corpus.modules("aiml")][:1]
     deps.sessions.ensure_candidate("c_op")

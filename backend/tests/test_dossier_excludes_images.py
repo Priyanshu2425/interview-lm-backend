@@ -58,7 +58,7 @@ def test_the_token_budget_does_not_count_pictures(ingested):
 
 
 def test_the_corpus_still_conforms_with_figures_present(ingested):
-    from interviewer.corpus.conformance import validate
+    from interviewer.service.corpus.conformance import validate
 
     report = validate(ingested.corpus("nb-1"))
     assert report.violations == []
@@ -72,7 +72,7 @@ def test_the_figures_are_stored_even_though_no_leaf_shows_them(ingested):
 def test_a_session_reads_the_same_corpus_with_or_without_figures(
     content_db, seeing, objects
 ):
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     deck = image_pdf(PAGES, figures_per_page=2)
     with_images = NotebookService(

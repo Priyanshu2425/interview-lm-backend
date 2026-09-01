@@ -21,7 +21,7 @@ def _imports(path: pathlib.Path) -> set[str]:
 #: rather than its package widened. An embedding call is metered too (ADR-0016),
 #: but it is not a chat completion and cannot go through the chat transport; the
 #: exemption is this file, so the next network import anywhere else still fails.
-_NETWORK_EXEMPT = {"embeddings/http.py"}
+_NETWORK_EXEMPT = {"embeddings/http.py", "service/embeddings/http.py"}
 
 
 def test_no_module_outside_metering_constructs_a_provider_client():
@@ -40,14 +40,14 @@ def test_no_module_outside_metering_constructs_a_provider_client():
 
 def test_confidence_math_depends_on_nothing_in_the_system():
     """PRD-0002 calls it the deepest module; the boundary erodes first."""
-    math = SRC / "confidence" / "math.py"
+    math = SRC / "service" / "confidence" / "math.py"
     for mod in _imports(math):
         assert not mod.startswith("interviewer"), mod
         assert "graph" not in mod and "db" not in mod, mod
 
 
 def test_the_confidence_package_never_imports_the_graph():
-    for f in (SRC / "confidence").glob("*.py"):
+    for f in (SRC / "service" / "confidence").glob("*.py"):
         for mod in _imports(f):
             assert "interviewer.graph" not in mod, f"{f.name} -> {mod}"
             assert not mod.startswith("..graph"), f"{f.name} -> {mod}"
@@ -63,7 +63,7 @@ def test_the_corpus_package_knows_nothing_about_sessions_or_credits():
 
 def test_source_vocabulary_does_not_leak_past_its_adapter():
     """Answer Key, Assignment, Class and contest are one source's words."""
-    adapter = SRC / "corpus" / "adapters" / "interview_lm.py"
+    adapter = SRC / "adapters" / "interview_lm.py"
     leaks = []
     for f in SRC.rglob("*.py"):
         if f == adapter or "tests" in f.parts:
@@ -93,7 +93,17 @@ def test_nothing_reaches_for_the_clock_or_randomness_outside_ports():
     # call waits before the next attempt is not part of that: it changes no
     # vector, no Topic and no score. Unjittered, several workers recovering
     # together would synchronise into a second stampede.
-    allowed = {"ports.py", "client.py", "wiring.py", "base.py"}
+    allowed = {
+        "ports.py",
+        "client.py",
+        "wiring.py",
+        "base.py",
+        # Middleware needs real time for rate limiting (sliding window) and
+        # request logging (timing). These are infrastructure concerns at the
+        # HTTP layer, similar to client.py's retry backoff timing.
+        "rate_limit.py",
+        "request_logging.py",
+    }
     offenders = []
     for f in SRC.rglob("*.py"):
         if f.name in allowed:
@@ -129,7 +139,7 @@ def test_importing_the_app_loads_no_machine_learning_stack():
     import sys
 
     probe = (
-        "import sys; import interviewer.api.app as app; "
+        "import sys; import interviewer.app as app; "
         "app.create_app(); "
         "print(sorted(m for m in ('torch', 'transformers') if m in sys.modules))"
     )
@@ -146,13 +156,13 @@ def test_every_provider_satisfies_the_port_it_is_injected_through():
     register, and fail only where it is finally injected — which is inside an
     ingest, holding a Candidate's upload.
     """
-    from interviewer.corpus.adapters.notebook.embedding import Embedder
-    from interviewer.embeddings import make_embedder, registered
+    from interviewer.adapters.internal.embedding import Embedder
+    from interviewer.service.embeddings import make_embedder, registered
 
     for name in registered():
         embedder = make_embedder({"EMBEDDING_PROVIDER": name})
         assert isinstance(embedder, Embedder), name
         if getattr(embedder, "supports_images", False):
-            from interviewer.corpus.adapters.notebook.embedding import ImageEmbedder
+            from interviewer.adapters.internal.embedding import ImageEmbedder
 
             assert isinstance(embedder, ImageEmbedder), name

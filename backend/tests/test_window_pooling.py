@@ -15,8 +15,8 @@ import math
 
 import pytest
 
-from interviewer.embeddings.errors import EmbeddingContractError
-from interviewer.embeddings.siglip import CONTEXT_TOKENS, SiglipEmbedder
+from interviewer.service.embeddings.errors import EmbeddingContractError
+from interviewer.service.embeddings.siglip import CONTEXT_TOKENS, SiglipEmbedder
 
 
 class WordTokenizer:

@@ -13,8 +13,8 @@ import pytest
 
 @pytest.fixture()
 def service(content_db, seeing, tmp_path):
-    from interviewer.embeddings.artifacts import LocalObjectStore
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.notebooks import NotebookService
 
     svc = NotebookService(
         content_db, embedder=seeing, objects=LocalObjectStore(tmp_path), images=True
@@ -84,8 +84,8 @@ def test_no_topic_is_minted_from_pictures(service):
 
 def test_counting_figures_costs_no_provider_call(content_db, counting, tmp_path):
     """A stub reaches no embedder at all, and that did not change."""
-    from interviewer.embeddings.artifacts import LocalObjectStore
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.notebooks import NotebookService
     from pdf_fixtures import image_pdf
 
     svc = NotebookService(

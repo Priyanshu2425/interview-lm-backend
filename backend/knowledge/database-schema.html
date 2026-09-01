@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InterviewLM Database Map</title>
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --card: #ffffff;
+    --ink: #2b2b2b;
+    --sub: #6b6b6b;
+    --line: #e7dfc9;
+    --core: #4f8a63;
+    --content: #b5563c;
+    --graph: #6c5ce7;
+    --shadow: rgba(0,0,0,0.08);
+    --accent: #2f6fed;
+    --mono-bg: #f4efe0;
+    --pk: #b8860b;
+    --fk: #2f6fed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Verdana, sans-serif;
+    line-height: 1.55;
+  }
+  code, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 90px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  header .kicker {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--core);
+    background: #e8f3ec;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+    font-weight: 700;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    margin: 0 0 10px;
+  }
+  header p {
+    color: var(--sub);
+    font-size: 17px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* -------- nav -------- */
+  nav.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 26px 0 40px;
+  }
+  nav.toc a {
+    font-size: 13px;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 30px;
+    margin-bottom: 26px;
+    box-shadow: 0 6px 18px var(--shadow);
+  }
+  section.intro { padding: 24px 30px; }
+
+  h2 {
+    font-size: 24px;
+    margin: 0 0 8px;
+    scroll-margin-top: 20px;
+  }
+  h2 .schema-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: 10px;
+    vertical-align: middle;
+    color: white;
+  }
+  .badge-core { background: var(--core); }
+  .badge-content { background: var(--content); }
+  .badge-graph { background: var(--graph); }
+
+  .schema-desc {
+    color: var(--sub);
+    font-size: 15px;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+  .schema-desc strong { color: var(--ink); }
+
+  /* -------- table cards -------- */
+  .table-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .table-card:last-child { margin-bottom: 0; }
+  .table-head {
+    background: var(--mono-bg);
+    padding: 12px 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .table-head .name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .table-head .gloss {
+    color: var(--sub);
+    font-size: 14px;
+  }
+  .table-body { padding: 16px 18px 18px; }
+  .table-body > p.what {
+    margin: 0 0 14px;
+    font-size: 14.5px;
+  }
+
+  table.cols {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.cols th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sub);
+    padding: 4px 10px 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.cols td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.cols tr:last-child td { border-bottom: none; }
+  table.cols td.colname { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+  table.cols td.coltype { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--sub); white-space: nowrap; }
+  .key-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 5px;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .key-pk { background: #fbf0d6; color: var(--pk); }
+  .key-fk { background: #e7effe; color: var(--fk); }
+
+  .why {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--mono-bg);
+    border-left: 3px solid var(--core);
+    border-radius: 0 8px 8px 0;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .why strong { color: var(--core); }
+  .badge-content ~ .table-card .why,
+  section.content .why { border-left-color: var(--content); }
+  section.content .why strong { color: var(--content); }
+  section.graph .why { border-left-color: var(--graph); }
+  section.graph .why strong { color: var(--graph); }
+
+  .constraint-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .constraint-list li { margin-bottom: 4px; }
+  .constraint-list code { color: var(--ink); }
+
+  /* -------- flow diagram -------- */
+  .flow-wrap { display: flex; justify-content: center; margin: 10px 0 4px; overflow-x: auto; }
+  svg { max-width: 100%; height: auto; }
+  .caption { text-align: center; color: var(--sub); font-size: 13.5px; margin-top: 10px; }
+
+  .steps {
+    counter-reset: step;
+    margin-top: 24px;
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .step:last-child { margin-bottom: 0; }
+  .step .n {
+    counter-increment: step;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .step .n::before { content: counter(step); }
+  .step .body strong { display: block; margin-bottom: 3px; font-size: 15px; }
+  .step .body p { margin: 0; font-size: 14px; color: var(--sub); }
+  .step .body .tables {
+    margin-top: 6px;
+  }
+  .step .body .tables code {
+    background: var(--mono-bg);
+    padding: 1px 6px;
+    border-radius: 5px;
+    margin-right: 5px;
+    display: inline-block;
+    margin-bottom: 3px;
+  }
+
+  .rule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  @media (max-width: 640px) { .rule-grid { grid-template-columns: 1fr; } }
+  .rule {
+    background: var(--mono-bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+  }
+  .rule strong { display: block; margin-bottom: 4px; }
+
+  footer {
+    text-align: center;
+    color: var(--sub);
+    font-size: 13px;
+    margin-top: 30px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a17;
+      --card: #242320;
+      --ink: #f1ece0;
+      --sub: #a9a397;
+      --line: #37352f;
+      --shadow: rgba(0,0,0,0.35);
+      --core: #6fbf8b;
+      --content: #e08a6f;
+      --graph: #9c8cf0;
+      --accent: #7ea6ff;
+      --mono-bg: #2c2a24;
+      --pk: #d8ae4e;
+      --fk: #7ea6ff;
+    }
+    header .kicker { background: #1f2e24; }
+    .key-pk { background: #3a3120; }
+    .key-fk { background: #1e2740; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="kicker">database reference</span>
+    <h1>The InterviewLM Database Map 🗺️</h1>
+    <p>Every table, every column, and the path a request actually takes through them — from a Candidate's sign-in to a graded Topic Visit.</p>
+  </header>
+
+  <nav class="toc">
+    <a href="#flow">System flow</a>
+    <a href="#core">interview_lm_core</a>
+    <a href="#content">interview_lm_content</a>
+    <a href="#graph">interview_lm_graph</a>
+    <a href="#rules">Cross-schema rules</a>
+  </nav>
+
+  <section class="intro">
+    <p>
+      One Postgres instance holds three schemas, and each one has a different <strong>lifecycle</strong> —
+      how long its rows are meant to live, and what's allowed to delete them.
+    </p>
+    <div class="rule-grid" style="margin-top:16px;">
+      <div class="rule">
+        <strong style="color:var(--core)">interview_lm_core — permanent</strong>
+        Candidates, Sessions, Evidence, credits, identity. Nothing here is ever dropped. A trigger, not a convention, enforces that.
+      </div>
+      <div class="rule">
+        <strong style="color:var(--content)">interview_lm_content — disposable</strong>
+        The Corpus: notebooks, sources, topics, chunks. Rebuildable by re-import. Deleting it never touches <code>core</code>.
+      </div>
+    </div>
+    <div class="rule" style="margin-top:14px;">
+      <strong style="color:var(--graph)">interview_lm_graph — framework-owned</strong>
+      LangGraph's own checkpointer tables (not defined by this app). Lets a parked Session resume exactly where it left off; can be dropped wholesale outside the resumption window without touching anything else.
+    </div>
+  </section>
+
+  <!-- ============================== FLOW ============================== -->
+  <section id="flow">
+    <h2>System flow</h2>
+    <p class="schema-desc">How a request actually moves through these tables, sign-in to graded answer.</p>
+
+    <div class="flow-wrap">
+      <svg viewBox="0 0 920 300" width="920" role="img" aria-labelledby="flowTitle flowDesc">
+        <title id="flowTitle">Request flow through the three schemas</title>
+        <desc id="flowDesc">Candidate authenticates via Gatehouse into identity and candidate tables, starts a session, visits topics sourced from the content schema, produces evidence and updates topic confidence, while LangGraph checkpoints session state and calls are metered into the credit ledger.</desc>
+
+        <!-- swimlane labels -->
+        <text x="12" y="24" font-size="11" fill="var(--sub)" font-weight="700">GATEHOUSE</text>
+        <text x="12" y="90" font-size="11" fill="var(--core)" font-weight="700">CORE (permanent)</text>
+        <text x="12" y="200" font-size="11" fill="var(--content)" font-weight="700">CONTENT (disposable)</text>
+        <text x="12" y="270" font-size="11" fill="var(--graph)" font-weight="700">GRAPH (framework)</text>
+
+        <!-- lane separators -->
+        <line x1="0" y1="35" x2="920" y2="35" stroke="var(--line)" stroke-width="1"/>
+        <line x1="0" y1="150" x2="920" y2="150" stroke="var(--line)" stroke-width="1"/>
+        <line x1="0" y1="230" x2="920" y2="230" stroke="var(--line)" stroke-width="1"/>
+
+        <!-- Gatehouse -->
+        <rect x="20" y="10" width="120" height="24" rx="6" fill="none" stroke="var(--sub)" stroke-dasharray="3,3"/>
+        <text x="80" y="26" font-size="11" text-anchor="middle" fill="var(--sub)">JWT issuer</text>
+
+        <!-- identity -->
+        <rect x="180" y="55" width="120" height="40" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="240" y="79" font-size="12" text-anchor="middle" fill="white" font-weight="700">identity</text>
+
+        <!-- candidate -->
+        <rect x="180" y="110" width="120" height="34" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="240" y="131" font-size="12" text-anchor="middle" fill="white" font-weight="700">candidate</text>
+
+        <!-- session -->
+        <rect x="360" y="55" width="110" height="34" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="415" y="76" font-size="12" text-anchor="middle" fill="white" font-weight="700">session</text>
+
+        <!-- topic_visit -->
+        <rect x="520" y="55" width="130" height="34" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="585" y="76" font-size="12" text-anchor="middle" fill="white" font-weight="700">topic_visit</text>
+
+        <!-- evidence + confidence -->
+        <rect x="700" y="40" width="120" height="34" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="760" y="61" font-size="12" text-anchor="middle" fill="white" font-weight="700">evidence</text>
+        <rect x="700" y="88" width="120" height="34" rx="8" fill="var(--core)" opacity="0.9"/>
+        <text x="760" y="109" font-size="11.5" text-anchor="middle" fill="white" font-weight="700">topic_confidence</text>
+
+        <!-- call_record / ledger -->
+        <rect x="520" y="110" width="130" height="34" rx="8" fill="var(--core)" opacity="0.7"/>
+        <text x="585" y="131" font-size="11.5" text-anchor="middle" fill="white" font-weight="700">call_record</text>
+        <rect x="360" y="110" width="130" height="34" rx="8" fill="var(--core)" opacity="0.7"/>
+        <text x="425" y="131" font-size="11" text-anchor="middle" fill="white" font-weight="700">credit_ledger</text>
+
+        <!-- content lane -->
+        <rect x="200" y="165" width="110" height="34" rx="8" fill="var(--content)" opacity="0.9"/>
+        <text x="255" y="186" font-size="12" text-anchor="middle" fill="white" font-weight="700">notebook</text>
+        <rect x="340" y="165" width="130" height="34" rx="8" fill="var(--content)" opacity="0.85"/>
+        <text x="405" y="186" font-size="11" text-anchor="middle" fill="white" font-weight="700">notebook_source</text>
+        <rect x="500" y="165" width="120" height="34" rx="8" fill="var(--content)" opacity="0.85"/>
+        <text x="560" y="186" font-size="11.5" text-anchor="middle" fill="white" font-weight="700">notebook_topic</text>
+        <rect x="650" y="165" width="120" height="34" rx="8" fill="var(--content)" opacity="0.85"/>
+        <text x="710" y="186" font-size="11.5" text-anchor="middle" fill="white" font-weight="700">notebook_chunk</text>
+
+        <!-- graph lane -->
+        <rect x="360" y="245" width="200" height="34" rx="8" fill="var(--graph)" opacity="0.9"/>
+        <text x="460" y="266" font-size="11.5" text-anchor="middle" fill="white" font-weight="700">checkpoints (LangGraph)</text>
+
+        <!-- arrows -->
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--sub)"/>
+          </marker>
+        </defs>
+        <line x1="140" y1="22" x2="182" y2="65" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="240" y1="95" x2="240" y2="108" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="300" y1="72" x2="358" y2="72" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="470" y1="72" x2="518" y2="72" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="650" y1="65" x2="698" y2="57" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="650" y1="80" x2="698" y2="100" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="585" y1="89" x2="585" y2="108" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="520" y1="127" x2="492" y2="127" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="585" y1="144" x2="460" y2="243" stroke="var(--sub)" stroke-width="1.4" stroke-dasharray="4,4" marker-end="url(#arrow)"/>
+        <line x1="310" y1="182" x2="338" y2="182" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="470" y1="182" x2="498" y2="182" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="620" y1="182" x2="648" y2="182" stroke="var(--sub)" stroke-width="1.6" marker-end="url(#arrow)"/>
+        <line x1="560" y1="165" x2="585" y2="90" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4,4" marker-end="url(#arrow)"/>
+      </svg>
+    </div>
+    <p class="caption">Solid arrows: the normal write path. Dashed: cross-schema references by plain string id, not a foreign key.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Sign in through Gatehouse</strong>
+          <p>Gatehouse issues a JWT (<code class="mono">iss</code>, <code class="mono">sub</code>, <code class="mono">aud=interview-lm</code>). Every API call verifies it locally against a cached JWKS — the app never calls Gatehouse per-request. <code class="mono">IdentityStore.resolve(issuer, subject)</code> finds or creates the linking row.</p>
+          <div class="tables"><code>identity</code><code>candidate</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Start a Session</strong>
+          <p>Fixes which Modules are in scope and how long the interview runs. Both become immutable the instant the row is written — a trigger, not application code, rejects any later change.</p>
+          <div class="tables"><code>session</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Corpus already exists, independently</strong>
+          <p>Material was uploaded and mined earlier (or imported/shared by an operator): documents become Sources, Sources become Topics and embedded Chunks. This can be rebuilt from scratch any time — nothing in <code>core</code> depends on it staying put.</p>
+          <div class="tables"><code>notebook</code><code>notebook_source</code><code>notebook_topic</code><code>notebook_chunk</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Visit a Topic</strong>
+          <p>One Topic Visit opens per Topic per Session (never twice), and only one may be open at a time — a partial unique index makes that a property of the database, not a rule an agent has to remember. The provider is locked in on the first LLM call.</p>
+          <div class="tables"><code>topic_visit</code><code>visit_provider_binding</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Grade it, permanently</strong>
+          <p>Exactly one Evidence row is produced per Visit, snapshotting the score, rationale, and citations at that moment — so it still reads correctly even after the notebook that produced it is deleted. Its score deltas then update the Candidate's running per-Topic confidence.</p>
+          <div class="tables"><code>evidence</code><code>topic_confidence</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Meter every call</strong>
+          <p>Each LLM call (question-writer, interviewer, judge) is logged with cost and outcome. If billed against platform credits, a matching debit lands in the ledger — idempotent by a unique index on the call id, not an application-level dedup check.</p>
+          <div class="tables"><code>call_record</code><code>credit_ledger</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div class="body">
+          <strong>Checkpoint the conversation state</strong>
+          <p>LangGraph writes its own state under the Session id as thread id, so a parked Session — waiting on the Candidate, or recovering from a provider error — resumes exactly where it stopped. This schema is disposable and can be dropped wholesale without touching anything else.</p>
+          <div class="tables"><code>checkpoints</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== CORE ============================== -->
+  <section id="core" class="core">
+    <h2>interview_lm_core <span class="schema-badge badge-core">permanent</span></h2>
+    <p class="schema-desc">
+      Everything that must never disappear on its own: who the Candidate is, what happened in every Session,
+      the graded record of every answer, and every credit ever spent. <strong>Constraints here are enforced by
+      the database itself</strong> — triggers and unique indexes, not application code — because an MCP agent
+      talking to this system is code the team doesn't control, and a database constraint is the one thing a
+      prompt can't argue its way past.
+    </p>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">candidate</span><span class="gloss">a person who takes interviews</span></div>
+      <div class="table-body">
+        <p class="what">The permanent identity anchor — everything else in the schema eventually joins back to this row.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">candidate_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td>Opaque app-generated id (<code>cand_…</code>) — never taken from a login token directly.</td></tr>
+          <tr><td class="colname">display_name</td><td class="coltype">string, null</td><td>Shown in the UI.</td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td>When the row was first created.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">identity</span><span class="gloss">one login provider's claim about who someone is</span></div>
+      <div class="table-body">
+        <p class="what">A (issuer, subject) pair from Gatehouse, linked to a Candidate. This is the join between "who the token says presented itself" and "which Candidate that actually is here."</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">identity_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td>App-generated id.</td></tr>
+          <tr><td class="colname">candidate_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>candidate.candidate_id</code></td></tr>
+          <tr><td class="colname">issuer</td><td class="coltype">string</td><td>The token's <code>iss</code> claim, e.g. <code>auth.buildspacelabs.com</code>.</td></tr>
+          <tr><td class="colname">subject</td><td class="coltype">string</td><td>The token's <code>sub</code> claim — Gatehouse's own member id.</td></tr>
+        </table>
+        <div class="constraint-list"><li><code>UNIQUE(issuer, subject)</code> — one external member maps to exactly one candidate.</li></div>
+        <div class="why"><strong>Why it exists:</strong> the provider's subject lives <em>only</em> here and never on a permanent row. <code>candidate_id</code> is minted locally, so a Candidate can link a second provider, or merge two identities into one candidate, without ever touching Evidence, the credit ledger, or any other permanent row — they're all keyed on <code>candidate_id</code>, never on a Gatehouse subject.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">session</span><span class="gloss">one interview attempt</span></div>
+      <div class="table-body">
+        <p class="what">Started once, with a fixed scope and duration that can never change afterward.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">session_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">candidate_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>candidate</code></td></tr>
+          <tr><td class="colname">mode</td><td class="coltype">enum</td><td><code>managed</code> or <code>mcp</code>.</td></tr>
+          <tr><td class="colname">payment_route</td><td class="coltype">enum</td><td><code>credits</code> / <code>byok</code> / <code>mcp</code>.</td></tr>
+          <tr><td class="colname">provider_chosen</td><td class="coltype">enum, null</td><td><code>deepseek</code> / <code>gemini</code> / <code>claude</code>.</td></tr>
+          <tr><td class="colname">scope_module_ids</td><td class="coltype">string[]</td><td>Which Modules are in scope — <strong>immutable after start</strong>.</td></tr>
+          <tr><td class="colname">duration_seconds</td><td class="coltype">int</td><td>Also <strong>immutable after start</strong>.</td></tr>
+          <tr><td class="colname">rubric_version</td><td class="coltype">string</td><td>Grading rubric this Session was run under.</td></tr>
+          <tr><td class="colname">state</td><td class="coltype">enum</td><td><code>running</code> → <code>parked</code> → <code>ended</code>.</td></tr>
+          <tr><td class="colname">parked_reason / ended_reason</td><td class="coltype">string, null</td><td></td></tr>
+          <tr><td class="colname">started_at / ended_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list">
+          <li><code>duration_seconds &gt; 0</code>, scope array non-empty</li>
+          <li><strong>Trigger</strong> rejects any UPDATE that changes <code>scope_module_ids</code> or <code>duration_seconds</code></li>
+        </div>
+        <div class="why"><strong>Why:</strong> scope and duration are a promise made at the start of the interview — a trigger is the one place that guarantee can't be quietly broken by a careless code path later.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">topic_visit</span><span class="gloss">one question, asked and graded</span></div>
+      <div class="table-body">
+        <p class="what">One visit to one Topic within one Session — the unit a question gets asked, answered, and graded in.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">topic_visit_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">session_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>session</code></td></tr>
+          <tr><td class="colname">candidate_id</td><td class="coltype">string</td><td>Denormalized, not a FK.</td></tr>
+          <tr><td class="colname">topic_id</td><td class="coltype">string</td><td>Points at a Corpus Topic — plain string, not a FK (see cross-schema rules below).</td></tr>
+          <tr><td class="colname">visit_index</td><td class="coltype">int</td><td>Order within the Session.</td></tr>
+          <tr><td class="colname">state</td><td class="coltype">enum</td><td><code>open</code> → <code>answered</code> → <code>graded</code>, or <code>abandoned</code>.</td></tr>
+          <tr><td class="colname">grading_mode</td><td class="coltype">enum, null</td><td>Recorded once answered.</td></tr>
+          <tr><td class="colname">opened_at / answered_at / graded_at</td><td class="coltype">timestamptz</td><td></td></tr>
+          <tr><td class="colname">turn_count</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">exchange</td><td class="coltype">jsonb, null</td><td>The Q&amp;A transcript.</td></tr>
+          <tr><td class="colname">grounding_ref</td><td class="coltype">jsonb, null</td><td></td></tr>
+        </table>
+        <div class="constraint-list">
+          <li><code>UNIQUE(session_id, topic_id)</code> — a Topic is never visited twice in one Session</li>
+          <li><code>UNIQUE(session_id, visit_index)</code></li>
+          <li>Partial <code>UNIQUE</code> index: at most one <code>open</code>/<code>answered</code> row per Session</li>
+        </div>
+        <div class="why"><strong>Why the partial index:</strong> "the Session will not advance while a Visit is unresolved" — a database constraint is what makes that true regardless of what the calling code does.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">evidence</span><span class="gloss">the permanent graded record</span></div>
+      <div class="table-body">
+        <p class="what">Exactly one row per Topic Visit, written once and never changed again — the record that outlives the notebook material that produced it.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">evidence_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">topic_visit_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string, unique</td><td>→ <code>topic_visit</code> — exactly one Evidence per Visit.</td></tr>
+          <tr><td class="colname">candidate_id / topic_id / session_id</td><td class="coltype">string</td><td>Denormalized for querying without a join.</td></tr>
+          <tr><td class="colname">score</td><td class="coltype">numeric(4,3)</td><td>0–1.</td></tr>
+          <tr><td class="colname">grading_mode</td><td class="coltype">enum</td><td><code>ground_truth</code> / <code>text_grounded</code> / <code>model_judgment</code>.</td></tr>
+          <tr><td class="colname">weight</td><td class="coltype">numeric(3,2)</td><td>Trust weight of the mode: 1.00 / 0.70 / 0.50.</td></tr>
+          <tr><td class="colname">alpha_delta / beta_delta</td><td class="coltype">numeric(6,4)</td><td>The Beta-posterior update this Evidence applies to <code>topic_confidence</code>.</td></tr>
+          <tr><td class="colname">grader_kind</td><td class="coltype">enum</td><td><code>server_judge</code> or <code>judge_subagent</code>.</td></tr>
+          <tr><td class="colname">provider</td><td class="coltype">enum, null</td><td></td></tr>
+          <tr><td class="colname">rubric_version</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">rationale</td><td class="coltype">text</td><td></td></tr>
+          <tr><td class="colname">exchange_snapshot</td><td class="coltype">jsonb, null</td><td></td></tr>
+          <tr><td class="colname">citations</td><td class="coltype">jsonb, null</td><td>Spans + locators, <strong>snapshotted</strong> at grading time.</td></tr>
+          <tr><td class="colname">topic_title_snapshot / module_title_snapshot</td><td class="coltype">string</td><td>Also snapshotted — so the title still reads correctly after the source is gone.</td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list">
+          <li><code>score BETWEEN 0 AND 1</code></li>
+          <li><code>weight IN (1.00, 0.70, 0.50)</code></li>
+          <li><strong>Trigger</strong> rejects every UPDATE and DELETE — append-only, enforced by the database</li>
+        </div>
+        <div class="why"><strong>Why citations are snapshotted:</strong> written here rather than read back through the Corpus, so a citation still resolves correctly even after the notebook that produced it is deleted.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">topic_confidence</span><span class="gloss">what the system currently believes about a Candidate on a Topic</span></div>
+      <div class="table-body">
+        <p class="what">The one table in the whole schema that's actually mutated in place — a running Beta-distribution posterior (α, β) per Candidate × Topic.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">candidate_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td>Composite key with topic_id.</td></tr>
+          <tr><td class="colname">topic_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">alpha</td><td class="coltype">numeric(10,4)</td><td>Default 1.0 (uniform prior).</td></tr>
+          <tr><td class="colname">beta</td><td class="coltype">numeric(10,4)</td><td>Default 1.0.</td></tr>
+          <tr><td class="colname">updated_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list"><li><code>alpha &gt;= 1.0 AND beta &gt;= 1.0</code> — nothing drives a posterior below the uniform prior.</li></div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">call_record</span><span class="gloss">one LLM call, logged</span></div>
+      <div class="table-body">
+        <p class="what">One provider call made during a Topic Visit — the metering and observability unit.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">call_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">topic_visit_id / session_id / candidate_id</td><td class="coltype">string</td><td>Not FKs, denormalized.</td></tr>
+          <tr><td class="colname">role</td><td class="coltype">enum</td><td><code>interviewer</code> / <code>question_writer</code> / <code>judge</code> / <code>other</code>.</td></tr>
+          <tr><td class="colname">provider</td><td class="coltype">enum</td><td></td></tr>
+          <tr><td class="colname">model_id</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">payment_route</td><td class="coltype">enum</td><td></td></tr>
+          <tr><td class="colname">reported_cost_usd</td><td class="coltype">numeric(12,8), null</td><td></td></tr>
+          <tr><td class="colname">cost_status</td><td class="coltype">enum</td><td><code>priced</code> or <code>unpriced</code>.</td></tr>
+          <tr><td class="colname">credits_charged</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">prompt_tokens / completion_tokens</td><td class="coltype">int, null</td><td></td></tr>
+          <tr><td class="colname">latency_ms</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">outcome</td><td class="coltype">enum</td><td><code>ok</code> / <code>provider_error</code> / <code>timeout</code> / <code>rejected</code>.</td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list">
+          <li><code>credits_charged &gt;= 0</code></li>
+          <li>An <code>unpriced</code> call always charges 0 credits</li>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">visit_provider_binding</span><span class="gloss">the provider locked in for a Visit</span></div>
+      <div class="table-body">
+        <p class="what">Set on the first call of a Topic Visit, so nothing can switch providers or payment routes mid-visit.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">topic_visit_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td>One binding per Visit.</td></tr>
+          <tr><td class="colname">provider</td><td class="coltype">enum</td><td></td></tr>
+          <tr><td class="colname">payment_route</td><td class="coltype">enum</td><td></td></tr>
+          <tr><td class="colname">byok_key_id</td><td class="coltype">string, null</td><td>Which BYOK key, if route = byok.</td></tr>
+          <tr><td class="colname">bound_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">credit_ledger</span><span class="gloss">the only source of truth for a Candidate's balance</span></div>
+      <div class="table-body">
+        <p class="what">Append-only. There is no balance column anywhere — a Candidate's balance is the sum of their rows here.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">candidate_id</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">entry_type</td><td class="coltype">enum</td><td><code>grant</code> / <code>promo_grant</code> / <code>debit</code> / <code>refund</code>.</td></tr>
+          <tr><td class="colname">delta_credits</td><td class="coltype">int</td><td>Signed.</td></tr>
+          <tr><td class="colname">topic_visit_id / session_id / call_id</td><td class="coltype">string, null</td><td>Context the entry is tied to.</td></tr>
+          <tr><td class="colname">refunded_visit_id</td><td class="coltype">string, null</td><td>Present + unique on refund rows.</td></tr>
+          <tr><td class="colname">payment_ref</td><td class="coltype">string, null</td><td>Present + unique on grant rows.</td></tr>
+          <tr><td class="colname">reason</td><td class="coltype">string, null</td><td></td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list">
+          <li>A debit must have a <code>call_id</code> and be negative</li>
+          <li>A refund must have a <code>refunded_visit_id</code> and be positive</li>
+          <li>A grant must have a <code>payment_ref</code></li>
+          <li>Partial unique indexes: one debit per call, one refund per visit, one grant per payment ref</li>
+        </div>
+        <div class="why"><strong>Why:</strong> idempotency is a database constraint, not application logic — a retried write fails outright instead of needing app-level dedup.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">byok_key</span><span class="gloss">a Candidate's own provider API key</span></div>
+      <div class="table-body">
+        <p class="what">"Bring your own key" — stored encrypted, never in the clear.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">key_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">candidate_id</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">ciphertext</td><td class="coltype">bytes</td><td>The encrypted key material.</td></tr>
+          <tr><td class="colname">wrapped_dek</td><td class="coltype">bytes</td><td>Envelope-encrypted data-encryption-key.</td></tr>
+          <tr><td class="colname">key_fingerprint</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">status</td><td class="coltype">string</td><td>Default <code>active</code>.</td></tr>
+          <tr><td class="colname">validated_at</td><td class="coltype">timestamptz, null</td><td></td></tr>
+          <tr><td class="colname">last_error</td><td class="coltype">string, null</td><td></td></tr>
+          <tr><td class="colname">created_at / revoked_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list"><li>Partial unique index: only one <code>active</code> key per Candidate at a time.</li></div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">pool_ledger</span><span class="gloss">the platform's shared credit pool</span></div>
+      <div class="table-body">
+        <p class="what">Append-only, same idea as <code>credit_ledger</code> but for platform-funded credits rather than a single Candidate.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">entry_type</td><td class="coltype">enum</td><td><code>topup</code> or <code>drawdown</code>.</td></tr>
+          <tr><td class="colname">delta_credits</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">provider_reported_credits</td><td class="coltype">int, null</td><td>What the upstream provider itself reported, for reconciliation.</td></tr>
+          <tr><td class="colname">source_ref</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">corpus_version</span><span class="gloss">an audit trail row: "the Topic map changed shape"</span></div>
+      <div class="table-body">
+        <p class="what">Written whenever a Notebook is re-ingested or its embedding model changes — kept permanently even after the Notebook content itself is deleted.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">event_id<span class="key-tag key-pk">PK</span></td><td class="coltype">int, autoincrement</td><td></td></tr>
+          <tr><td class="colname">notebook_id / source_id</td><td class="coltype">string</td><td>Not FKs — the content schema is a different lifecycle.</td></tr>
+          <tr><td class="colname">reason</td><td class="coltype">string</td><td><code>re_ingested</code> or <code>embedding_model_changed</code>.</td></tr>
+          <tr><td class="colname">surviving_topic_ids</td><td class="coltype">string[]</td><td></td></tr>
+          <tr><td class="colname">new_topic_ids</td><td class="coltype">string[]</td><td></td></tr>
+          <tr><td class="colname">vanished_topic_ids</td><td class="coltype">string[]</td><td></td></tr>
+          <tr><td class="colname">note</td><td class="coltype">text</td><td></td></tr>
+          <tr><td class="colname">at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="why"><strong>Why:</strong> a Topic map may change shape; it may not change shape in silence. The event outlives the material it describes — deleting a Notebook empties the content schema and leaves this row standing.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== CONTENT ============================== -->
+  <section id="content" class="content">
+    <h2>interview_lm_content <span class="schema-badge badge-content">disposable</span></h2>
+    <p class="schema-desc">
+      The Corpus — a Candidate's uploaded material, or shared content an operator imported. Fully rebuildable
+      by re-import. Deleting a Notebook here <strong>never touches <code>core</code></strong>, which is exactly
+      how a Topic can retire while the Evidence it produced stays readable forever.
+    </p>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">notebook</span><span class="gloss">a container of study material</span></div>
+      <div class="table-body">
+        <p class="what">Either a Candidate's own upload, or a shared/imported Corpus everyone can read.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">notebook_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">candidate_id</td><td class="coltype">string</td><td>Owner, or the sentinel <code>platform</code> for shared notebooks.</td></tr>
+          <tr><td class="colname">title</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">visibility</td><td class="coltype">string</td><td><code>personal</code> (private) or <code>shared</code> (read-only to everyone).</td></tr>
+          <tr><td class="colname">embedding_model</td><td class="coltype">string</td><td>Recorded so a later model change is detectable.</td></tr>
+          <tr><td class="colname">provenance</td><td class="coltype">json text</td><td>Where this Notebook's material actually came from.</td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list"><li><code>visibility IN ('personal','shared')</code></li></div>
+        <div class="why"><strong>Why a shared notebook must produce the same topic ids for everyone:</strong> <code>topic_confidence</code> in <code>core</code> is keyed on <code>(candidate_id, topic_id)</code> — a shared Topic has to mean the same thing across every Candidate who visits it.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">notebook_source</span><span class="gloss">one uploaded document and its ingest state</span></div>
+      <div class="table-body">
+        <p class="what">One document within a Notebook, tracked through its whole ingest pipeline.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">source_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">notebook_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>notebook</code>, cascades on delete.</td></tr>
+          <tr><td class="colname">module_id</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">title</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">media_type</td><td class="coltype">string</td><td>Default <code>text/markdown</code>.</td></tr>
+          <tr><td class="colname">source_order</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">text</td><td class="coltype">text</td><td>Extracted document text.</td></tr>
+          <tr><td class="colname">content_hash</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">state</td><td class="coltype">string</td><td><code>uploaded</code> → <code>ingesting</code> → <code>ready</code> / <code>failed</code> / <code>stub</code>.</td></tr>
+          <tr><td class="colname">stub_reason</td><td class="coltype">string, null</td><td></td></tr>
+          <tr><td class="colname">pages</td><td class="coltype">json text</td><td>Per-page locators, used for citations.</td></tr>
+          <tr><td class="colname">progress_done / progress_total</td><td class="coltype">int</td><td>Work done vs. work found — never an indeterminate spinner.</td></tr>
+          <tr><td class="colname">started_at / progress_at</td><td class="coltype">timestamptz, null</td><td><code>progress_at</code> is the watchdog signal for a stalled ingest.</td></tr>
+          <tr><td class="colname">object_key</td><td class="coltype">string, null</td><td>Pointer to the raw bytes in object storage.</td></tr>
+          <tr><td class="colname">byte_length</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">structure</td><td class="coltype">string</td><td><code>derived</code> (mined by the clusterer) or <code>given</code> (structured import).</td></tr>
+          <tr><td class="colname">track_key / track_title</td><td class="coltype">string</td><td>Which Track this Module belongs to.</td></tr>
+          <tr><td class="colname">created_at</td><td class="coltype">timestamptz</td><td></td></tr>
+        </table>
+        <div class="constraint-list"><li><code>structure IN ('derived','given')</code></li></div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">notebook_topic</span><span class="gloss">one Topic mined or imported from a Source</span></div>
+      <div class="table-body">
+        <p class="what">The unit that <code>topic_confidence</code> and <code>evidence</code> both key on.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">topic_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">notebook_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>notebook</code>, cascades on delete.</td></tr>
+          <tr><td class="colname">source_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>notebook_source</code>, cascades on delete.</td></tr>
+          <tr><td class="colname">module_id</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">title</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">topic_order</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">centroid</td><td class="coltype">vector(768)</td><td>Stored once, never recomputed.</td></tr>
+          <tr><td class="colname">chunk_hashes</td><td class="coltype">string[]</td><td></td></tr>
+          <tr><td class="colname">dossier_tokens</td><td class="coltype">int</td><td></td></tr>
+        </table>
+        <div class="why"><strong>Why the centroid is never recomputed:</strong> a centroid that drifts with every new upload is a Topic boundary that moves without saying so.</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head"><span class="name">notebook_chunk</span><span class="gloss">one retrievable, embedded span of a Source</span></div>
+      <div class="table-body">
+        <p class="what">A text passage or a figure — the unit that actually gets embedded, retrieved, and cited.</p>
+        <table class="cols">
+          <tr><th>column</th><th>type</th><th>holds</th></tr>
+          <tr><td class="colname">chunk_id<span class="key-tag key-pk">PK</span></td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">notebook_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>notebook</code>, cascades on delete.</td></tr>
+          <tr><td class="colname">source_id<span class="key-tag key-fk">FK</span></td><td class="coltype">string</td><td>→ <code>notebook_source</code>, cascades on delete.</td></tr>
+          <tr><td class="colname">topic_id</td><td class="coltype">string</td><td>Not a FK.</td></tr>
+          <tr><td class="colname">page</td><td class="coltype">int</td><td>The locator.</td></tr>
+          <tr><td class="colname">char_start / char_end</td><td class="coltype">int</td><td></td></tr>
+          <tr><td class="colname">anchor</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">text</td><td class="coltype">text</td><td></td></tr>
+          <tr><td class="colname">content_hash</td><td class="coltype">string</td><td></td></tr>
+          <tr><td class="colname">embedding</td><td class="coltype">vector(768)</td><td>One shared embedding space for text <em>and</em> images.</td></tr>
+          <tr><td class="colname">embedding_model</td><td class="coltype">string</td><td>Which model produced this vector, for safe reuse-by-hash.</td></tr>
+          <tr><td class="colname">modality</td><td class="coltype">string</td><td><code>text</code> or <code>image</code>.</td></tr>
+          <tr><td class="colname">object_key</td><td class="coltype">string, null</td><td>Where an image chunk's pixels live.</td></tr>
+          <tr><td class="colname">leaf_kind</td><td class="coltype">string</td><td><code>content</code> / <code>prompt</code> / ground-truth-answer.</td></tr>
+          <tr><td class="colname">answers_chunk_id</td><td class="coltype">string, null</td><td>Points to the prompt chunk this one answers.</td></tr>
+        </table>
+        <div class="constraint-list">
+          <li><code>modality IN ('text','image')</code></li>
+          <li>An image chunk always has an <code>object_key</code>; a text chunk never does</li>
+          <li>HNSW vector index (cosine) on <code>embedding</code> for retrieval</li>
+        </div>
+        <div class="why"><strong>Why one embedding space:</strong> a figure is just another chunk row rather than a parallel table — one column, one index, one query, for both text and images.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== GRAPH ============================== -->
+  <section id="graph" class="graph">
+    <h2>interview_lm_graph <span class="schema-badge badge-graph">framework-owned</span></h2>
+    <p class="schema-desc">
+      <strong>Not defined by this app.</strong> These four tables — <code>checkpoints</code>,
+      <code>checkpoint_blobs</code>, <code>checkpoint_writes</code>, <code>checkpoint_migrations</code> — are
+      created entirely by LangGraph's own <code>PostgresSaver.setup()</code>. The app treats this schema as a
+      sealed box: it only ever creates it wholesale or drops it wholesale, never reads an individual column.
+    </p>
+    <div class="table-card">
+      <div class="table-head"><span class="name">checkpoints / checkpoint_blobs / checkpoint_writes</span><span class="gloss">LangGraph's conversation-state snapshots</span></div>
+      <div class="table-body">
+        <p class="what">Every step of the interview's state machine, keyed by <code>thread_id = session_id</code>, so a parked Session — waiting on the Candidate's next answer, or recovering from a provider failure — can resume exactly where it stopped.</p>
+        <div class="why"><strong>Why it's routed to a direct connection:</strong> LangGraph's saver uses prepared statements and pipelining that a transaction pooler (like Neon's pooler used for the rest of the app) can't support reliably — so this schema alone talks to Postgres directly, not through the pool.</div>
+        <div class="why" style="margin-top:8px;"><strong>Why it's safe to drop wholesale:</strong> it's explicitly disposable outside the resumption window. Dropping the entire schema and recreating it touches nothing in <code>core</code> — that boundary is exactly what the app's own migration tests verify.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== RULES ============================== -->
+  <section id="rules">
+    <h2>Cross-schema rules worth knowing</h2>
+    <p class="schema-desc">The design decisions that explain why the schemas are shaped this way.</p>
+    <div class="rule-grid">
+      <div class="rule">
+        <strong>No foreign key crosses a lifecycle boundary</strong>
+        <code>topic_visit.topic_id</code>, <code>evidence.topic_id</code>, <code>call_record</code> — all reference Corpus ids as plain strings, never as a FK into <code>content</code>. That's deliberate: a Topic can vanish from <code>content</code> entirely while the permanent <code>evidence</code> row that graded it — with its snapshotted citations — stays fully readable.
+      </div>
+      <div class="rule">
+        <strong><code>identity</code> is the only place a third-party subject is stored</strong>
+        Everything else is keyed on the locally-minted <code>candidate_id</code>. Merging two identities into one Candidate never has to touch Evidence, the ledger, or confidence scores.
+      </div>
+      <div class="rule">
+        <strong>Append-only is enforced by the database</strong>
+        <code>evidence</code> has a trigger that rejects UPDATE and DELETE outright. <code>credit_ledger</code> and <code>pool_ledger</code> simply have no code path that updates a row — only inserts, made idempotent by partial unique indexes rather than an app-level check-then-insert.
+      </div>
+      <div class="rule">
+        <strong><code>topic_confidence</code> is the one mutable table</strong>
+        Every other row in <code>core</code> is either immutable by trigger (<code>session</code>, <code>evidence</code>) or append-only by convention (the ledgers, <code>call_record</code>). This is the single exception, and it's called out as such in the code.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Generated from <code>db/schema.py</code>, <code>db/content.py</code>, <code>db/engine.py</code>, the Gatehouse adapter, and the identity/metering services.
+  </footer>
+
+</div>
+</body>
+</html>

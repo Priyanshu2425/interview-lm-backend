@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from interviewer.corpus.adapters.notebook import (
+from interviewer.adapters.internal.notebook import (
     HashingEmbedder,
     Notebook,
     Source,
     ingest_notebook,
 )
-from interviewer.corpus.conformance import validate
-from interviewer.corpus.contract import GradingMode, LeafKind
-from interviewer.corpus.loader import DossierLoader
+from interviewer.service.corpus.conformance import validate
+from interviewer.model.corpus import GradingMode, LeafKind
+from interviewer.service.corpus.loader import DossierLoader
 
 ATTENTION = """# Attention
 

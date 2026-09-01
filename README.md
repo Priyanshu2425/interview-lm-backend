@@ -80,9 +80,9 @@ Neon would create schemas and insert rows on production.
 git clone https://github.com/Priyanshu2425/interview-lm-backend.git
 cd interview-lm-backend
 
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements-dev.txt   # runtime, pinned + pytest
-.venv/bin/pip install -e backend                        # the package itself
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements-dev.txt   # runtime, pinned + pytest
+backend/.venv/bin/pip install -e backend                        # the package itself
 
 docker run -d --name cortex-pg \
   -e POSTGRES_USER=cortex -e POSTGRES_PASSWORD=cortex -e POSTGRES_DB=cortex \
@@ -102,8 +102,8 @@ builds every schema it needs, and there are no migrations to replay —
 Then:
 
 ```bash
-.venv/bin/python -m pytest backend/tests -q            # 840 tests, ~100s
-.venv/bin/uvicorn interviewer.api.app:app --port 8000  # the API
+backend/.venv/bin/python -m pytest backend/tests -q            # 840 tests, ~100s
+backend/.venv/bin/uvicorn interviewer.app:app --port 8000  # the API
 ```
 
 **No configuration is required for any of that.** With nothing set, the
@@ -148,7 +148,7 @@ cannot be redirected by it. `uvicorn --env-file` and everything in `scripts/`
 can, and will. To check where you are pointed:
 
 ```bash
-.venv/bin/python -c "import sys;sys.path.insert(0,'backend/src');\
+backend/.venv/bin/python -c "import sys;sys.path.insert(0,'backend/src');\
 import sqlalchemy as sa;from interviewer.db.engine import dsn;\
 print(sa.engine.make_url(dsn()).host)"
 ```

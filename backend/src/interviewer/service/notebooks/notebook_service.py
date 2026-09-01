@@ -26,9 +26,9 @@ from interviewer.model.corpus import Corpus
 from interviewer.db.content import PERSONAL, SHARED
 
 from .corpus_view import corpus_for, merge
-from .metering import IngestCost, IngestMeter, InsufficientBalance, estimate
-from .progress import ProgressEmbedder
-from .reuse import ReusingEmbedder
+from .ingest_cost import IngestCost, IngestMeter, estimate
+from .progress_embedder import ProgressEmbedder
+from .reusing_embedder import ReusingEmbedder
 from ...repository.notebooks import NotebookRecord, NotebookStore
 
 _log = logging.getLogger(__name__)

@@ -58,8 +58,8 @@ def main() -> int:
     from interviewer.db.engine import create_content, make_engine
     from interviewer.service.embeddings.artifacts import S3ObjectStore
     from interviewer.embeddings import make_embedder
-    from interviewer.notebooks.service import NotebookService
-    from interviewer.notebooks.store import NotebookStore
+    from interviewer.repository.notebooks import NotebookStore
+    from interviewer.service.notebooks import NotebookService
 
     embedder = make_embedder(env)
     price = float(getattr(embedder, "dollars_per_million", 0.0))

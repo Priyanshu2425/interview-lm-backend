@@ -241,7 +241,7 @@ def test_an_import_is_refused_when_the_balance_cannot_cover_it(content_db, clean
     """The gate is the same one, and it stops before the first embedding call."""
     from interviewer.service.metering.ledger import CreditLedger
     from interviewer.service.notebooks import NotebookService
-    from interviewer.service.notebooks.metering import InsufficientBalance
+    from interviewer.service.notebooks import InsufficientBalance
 
     class Priced(type(_counting())):
         credits_per_1k_tokens = 500.0

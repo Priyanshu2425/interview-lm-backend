@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field
 from interviewer.service.notebooks import (
     DocumentStoreUnavailable, IngestNotClaimable, SharedCorpusIsNotYours,
 )
-from interviewer.service.notebooks.metering import InsufficientBalance
 
 from ... import ingest_worker
 from ...deps import refresh_corpus

@@ -1,4 +1,5 @@
-from .service import (
+from .ingest_cost import InsufficientBalance
+from .notebook_service import (
     AddedSource,
     DocumentStoreUnavailable,
     IngestNotClaimable,
@@ -12,6 +13,7 @@ from .service import (
 
 __all__ = [
     "AddedSource",
+    "InsufficientBalance",
     "DocumentStoreUnavailable",
     "IngestNotClaimable",
     "NotebookService",

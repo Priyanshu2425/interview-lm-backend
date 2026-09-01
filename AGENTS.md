@@ -68,6 +68,43 @@ Two consequences worth stating outright:
 - **Render failure copy from the API's own `code` and `message`.** Composing it
   on the client is how a Credit message reaches a BYOK Candidate.
 
+## Where a file goes, and what it is called
+
+The folder names the domain. The file names the thing. A suffix is worth
+writing only where it tells you something the folder has not already said —
+`service/notebooks/notebook_service.py` says *notebook* twice and *service*
+twice, and `service/notebooks/progress_service.py` would be worse than
+redundant, because the thing it named was an Embedder decorator and not a
+service at all.
+
+| ends with | is | the test that decides it |
+|---|---|---|
+| `_service.py` | orchestrates an operation, holds injected collaborators | can you name **one verb** it does? two verbs is two modules |
+| `_store.py`, or `repository/` | talks to the database and to nothing else | it contains SQL |
+| `_adapter.py`, `_embedder.py`, `_client.py` | satisfies a port defined elsewhere | it implements somebody else's interface |
+| *(no suffix)* | a concept: data and the rules that are true of it | it imports with no engine, no config, no clock |
+| `_util.py`, and it lives in `util/` | a helper with no domain in it | could it exist in a project that has never heard of a Candidate? |
+
+Rules that follow from the table:
+
+- **A domain folder is not required to be all services.** It holds its concepts
+  and its adapters too. Forcing every file to be a service is how the nouns go
+  hollow and the rules pile up in orchestrators.
+- **No `_constants.py`.** A constant lives on the thing whose rule reads it —
+  `GradingMode.weight`, `EndReason.parks`, `COHORT_FLOOR` beside the ranking it
+  gates. A shared constants file is where two copies of one rule start, and we
+  have the scar: `confidence/math.py` re-lists the legal Evidence weights
+  instead of asking `GradingMode` for them.
+- **Do not borrow another domain's word.** `service/metering/` owns what a
+  provider call costs and who pays. Ingest's own cost policy is
+  `notebooks/ingest_cost.py` — it was called `metering.py`, and the name made
+  it look like a second metering domain when it is one caller of the first.
+  Words are decided in `CONTEXT.md` and used everywhere or nowhere.
+- **A package exports its interface and nothing else.** `service/notebooks/`
+  exports `NotebookService` and its errors; the store behind it is internal.
+  Python will not enforce this, so the `__init__.py` export list is the
+  statement, and a property handing out an internal collaborator undoes it.
+
 ## Conventions the config does not carry
 
 - `INTERVIEWER_FAKE_MODEL=1` runs the whole loop against a scripted provider:

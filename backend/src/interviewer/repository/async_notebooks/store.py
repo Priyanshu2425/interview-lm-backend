@@ -653,7 +653,10 @@ def _keep(objects, notebook_id: str, payload: bytes, *, media_type: str):
     """
     from hashlib import sha256
 
-    from ...service.notebooks.service import DocumentStoreUnavailable, _suffix_for
+    from ...service.notebooks.notebook_service import (
+        DocumentStoreUnavailable,
+        _suffix_for,
+    )
 
     if objects is None or not payload:
         return None, len(payload)

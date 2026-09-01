@@ -64,7 +64,7 @@ def main() -> int:
     from interviewer.db.engine import create_content, create_core, make_engine
     from interviewer.embeddings import make_embedder
     from interviewer.service.metering.ledger import CreditLedger
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     path = Path(args.corpus)
     if not path.exists():

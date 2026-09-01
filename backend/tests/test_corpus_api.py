@@ -50,6 +50,18 @@ def test_scope_reports_what_the_chosen_modules_can_produce(client):
     assert s["ground_truth_topic_count"] == 7
     assert s["strongest_mode"] == "ground_truth"
 
+    # ISSUE-0040. Ten Topics is ten questions at half an hour, or four questions
+    # grouped three-deep if the Candidate will not spend that. Asserted against a
+    # real scope rather than only an empty one, because the figure that matters is
+    # the one a Candidate reads beside Modules they actually chose.
+    assert s["questions_at_full_coverage"] == 10
+    assert s["suggested_seconds"] == 1800
+    assert s["minimum_seconds"] == 720
+
+    # And the reading is Coverage, not difficulty: the same ten Topics carrying
+    # twice the text would suggest the same half hour. The one input is the count.
+    assert s["suggested_seconds"] == s["topic_count"] * 180
+
 
 def test_an_empty_scope_reports_nothing_rather_than_failing(client):
     s = client.get("/v1/skills/scope").json()

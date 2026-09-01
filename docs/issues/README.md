@@ -88,7 +88,7 @@ the end.
 | # | Slice | Type | Blocked by | State |
 |---|---|---|---|---|
 | 0039 | The schema breaks and is rebuilt | **HITL** | — | ✅ resolved (local; prod migration pending) |
-| 0040 | A scope suggests a time | AFK | — | open |
+| 0040 | A scope suggests a time | AFK | — | ✅ resolved |
 | 0041 | The plan is made, and it is fixed | AFK | 0039, 0040 | open |
 | 0042 | The Session runs the plan | AFK | 0041 | open |
 | 0043 | The Judge reads two dimensions | AFK | 0039 | open |

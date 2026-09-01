@@ -5,6 +5,11 @@ Type: AFK
 Source: SPEC-0007 §9; amends ADR-0004
 Covers: one Evidence row per Topic, extracted from the transcript when the Session ends
 
+> **Paths in this ticket** were written against `api/`, which is now `routes/v1/`.
+> Every router is mounted under `/v1`, the Corpus endpoints are served under
+> `skills/`, and the session path parameter is `{session_id}`. Corrected in place;
+> the tree is the authority.
+
 ## What to build
 
 `service/judge/session_grader.py`. For each Topic that appears in any message's
@@ -20,7 +25,7 @@ Covers: one Evidence row per Topic, extracted from the transcript when the Sessi
 
 `grade_session` is a graph node on the edge to END — an edge cannot not run. It marks
 every still-`planned` item `unreached` and calls the service.
-`POST /sessions/{id}/end` calls it too, and so does the resumption path for a Session
+`POST /v1/sessions/{session_id}/end` calls it too, and so does the resumption path for a Session
 whose graph finished without Evidence.
 
 Idempotent on `UNIQUE(session_id, topic_id)`: grading twice is a no-op, which is what

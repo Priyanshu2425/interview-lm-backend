@@ -5,6 +5,11 @@ Type: AFK
 Source: SPEC-0007 §6; amends ADR-0005
 Covers: the Session decides what it will ask before it asks anything
 
+> **Paths in this ticket** were written against `api/`, which is now `routes/v1/`.
+> Every router is mounted under `/v1`, the Corpus endpoints are served under
+> `skills/`, and the session path parameter is `{session_id}`. Corrected in place;
+> the tree is the authority.
+
 ## What to build
 
 Today the next Topic is drawn from a sampler after every Visit, so the shape of a
@@ -32,7 +37,7 @@ existing selection test keeps passing and the sampler keeps its one implementati
 rather than replanning — fixedness survives a restart because the plan is in
 Postgres, not only in the checkpointer.
 
-`GET /sessions/{id}/plan` serves it.
+`GET /v1/sessions/{session_id}/plan` serves it.
 
 ## Thompson sampling did not die, it moved
 
@@ -58,7 +63,7 @@ record rather than indistinguishable from a good plan.
 - [ ] `rank` returns every Topic, ordered; `choose` is `rank()[0]` and its tests are untouched
 - [ ] Randomness stays injected — the same seed plans the same Session
 - [ ] A 15-minute Session over 12 Topics yields 5 items, some spanning
-- [ ] `GET /plan` twice returns byte-identical plans
+- [ ] `GET /v1/sessions/{session_id}/plan` twice returns byte-identical plans
 - [ ] An UPDATE of a `plan_item`'s topics is refused by the database
 - [ ] A malformed model reply still yields a valid plan, with `planner_fallback` true
 - [ ] A plan never names a Topic outside the Session's scope

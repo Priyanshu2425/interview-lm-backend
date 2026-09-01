@@ -5,9 +5,14 @@ Type: AFK
 Source: SPEC-0007 §9
 Covers: what the Candidate reads when the Session ends
 
+> **Paths in this ticket** were written against `api/`, which is now `routes/v1/`.
+> Every router is mounted under `/v1`, the Corpus endpoints are served under
+> `skills/`, and the session path parameter is `{session_id}`. Corrected in place;
+> the tree is the authority.
+
 ## What to build
 
-`GET /sessions/{id}/report` — the one place a Session's result is shown, now that no
+`GET /v1/sessions/{session_id}/report` — the one place a Session's result is shown, now that no
 turn carries a score.
 
 It holds:
@@ -19,7 +24,7 @@ It holds:
 
 `summary.py` needs fixing rather than replacing: `SummaryService.for_session` filters
 on `topic_visit.state == "graded"`, and that state no longer exists. It reads Evidence
-by `(session_id, topic_id)` now. `GET /sessions/{id}/summary` keeps working.
+by `(session_id, topic_id)` now. `GET /v1/sessions/{session_id}/summary` keeps working.
 
 ## The refusals this endpoint inherits
 
@@ -40,7 +45,7 @@ likely to want to break them:
 - [ ] No field fuses Coverage with Mastery, and none fuses the two sub-scores
 - [ ] An unreached Topic carries no band, no score and no interval
 - [ ] A Topic below the Evidence Floor renders the word, not a number
-- [ ] `GET /summary` still answers, reading Evidence by `(session_id, topic_id)`
+- [ ] `GET /v1/sessions/{session_id}/summary` still answers, reading Evidence by `(session_id, topic_id)`
 - [ ] A Session with no reached Topics returns a report rather than an error
 - [ ] The report is stable — the same Session returns the same reading twice
 

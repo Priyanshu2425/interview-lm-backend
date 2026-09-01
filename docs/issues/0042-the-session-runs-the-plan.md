@@ -5,6 +5,11 @@ Type: AFK
 Source: SPEC-0007 §7–8; amends ADR-0001
 Covers: the loop executes planned items, writes a transcript, and grades nothing
 
+> **Paths in this ticket** were written against `api/`, which is now `routes/v1/`.
+> Every router is mounted under `/v1`, the Corpus endpoints are served under
+> `skills/`, and the session path parameter is `{session_id}`. Corrected in place;
+> the tree is the authority.
+
 ## What to build
 
 The graph becomes:
@@ -29,9 +34,9 @@ The graph becomes:
 - `decide_next` keeps its duration and credits logic; scope exhaustion becomes plan
   exhaustion.
 
-`GET /sessions/{id}/transcript` serves the messages in order.
+`GET /v1/sessions/{session_id}/transcript` serves the messages in order.
 
-`POST /sessions/{id}/turns` stops returning `last_visit`. A turn carries the next
+`POST /v1/sessions/{session_id}/turns` stops returning `last_visit`. A turn carries the next
 question and nothing else.
 
 ## What does not change

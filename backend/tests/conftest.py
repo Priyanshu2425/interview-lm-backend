@@ -27,8 +27,8 @@ if os.environ.get("INTERVIEW_LM_TEST_ALLOW_REMOTE_DB") != "1":
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "backend" / "src"))
 
-from interviewer.corpus.adapters.interview_lm import ingest  # noqa: E402
-from interviewer.corpus.loader import DossierLoader  # noqa: E402
+from interviewer.adapters.interview_lm import ingest  # noqa: E402
+from interviewer.service.corpus.loader import DossierLoader  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -85,6 +85,17 @@ def engine():
     e = make_engine()
     create_core(e)
     create_graph(e)
+    # `wiring()` builds its own engine and runs `create_content`'s migration
+    # DDL on its first call, memoized after (`@lru_cache`) — cheap forever
+    # after, but that first call needs an ACCESS EXCLUSIVE lock on `notebook`.
+    # Left to happen lazily, the first caller can be a request whose own
+    # async session already holds a read lock on that same table from an
+    # earlier statement in the same request — a real deadlock, not a slow
+    # query. Paying for it here, before any test opens a transaction, means
+    # every in-request call after this one is instant and lock-free.
+    from interviewer.wiring import wiring
+
+    wiring()
     return e
 
 
@@ -98,6 +109,10 @@ def clean_db(engine):
             "evidence", "topic_confidence", "topic_visit", "session", "identity",
             "candidate", "call_record", "credit_ledger", "byok_key",
             "pool_ledger", "corpus_version", "visit_provider_binding",
+            # ISSUE-0039. A table left out of this list is a table that leaks
+            # one test's rows into the next, which is a failure attributed to
+            # whichever test happens to run second.
+            "message", "plan_item", "session_plan",
         ))
         c.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     return engine
@@ -110,20 +125,20 @@ def metered_deps(clean_db, loader, corpus):
 
     import numpy as np
 
-    from interviewer.confidence.selector import TopicSelector
-    from interviewer.confidence.store import (
+    from interviewer.service.confidence.selector import TopicSelector
+    from interviewer.service.confidence.store import (
         ConfidenceStore, EvidenceLedger, VisitLifecycle,
     )
-    from interviewer.corpus.service import CorpusService
-    from interviewer.graph.machine import Deps
-    from interviewer.graph.ports import FrozenClock, Ports
-    from interviewer.graph.sessions import SessionStore
-    from interviewer.judge.interviewer import Interviewer
-    from interviewer.judge.judge import Judge
-    from interviewer.judge.question_writer import QuestionWriter
-    from interviewer.metering.client import BindingStore, MeteredModelClient
-    from interviewer.metering.ledger import CreditLedger, PoolLedger
-    from interviewer.metering.transport import ScriptedTransport
+    from interviewer.service.corpus import CorpusService
+    from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.ports import FrozenClock, Ports
+    from interviewer.service.graph.sessions import SessionStore
+    from interviewer.service.judge.interviewer import Interviewer
+    from interviewer.service.judge.judge import Judge
+    from interviewer.service.judge.question_writer import QuestionWriter
+    from interviewer.service.metering.client import BindingStore, MeteredModelClient
+    from interviewer.service.metering.ledger import CreditLedger, PoolLedger
+    from interviewer.service.metering.transport import ScriptedTransport
 
     ledger = CreditLedger(clean_db)
     transport = ScriptedTransport(cost_usd=Decimal("0.06"))
@@ -153,17 +168,17 @@ def metered_deps(clean_db, loader, corpus):
 @pytest.fixture()
 def deps(clean_db, loader, corpus):
     """A fully wired, fully deterministic set of dependencies."""
-    from interviewer.confidence.store import (
+    from interviewer.service.confidence.store import (
         ConfidenceStore, EvidenceLedger, VisitLifecycle,
     )
-    from interviewer.corpus.service import CorpusService
-    from interviewer.graph.machine import Deps
-    from interviewer.graph.ports import Ports, ScriptedModel
-    from interviewer.graph.sessions import SessionStore
-    from interviewer.judge.judge import Judge
-    from interviewer.judge.question_writer import QuestionWriter
-    from interviewer.confidence.selector import TopicSelector
-    from interviewer.judge.interviewer import Interviewer
+    from interviewer.service.corpus import CorpusService
+    from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.ports import Ports, ScriptedModel
+    from interviewer.service.graph.sessions import SessionStore
+    from interviewer.service.judge.judge import Judge
+    from interviewer.service.judge.question_writer import QuestionWriter
+    from interviewer.service.confidence.selector import TopicSelector
+    from interviewer.service.judge.interviewer import Interviewer
 
     model = ScriptedModel(
         replies={
@@ -173,7 +188,7 @@ def deps(clean_db, loader, corpus):
         default="SCORE: 0.8\nWHY: solid reasoning.",
     )
     return Deps(
-        ports=Ports(clock=__import__("interviewer.graph.ports", fromlist=["x"]).FrozenClock(),
+        ports=Ports(clock=__import__("interviewer.service.graph.ports", fromlist=["x"]).FrozenClock(),
                     rng=__import__("numpy").random.default_rng(11),
                     model=model),
         loader=loader,
@@ -216,7 +231,7 @@ def content_db(engine):
 
 @pytest.fixture()
 def notebooks(content_db, counting):
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     return NotebookService(content_db, embedder=counting)
 
@@ -236,7 +251,7 @@ def counting():
     Used where the assertion is about *not spending* — a deduplicated upload
     must reach no provider at all.
     """
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook import HashingEmbedder
 
     class Counting(HashingEmbedder):
         def __init__(self):
@@ -258,7 +273,7 @@ def seeing():
     two different vectors and the same picture twice is the same vector — which
     is all the pipeline actually asks of an image tower.
     """
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook import HashingEmbedder
 
     class Seeing(HashingEmbedder):
         model_name = "seeing-v1"
@@ -283,7 +298,7 @@ def seeing():
 @pytest.fixture()
 def objects(tmp_path):
     """Figure bytes on disk. The same contract S3 answers, without a bucket."""
-    from interviewer.embeddings.artifacts import LocalObjectStore
+    from interviewer.service.embeddings.artifacts import LocalObjectStore
 
     return LocalObjectStore(tmp_path / "content")
 
@@ -291,7 +306,7 @@ def objects(tmp_path):
 @pytest.fixture()
 def illustrated(content_db, seeing, objects):
     """A NotebookService with the figure lane switched on."""
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     return NotebookService(
         content_db, embedder=seeing, objects=objects, images=True
@@ -348,12 +363,12 @@ def shipped_template(engine, corpus_path):
     """
     from sqlalchemy import text
 
-    from interviewer.corpus.adapters.interview_lm import ingest as ingest_corpus
-    from interviewer.corpus.adapters.notebook import HashingEmbedder
-    from interviewer.corpus.adapters.notebook.structured import GivenLeaf, GivenTopic
+    from interviewer.adapters.interview_lm import ingest as ingest_corpus
+    from interviewer.adapters.internal.notebook import HashingEmbedder
+    from interviewer.adapters.internal.notebook.structured import GivenLeaf, GivenTopic
     from interviewer.db.content import CONTENT, PLATFORM_OWNER, SHARED
     from interviewer.db.engine import create_content
-    from interviewer.notebooks import NotebookService
+    from interviewer.service.notebooks import NotebookService
 
     create_content(engine)
     corpus = ingest_corpus(corpus_path)
@@ -426,7 +441,7 @@ def served_corpus(content_db, shipped_template):
     """
     from sqlalchemy import text
 
-    from interviewer.api import deps
+    from interviewer import deps
     from interviewer.db.content import CONTENT
 
     with content_db.begin() as c:
@@ -455,8 +470,8 @@ def signed_in_client(candidate_id: str = SIGNED_IN_CANDIDATE):
     """A TestClient whose requests arrive already authenticated."""
     from fastapi.testclient import TestClient
 
-    from interviewer.api.app import create_app
-    from interviewer.api.auth import current_candidate
+    from interviewer.app import create_app
+    from interviewer.security.auth import current_candidate
 
     application = create_app()
     application.dependency_overrides[current_candidate] = lambda: candidate_id

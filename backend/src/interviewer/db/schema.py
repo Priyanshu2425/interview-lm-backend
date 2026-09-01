@@ -67,6 +67,19 @@ call_role = Enum(
     "interviewer", "question_writer", "judge", "other", name="call_role", schema=CORE
 )
 
+# ISSUE-0039. The plan is fixed before the first question, so its vocabulary is
+# a type rather than a string: a breadth nobody can misspell, an item state that
+# distinguishes "never reached" from "asked", and a transcript whose role and
+# kind are closed sets.
+plan_breadth = Enum("full", "compressed", name="plan_breadth", schema=CORE)
+plan_item_state = Enum(
+    "planned", "asked", "unreached", name="plan_item_state", schema=CORE
+)
+message_role = Enum("interviewer", "candidate", name="message_role", schema=CORE)
+message_kind = Enum(
+    "question", "answer", "probe", "hint", name="message_kind", schema=CORE
+)
+
 
 candidate = Table(
     "candidate", metadata,
@@ -122,10 +135,21 @@ topic_visit = Table(
     _ts("answered_at", nullable=True),
     _ts("graded_at", nullable=True),
     Column("turn_count", Integer, nullable=False, server_default="0"),
+    # ISSUE-0039 retires this in favour of `message`, once the loop that writes
+    # it is the loop that reads the transcript back. Until then it is the only
+    # record of an exchange, so it stays.
     Column("exchange", JSONB, nullable=True),
     Column("grounding_ref", JSONB, nullable=True),
-    # PRD-0003: no Topic is visited twice within one Session.
-    UniqueConstraint("session_id", "topic_id", name="uq_visit_session_topic"),
+    # ISSUE-0039. A row is now the *question*, not the Topic Visit: it may span
+    # up to three Topics, and it belongs to the plan item that scheduled it.
+    # `topic_id` stays as the owning Topic, because `open_topic_ids()` and the
+    # refund path both need a scalar.
+    Column("topic_ids", ARRAY(String), nullable=True),
+    Column("plan_item_id", String, nullable=True),
+    # `uq_visit_session_topic` was here, and ISSUE-0039 removed it: a plan may
+    # deliberately spend two questions on one Topic. What it protected — one
+    # Beta observation per Topic per Session — moved to `uq_evidence_session_topic`,
+    # which is where ADR-0004 actually lives now.
     UniqueConstraint("session_id", "visit_index", name="uq_visit_session_index"),
     # A mode is recorded when the question is written and persisted at the
     # Answer Turn — so it must be present once a Visit has been answered or
@@ -147,17 +171,31 @@ Index(
     postgresql_where=text("state IN ('open','answered')"),
 )
 
-# ADR-0004, as a constraint: one Topic Visit produces one Evidence row.
+# ADR-0004, restated by ISSUE-0039: the unit of Evidence is the Topic within a
+# Session, not the Topic Visit. One Beta observation per Topic per Session —
+# exactly as before — but an observation may now be assembled from several
+# questions, and one spanning question may contribute to several observations.
 evidence = Table(
     "evidence", metadata,
     Column("evidence_id", String, primary_key=True),
+    # Nullable and non-unique since ISSUE-0039. Grading happens at the end of a
+    # Session against a transcript, so an Evidence row need not descend from any
+    # single question, and several may descend from the same one.
     Column("topic_visit_id", String,
            ForeignKey(f"{CORE}.topic_visit.topic_visit_id"),
-           nullable=False, unique=True),
+           nullable=True),
     Column("candidate_id", String, nullable=False),
     Column("topic_id", String, nullable=False),
     Column("session_id", String, nullable=False),
+    # `score` stays the stated combination; the two dimensions it combines are
+    # recorded beside it (ISSUE-0043). Nullable because a Verdict written before
+    # the Judge read two dimensions has neither.
     Column("score", Numeric(4, 3), nullable=False),
+    Column("source_score", Numeric(4, 3), nullable=True),
+    Column("truth_score", Numeric(4, 3), nullable=True),
+    # Reporting only. It is never a Beta count — the observation is one,
+    # however many questions were spent reaching it.
+    Column("question_count", Integer, nullable=False, server_default="0"),
     Column("grading_mode", grading_mode, nullable=False),
     Column("weight", Numeric(3, 2), nullable=False),
     Column("alpha_delta", Numeric(6, 4), nullable=False),
@@ -175,7 +213,18 @@ evidence = Table(
     Column("topic_title_snapshot", String, nullable=False, server_default=""),
     Column("module_title_snapshot", String, nullable=False, server_default=""),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
+    # This constraint *is* ADR-0004: one Beta observation per Topic per Session.
+    UniqueConstraint("session_id", "topic_id", name="uq_evidence_session_topic"),
     CheckConstraint("score >= 0 AND score <= 1", name="ck_evidence_score_unit"),
+    CheckConstraint(
+        "source_score IS NULL OR (source_score >= 0 AND source_score <= 1)",
+        name="ck_evidence_source_score_unit",
+    ),
+    CheckConstraint(
+        "truth_score IS NULL OR (truth_score >= 0 AND truth_score <= 1)",
+        name="ck_evidence_truth_score_unit",
+    ),
+    CheckConstraint("question_count >= 0", name="ck_evidence_question_count_nonneg"),
     CheckConstraint("weight IN (1.00, 0.70, 0.50)", name="ck_evidence_weight_known"),
 )
 
@@ -308,6 +357,79 @@ corpus_version = Table(
 Index("ix_corpus_version_notebook", corpus_version.c.notebook_id)
 
 
+# --- ISSUE-0039: the plan, and the transcript it is executed against --------
+#
+# The Session stops being a sequence of independently graded Topic Visits. A
+# plan is fixed before the first question; the questions are asked against it;
+# the transcript is graded once at the end. Fixing the plan up front is what
+# removes the loop's dependency on a freshly updated posterior, and that is what
+# lets grading move to the end at all.
+
+session_plan = Table(
+    "session_plan", metadata,
+    Column("session_id", String,
+           ForeignKey(f"{CORE}.session.session_id"), primary_key=True),
+    Column("budget_questions", Integer, nullable=False),
+    # What the scope suggested, and what the Candidate actually chose. Both are
+    # kept: a plan built for forty minutes and run in twenty is a different
+    # reading of the same scope, and the report has to be able to say so.
+    Column("suggested_seconds", Integer, nullable=False),
+    Column("chosen_seconds", Integer, nullable=False),
+    Column("breadth", plan_breadth, nullable=False),
+    # Which planner produced this, and whether it had to fall back. A plan built
+    # by the deterministic fallback is still a plan; it is not the same claim.
+    Column("planner_provider", String, nullable=True),
+    Column("planner_fallback", sa.Boolean, nullable=False, server_default="false"),
+    _ts("planned_at", nullable=False, server_default=sa.func.now()),
+    CheckConstraint("budget_questions > 0", name="ck_plan_budget_positive"),
+    CheckConstraint("suggested_seconds > 0", name="ck_plan_suggested_positive"),
+    CheckConstraint("chosen_seconds > 0", name="ck_plan_chosen_positive"),
+)
+
+plan_item = Table(
+    "plan_item", metadata,
+    Column("plan_item_id", String, primary_key=True),
+    Column("session_id", String,
+           ForeignKey(f"{CORE}.session.session_id"), nullable=False),
+    Column("item_order", Integer, nullable=False),
+    # One to three Topics. A question spanning more than three stops being a
+    # question about anything.
+    Column("topic_ids", ARRAY(String), nullable=False),
+    Column("focus", Text, nullable=False, server_default=""),
+    Column("state", plan_item_state, nullable=False, server_default="planned"),
+    _ts("created_at", nullable=False, server_default=sa.func.now()),
+    UniqueConstraint("session_id", "item_order", name="uq_plan_item_session_order"),
+    CheckConstraint(
+        "array_length(topic_ids, 1) BETWEEN 1 AND 3",
+        name="ck_plan_item_topic_span",
+    ),
+    CheckConstraint("item_order >= 0", name="ck_plan_item_order_nonneg"),
+)
+
+Index("ix_plan_item_session", plan_item.c.session_id)
+
+# The transcript. `topic_visit.exchange` was a blob owned by one question;
+# this is the Session's own record, in order, and it is the one writer.
+message = Table(
+    "message", metadata,
+    Column("message_id", String, primary_key=True),
+    Column("session_id", String,
+           ForeignKey(f"{CORE}.session.session_id"), nullable=False),
+    Column("seq", Integer, nullable=False),
+    Column("role", message_role, nullable=False),
+    Column("kind", message_kind, nullable=False),
+    Column("topic_ids", ARRAY(String), nullable=True),
+    Column("text", Text, nullable=False),
+    Column("topic_visit_id", String, nullable=True),
+    Column("plan_item_id", String, nullable=True),
+    _ts("created_at", nullable=False, server_default=sa.func.now()),
+    UniqueConstraint("session_id", "seq", name="uq_message_session_seq"),
+    CheckConstraint("seq >= 0", name="ck_message_seq_nonneg"),
+)
+
+Index("ix_message_session_seq", message.c.session_id, message.c.seq)
+
+
 IMMUTABLE_SESSION_FIELDS_TRIGGER = f"""
 -- PRD-0003 makes scope and duration immutable after start. A trigger is the
 -- only place that survives a careless service method.
@@ -346,3 +468,84 @@ CREATE TRIGGER trg_evidence_append_only
   BEFORE UPDATE OR DELETE ON {CORE}.evidence
   FOR EACH ROW EXECUTE FUNCTION {CORE}.reject_evidence_mutation();
 """
+
+
+PLAN_ITEM_FIXED_TRIGGER = f"""
+-- ISSUE-0039. The plan is fixed before the first question, and fixedness is a
+-- constraint rather than a convention — the same argument `trg_session_immutable`
+-- already makes about scope and duration. `state` still moves, because whether an
+-- item was reached is a fact about the run, not about the plan.
+CREATE OR REPLACE FUNCTION {CORE}.reject_plan_item_change()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.topic_ids IS DISTINCT FROM OLD.topic_ids THEN
+    RAISE EXCEPTION 'plan item topics are fixed once planned';
+  END IF;
+  IF NEW.item_order IS DISTINCT FROM OLD.item_order THEN
+    RAISE EXCEPTION 'plan item order is fixed once planned';
+  END IF;
+  IF NEW.focus IS DISTINCT FROM OLD.focus THEN
+    RAISE EXCEPTION 'plan item focus is fixed once planned';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_plan_item_fixed ON {CORE}.plan_item;
+CREATE TRIGGER trg_plan_item_fixed
+  BEFORE UPDATE ON {CORE}.plan_item
+  FOR EACH ROW EXECUTE FUNCTION {CORE}.reject_plan_item_change();
+"""
+
+APPEND_ONLY_MESSAGE_TRIGGER = f"""
+-- The transcript is what the Session is graded against, so it is append-only for
+-- the same reason Evidence is: a record that can be edited after the fact grades
+-- something that never happened.
+CREATE OR REPLACE FUNCTION {CORE}.reject_message_mutation()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'message is append-only';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_message_append_only ON {CORE}.message;
+CREATE TRIGGER trg_message_append_only
+  BEFORE UPDATE OR DELETE ON {CORE}.message
+  FOR EACH ROW EXECUTE FUNCTION {CORE}.reject_message_mutation();
+"""
+
+def statements(ddl: str) -> list[str]:
+    """Split a DDL blob into single commands, respecting `$$` bodies.
+
+    psycopg sends a multi-command string happily; asyncpg prepares every
+    statement and refuses one — "cannot insert multiple commands into a prepared
+    statement". Splitting on `;` naively would cut each trigger function in half,
+    because the function body is full of them. So the dollar-quoted region is
+    tracked and semicolons inside it are left alone.
+    """
+    out: list[str] = []
+    current: list[str] = []
+    in_body = False
+    for line in ddl.splitlines():
+        if line.count("$$") % 2 == 1:
+            in_body = not in_body
+        current.append(line)
+        if not in_body and line.rstrip().endswith(";"):
+            chunk = "\n".join(current).strip()
+            if chunk:
+                out.append(chunk)
+            current = []
+    tail = "\n".join(current).strip()
+    if tail:
+        out.append(tail)
+    return out
+
+
+#: Every trigger `core` depends on. Named once so that both engines apply the
+#: same set — `create_async_tables` used to apply none of them (ISSUE-0039).
+CORE_TRIGGERS = (
+    IMMUTABLE_SESSION_FIELDS_TRIGGER,
+    APPEND_ONLY_EVIDENCE_TRIGGER,
+    PLAN_ITEM_FIXED_TRIGGER,
+    APPEND_ONLY_MESSAGE_TRIGGER,
+)

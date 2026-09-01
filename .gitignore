@@ -51,3 +51,15 @@ __pycache__/
 
 # Logs are written on the box, not carried in the repo. deploy/ rotates them.
 logs/
+
+# Wayfinding efforts. `/wayfinder` works in `.scratch/<effort>/` — a map and its
+# open questions, which are exploration rather than record. What survives the
+# exploration graduates into `docs/issues/`, `docs/spec/` or `docs/adr/`; the
+# scratch itself is one person's working state and does not travel.
+.scratch/
+
+# Database dumps taken before destructive work. Never committed.
+.backups/
+
+# Agent worktrees. Each is its own checkout, never content of this one.
+.claude/worktrees/

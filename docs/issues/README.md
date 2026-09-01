@@ -75,6 +75,26 @@ over time.
 | 0035 | Ingest runs behind a progress bar, and dies cleanly | AFK | 0033 | ✅ resolved |
 | 0036 | Where you stand on a Topic | **HITL** | 0034 | ✅ resolved (ADR-0022) |
 | 0037 | Retire the disk path | AFK | 0034, 0036 | ✅ resolved |
+| 0038 | Rename `candidate` table to `users` | **HITL** | — | ✅ resolved — decided against (ADR-0026) |
+| 0047 | A partial ingest resumes | **HITL** | 0035 | open |
+| 0048 | A Candidate says who they are | AFK | 0038 | open |
+
+### Interview Mode — plan up front, grade at the end
+
+Turns the Session from a sequence of independently graded Topic Visits into a plan
+fixed before the first question, executed against a transcript, and graded once at
+the end.
+
+| # | Slice | Type | Blocked by | State |
+|---|---|---|---|---|
+| 0039 | The schema breaks and is rebuilt | **HITL** | — | ✅ resolved (local; prod migration pending) |
+| 0040 | A scope suggests a time | AFK | — | open |
+| 0041 | The plan is made, and it is fixed | AFK | 0039, 0040 | open |
+| 0042 | The Session runs the plan | AFK | 0041 | open |
+| 0043 | The Judge reads two dimensions | AFK | 0039 | open |
+| 0044 | The Session is graded at the end | AFK | 0042, 0043 | open |
+| 0045 | The report | AFK | 0044 | open |
+| 0046 | The documents catch up | **HITL** | 0045 | open |
 
 > **Note (2026-08-27).** `design-system/` was removed from this repository. The
 > surface is built from the design files outside it — see `DESIGN.md` and
@@ -184,6 +204,36 @@ sits a product question — a list of related Topics next to a score reads as
 deferred for want of calibration data. Related Topics is a claim about the
 material, not about the Candidate.
 
+## Shape of the Interview Mode set
+
+The set turns on one trade, and it is worth stating before the slices are read.
+In-loop grading exists today *because* selection is adaptive: the sampler needs a
+freshly updated posterior before it picks the next Topic. Fixing the plan before the
+first question removes that dependency, and removing it is what lets grading move to
+the end. Thompson sampling is not lost — it moves to plan-construction time, where it
+ranks Topics on what previous Sessions established. What is given up is adaptive
+selection *within* one Session; what is bought is a plan the Candidate can see.
+
+`0040` is blocked by nothing and touches no table, so it can land first and alone.
+`0039` is the break everything else waits on, and it is HITL for a reason that is not
+about design: `INTERVIEW_LM_DATABASE_URL` points at a live deployment, Evidence is
+append-only precisely because it is not meant to be destroyable, and a clean break
+drops real rows. No human confirmation, no merge.
+
+`0043` branches off `0039` and touches neither the plan nor the loop, so it can run in
+parallel with `0041`/`0042`. `0044` is where the two branches meet: it needs the
+transcript from `0042` and the Verdict shape from `0043`.
+
+The ordering is a safety property once. `0044` comes after `0042` rather than beside
+it, because a grader written against a transcript that does not exist yet would be
+tested against a fixture instead of the thing — and the one property that matters
+here, that an unreached Topic scores nothing at all, is invisible in a fixture where
+every Topic was reached.
+
+`0046` is last and HITL. Four ADRs are amended and one is written, several of them
+reversing decisions that were argued carefully the first time. A reversal nobody signs
+is indistinguishable from a rule nobody read.
+
 ## Shape of the SPEC-0006 set
 
 `0032` and `0033` start immediately and touch none of each other's ground —
@@ -205,6 +255,15 @@ claim about a person the measurement cannot support.
 
 `0037` is where the repository becomes honest. It is the slice after which a
 clean clone has no missing Corpus, because there is no shipped Corpus to miss.
+
+`0047` reverses `0035`, which decided against resuming a partial ingest. The
+reversal is narrow and the ticket says so: `0035`'s objection is that a chunk
+belonging to no Module is worth more than the embedding it saves, and that
+objection is right and unchanged. What `0047` argues is that a vector keyed by
+content hash is not a chunk — it has no Topic, no Module and no order, so it is
+not the partial state being refused. It is HITL because the decision turns on a
+number nobody has measured yet: whether an ingest still costs about two cents on
+the embedder actually being shipped.
 
 Both HITL slices are built up to their decision and no further. `0025` records
 citations on Evidence, resolves them to spans with locators, and serves them in

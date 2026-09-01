@@ -16,10 +16,9 @@ from sqlalchemy.engine import Engine
 
 from .content import CONTENT, EMBEDDING_DIM, content_metadata
 from .schema import (
-    APPEND_ONLY_EVIDENCE_TRIGGER,
     CORE,
+    CORE_TRIGGERS,
     GRAPH,
-    IMMUTABLE_SESSION_FIELDS_TRIGGER,
     metadata,
 )
 
@@ -113,13 +112,113 @@ def make_engine(url: str | None = None, **kw) -> Engine:
 
 
 def create_core(engine: Engine) -> None:
-    """Apply the `core` tree. Never touches `graph`."""
+    """Apply the `core` tree. Never touches `graph`.
+
+    `create_all` builds what is missing and alters nothing that exists, so a
+    database created before ISSUE-0039 needs the widening applied by hand — in
+    the same place and the same style as `create_content`'s, and for the same
+    reason: there is no alembic in this project.
+    """
     with engine.begin() as c:
         c.execute(text(f"CREATE SCHEMA IF NOT EXISTS {CORE}"))
     metadata.create_all(engine)
+    _migrate_core_columns(engine)
+    _migrate_core_constraints(engine)
+    apply_core_triggers(engine)
+
+
+def apply_core_triggers(engine: Engine) -> None:
+    """The triggers `core` depends on, applied idempotently.
+
+    Extracted so the async path can apply exactly the same set. It could not
+    before, and three of these are load-bearing (ISSUE-0039).
+    """
     with engine.begin() as c:
-        c.execute(text(IMMUTABLE_SESSION_FIELDS_TRIGGER))
-        c.execute(text(APPEND_ONLY_EVIDENCE_TRIGGER))
+        for trigger in CORE_TRIGGERS:
+            c.execute(text(trigger))
+
+
+#: Columns ISSUE-0039 added to tables that already existed. `create_all` will
+#: not add them to a live database, so they are listed and applied here.
+_CORE_ADDED_COLUMNS = (
+    ("topic_visit", "topic_ids", "text[]"),
+    ("topic_visit", "plan_item_id", "text"),
+    ("evidence", "source_score", "numeric(4,3)"),
+    ("evidence", "truth_score", "numeric(4,3)"),
+    ("evidence", "question_count", "integer NOT NULL DEFAULT 0"),
+)
+
+
+def _migrate_core_columns(engine: Engine) -> None:
+    """The same lock discipline as `_migrate_added_columns`: look before ALTERing."""
+    with engine.begin() as c:
+        existing = {
+            (row.table_name, row.column_name)
+            for row in c.execute(
+                text(
+                    "SELECT table_name, column_name FROM information_schema.columns "
+                    "WHERE table_schema = :schema"
+                ),
+                {"schema": CORE},
+            )
+        }
+        for table, column, spec in _CORE_ADDED_COLUMNS:
+            if (table, column) in existing:
+                continue
+            c.execute(
+                text(
+                    f"ALTER TABLE {CORE}.{table} "
+                    f"ADD COLUMN IF NOT EXISTS {column} {spec}"
+                )
+            )
+
+
+def _migrate_core_constraints(engine: Engine) -> None:
+    """Where ADR-0004 moved to, applied to a database that predates the move.
+
+    Three statements, and the order matters. The old key is dropped before the
+    new one is added, because a database carrying both would refuse the very
+    thing ISSUE-0039 exists to allow — two questions on one Topic.
+    """
+    with engine.begin() as c:
+        # A plan may spend two questions on one Topic.
+        c.execute(
+            text(
+                f"ALTER TABLE {CORE}.topic_visit "
+                f"DROP CONSTRAINT IF EXISTS uq_visit_session_topic"
+            )
+        )
+        # Evidence no longer descends from exactly one question.
+        c.execute(
+            text(
+                f"ALTER TABLE {CORE}.evidence "
+                f"DROP CONSTRAINT IF EXISTS evidence_topic_visit_id_key"
+            )
+        )
+        c.execute(
+            text(
+                f"ALTER TABLE {CORE}.evidence "
+                f"ALTER COLUMN topic_visit_id DROP NOT NULL"
+            )
+        )
+        # ...and ADR-0004 is this constraint now.
+        exists = c.execute(
+            text(
+                "SELECT 1 FROM pg_constraint co "
+                "JOIN pg_class cl ON cl.oid = co.conrelid "
+                "JOIN pg_namespace n ON n.oid = cl.relnamespace "
+                "WHERE n.nspname = :s AND cl.relname = 'evidence' "
+                "AND co.conname = 'uq_evidence_session_topic'"
+            ),
+            {"s": CORE},
+        ).scalar()
+        if not exists:
+            c.execute(
+                text(
+                    f"ALTER TABLE {CORE}.evidence ADD CONSTRAINT "
+                    f"uq_evidence_session_topic UNIQUE (session_id, topic_id)"
+                )
+            )
 
 
 def create_content(engine: Engine) -> None:
@@ -211,6 +310,9 @@ _ADDED_COLUMNS = (
     # Existing rows migrate to personal, which is what they always were
     # (SPEC-0006 §Ownership).
     ("notebook", "visibility", "text NOT NULL DEFAULT 'personal'"),
+    # Every existing notebook, personal or shared, was already being served,
+    # so `true` is what it always meant.
+    ("notebook", "active", "boolean NOT NULL DEFAULT true"),
     # ISSUE-0037. Empty is the notebook adapter's own extract, which is what
     # every existing row was.
     ("notebook", "provenance", "text NOT NULL DEFAULT '{}'"),
@@ -238,8 +340,30 @@ _ADDED_COLUMNS = (
 
 
 def _migrate_added_columns(engine: Engine) -> None:
+    """`ADD COLUMN IF NOT EXISTS`, but only reach for the lock when it's real.
+
+    `ALTER TABLE` takes `ACCESS EXCLUSIVE` regardless of whether the column is
+    already there — `IF NOT EXISTS` makes the statement idempotent, not free.
+    Once a deployment is migrated, every later boot (or every later call to
+    whatever rebuilds this engine — `wiring()` runs this once, memoized, but
+    a cache that's cleared runs it again) would otherwise queue up behind
+    anything merely reading the table, for a lock it never needed. Checked
+    first, the common case — already migrated — never asks for one.
+    """
     with engine.begin() as c:
+        existing = {
+            (row.table_name, row.column_name)
+            for row in c.execute(
+                text(
+                    "SELECT table_name, column_name FROM information_schema.columns "
+                    "WHERE table_schema = :schema"
+                ),
+                {"schema": CONTENT},
+            )
+        }
         for table, column, spec in _ADDED_COLUMNS:
+            if (table, column) in existing:
+                continue
             c.execute(
                 text(
                     f"ALTER TABLE {CONTENT}.{table} "

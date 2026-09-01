@@ -10,11 +10,11 @@ import sqlalchemy as sa
 import pytest
 from sqlalchemy import text
 
-from interviewer.confidence.math import PRIOR
-from interviewer.corpus.contract import GradingMode
+from interviewer.service.confidence.math import PRIOR
+from interviewer.model.corpus import GradingMode
 from interviewer.db import schema as S
-from interviewer.graph.runner import SessionRunner
-from interviewer.graph.sessions import SessionConfig
+from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_test"
 
@@ -159,16 +159,44 @@ def test_an_open_visit_blocks_a_second_one_in_the_same_session(deps):
     assert "uq_visit_one_open_per_session" in str(e.value)
 
 
-def test_the_same_topic_cannot_be_opened_twice_in_one_session(deps):
+def test_a_topic_may_be_asked_about_twice_in_one_session(deps, clean_db):
+    """ISSUE-0039 removed `uq_visit_session_topic`, and this is the difference.
+
+    The store used to refuse a second question on a Topic. It no longer does,
+    because a plan may deliberately spend two on one — how many questions a Topic
+    is worth is the plan's decision, not the store's. What the store still
+    refuses is two *observations*: `uq_evidence_session_topic` is where ADR-0004
+    lives now, and `test_interview_mode_schema.py` proves it.
+    """
+    import sqlalchemy as sa
+
+    from interviewer.db import schema as S
+
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     topic = first.payload["topic_id"]
-    r.submit(sid, "answer")   # closes it
-    with pytest.raises(Exception) as e:
-        deps.visits.open(
-            session_id=sid, candidate_id=CANDIDATE, topic_id=topic, visit_index=50
-        )
-    assert "uq_visit_session_topic" in str(e.value)
+    r.submit(sid, "answer")
+
+    # Resolve the open one — the Session still will not advance while a Visit is
+    # unresolved, which is a different invariant and untouched by ISSUE-0039.
+    with clean_db.begin() as c:
+        c.execute(sa.update(S.topic_visit)
+                  .where(S.topic_visit.c.session_id == sid)
+                  .values(state="abandoned"))
+
+    second = deps.visits.open(
+        session_id=sid, candidate_id=CANDIDATE, topic_id=topic, visit_index=50
+    )
+    assert second is not None
+
+    with clean_db.connect() as c:
+        asked = c.execute(
+            sa.select(sa.func.count())
+            .select_from(S.topic_visit)
+            .where(S.topic_visit.c.session_id == sid)
+            .where(S.topic_visit.c.topic_id == topic)
+        ).scalar()
+    assert asked == 2
 
 
 def test_session_scope_and_duration_are_immutable_in_the_database(deps, clean_db):

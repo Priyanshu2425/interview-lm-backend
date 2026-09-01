@@ -113,3 +113,36 @@ to re-scrape: the Corpus is documents in Postgres, and every vector was written
 alongside the Topic it describes, so the two cannot disagree. The fingerprint and
 staleness machinery that ISSUE-0029 and ISSUE-0030 built for a file went with the
 file (ADR-0021).
+
+
+## Amendment — 2026-09-01, the sampler moved to the front
+
+**One sentence changed and it is named here: "Topic selection happens by
+Thompson sampling over the 71 in-scope Topics *before* any content is needed."**
+It is now *before the Session asks anything*. The sampler used to run once per
+Topic Visit, inside the loop; since ISSUE-0041 it runs once, at the front, and
+ranks the whole scope in one round of draws.
+
+Nothing about the distribution changed. `TopicSelector.choose` is
+`TopicSelector.rank(...)[0]` — one implementation, the same Beta draws, the same
+weakest-or-least-known ordering, and the same injected randomness, so the same
+seed still plans the same Session. What changed is *when* it is consulted and
+over what: previous Sessions' posteriors rather than this Session's, because
+this Session has written no Evidence at the moment it plans.
+
+Why it moved is not a retrieval question at all, and this ADR is amended rather
+than superseded for exactly that reason. The in-loop position was the only thing
+requiring a posterior updated after every Visit, and that requirement was the
+only thing requiring grading to happen mid-Session. Fixing the plan before the
+first question removes the dependency, and removing it is what lets the Session
+be graded once, at the end (ISSUE-0044). What is given up is adaptive selection
+*within* one Session; what is bought is a plan the Candidate can see, in
+`session_plan` and `plan_item`, fixed by a trigger and served by
+`GET /v1/sessions/{session_id}/plan`.
+
+The sentence this ADR exists for is untouched, and it is worth restating because
+selection moving is the sort of change that looks like it should have moved
+retrieval too. It did not. There is still no query to embed, at plan time least
+of all: the planner is handed Topic **ids** and their titles, it groups them,
+and the grouping is validated against the ids it was given. A dossier is still
+loaded whole by `topic_id`, and no follow-up is answered out of a top-k result.

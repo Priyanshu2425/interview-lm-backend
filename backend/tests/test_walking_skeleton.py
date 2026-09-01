@@ -42,16 +42,33 @@ def test_a_session_asks_a_question_and_one_answer_writes_one_evidence_row(deps, 
     assert n == 1
 
 
-def test_a_topic_visit_row_exists_before_the_first_model_call(deps, clean_db):
-    """SPEC-0005 rejects a call without a topic_visit_id, so the row must precede it."""
+def test_every_model_call_is_attributed_and_the_visit_row_precedes_its_own(
+    deps, clean_db
+):
+    """SPEC-0005 rejects a call without an attribution, so the row must precede it.
+
+    Rewritten by ISSUE-0041. The *first* model call is no longer the question
+    writer's: the Session now plans before it asks anything, and the plan
+    belongs to no Topic Visit — it is what decides that Visits there will be.
+    It is attributed to `plan_<session_id>`, which is why the rule this test
+    holds is stated as two clauses rather than one: every call carries an
+    attribution, and every call attributed to a Topic Visit finds that Visit
+    already open.
+    """
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
     calls = deps.ports.model.calls
-    assert calls, "the question writer should have been called"
+    assert calls, "the planner and the question writer should have been called"
     assert all(c["topic_visit_id"] for c in calls)
 
-    row = deps.visits.get(calls[0]["topic_visit_id"])
-    assert row is not None and row["state"] == "open"
+    assert calls[0]["role"] == "session_planner"
+    assert calls[0]["topic_visit_id"] == f"plan_{sid}"
+
+    visit_calls = [c for c in calls if c["role"] != "session_planner"]
+    assert visit_calls, "the question writer should have been called"
+    for c in visit_calls:
+        row = deps.visits.get(c["topic_visit_id"])
+        assert row is not None and row["state"] == "open"
 
 
 def test_the_exchange_is_stored_at_the_answer_turn_before_grading(deps):

@@ -131,6 +131,7 @@ def metered_deps(clean_db, loader, corpus):
     )
     from interviewer.service.corpus import CorpusService
     from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.planner import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import FrozenClock, Ports
     from interviewer.service.graph.sessions import SessionStore
     from interviewer.service.judge.interviewer import Interviewer
@@ -155,6 +156,11 @@ def metered_deps(clean_db, loader, corpus):
         judge=Judge(),
         writer=QuestionWriter(),
         selector=TopicSelector(ConfidenceStore(clean_db)),
+        planner=SessionPlanner(
+            loader=loader, corpus=CorpusService(corpus),
+            selector=TopicSelector(ConfidenceStore(clean_db)),
+            plans=PlanStore(clean_db),
+        ),
         interviewer=Interviewer(max_turns=4),
         credits=ledger,
         bindings=BindingStore(clean_db),
@@ -173,6 +179,7 @@ def deps(clean_db, loader, corpus):
     )
     from interviewer.service.corpus import CorpusService
     from interviewer.service.graph.machine import Deps
+    from interviewer.service.graph.planner import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import Ports, ScriptedModel
     from interviewer.service.graph.sessions import SessionStore
     from interviewer.service.judge.judge import Judge
@@ -200,6 +207,11 @@ def deps(clean_db, loader, corpus):
         judge=Judge(),
         writer=QuestionWriter(),
         selector=TopicSelector(ConfidenceStore(clean_db)),
+        planner=SessionPlanner(
+            loader=loader, corpus=CorpusService(corpus),
+            selector=TopicSelector(ConfidenceStore(clean_db)),
+            plans=PlanStore(clean_db),
+        ),
         interviewer=Interviewer(max_turns=4),
     )
 

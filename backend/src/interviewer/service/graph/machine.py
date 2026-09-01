@@ -1,7 +1,12 @@
 """The Session graph (ADR-0001).
 
-    select_topic -> load_dossier -> generate_question -> interrupt
-                 -> grade -> update_confidence -> decide_next
+    build_plan -> select_topic -> load_dossier -> generate_question -> interrupt
+               -> grade -> update_confidence -> decide_next
+
+`build_plan` arrived with ISSUE-0041 and runs once, before anything else: the
+Session decides what it will ask before it asks anything, and writes the plan
+down. Everything after it is unchanged in this slice — running the plan is
+ISSUE-0042 — but the plan exists, is fixed, and is served.
 
 Model calls are made *inside* nodes; models do not decide which node runs next.
 Everything that must happen exactly once is an edge, and a graph edge cannot not
@@ -39,6 +44,12 @@ class SessionState(TypedDict, total=False):
     scope_module_ids: list[str]
     duration_seconds: int
     started_at: float
+    # What `build_plan` settled. Readings, not the plan itself: the plan is in
+    # Postgres, and a copy carried in the checkpointer is a second one that can
+    # disagree with it.
+    plan_budget: int
+    plan_breadth: str
+    planner_fallback: bool
     # Chosen once, at start, and carried by the Session rather than read off
     # shared Deps — two Sessions running at once must not share a billing route.
     payment_route: str
@@ -86,6 +97,7 @@ class Deps:
     judge: Judge
     writer: QuestionWriter
     selector: Any = None
+    planner: Any = None       # SessionPlanner; None leaves the Session unplanned
     interviewer: Any = None   # the agentic region; None closes after one turn
     credits: Any = None       # CreditLedger; None disables the spend gate
     bindings: Any = None      # BindingStore
@@ -104,6 +116,57 @@ def build_graph(d: Deps):
 
     def _provider(state: SessionState) -> str:
         return state.get("provider") or d.provider
+
+    def build_plan(state: SessionState) -> dict:
+        """Rank, group, write it down — once, and then never again.
+
+        On resume this **reads** the stored plan rather than making a second
+        one. That is what fixedness means across a restart: the checkpointer is
+        not the record, the `session_plan` and `plan_item` rows are.
+
+        The planner's model call is metered like every other, so it needs a
+        Provider bound to something. It is bound to `plan_<session_id>`: the
+        plan belongs to the Session rather than to any one question, and naming
+        it after the Session keeps the call attributable without pretending a
+        Topic Visit existed before the plan that schedules them.
+        """
+        if d.planner is None:
+            return {}
+        sid = state["session_id"]
+        plan = d.planner.stored(sid)
+        if plan is None:
+            if not d.corpus.topic_ids_for(state["scope_module_ids"]):
+                # Nothing examinable in scope. `select_topic` ends the Session
+                # for this reason already; planning nothing would only turn a
+                # clean ending into a constraint violation.
+                return {}
+            ref = f"plan_{sid}"
+            if d.bindings is not None:
+                from ...service.metering.client import Binding
+
+                b = d.bindings.bind(
+                    Binding(ref, _provider(state), _route(state),
+                            state.get("byok_key_id"))
+                )
+                if d.metered is not None:
+                    d.metered.bind(
+                        b, session_id=sid, candidate_id=state["candidate_id"]
+                    )
+            plan = d.planner.plan(
+                session_id=sid,
+                candidate_id=state["candidate_id"],
+                scope_module_ids=list(state["scope_module_ids"]),
+                duration_seconds=state["duration_seconds"],
+                rng=d.ports.rng,
+                model=d.ports.model,
+                model_ref=ref,
+                provider=_provider(state),
+            )
+        return {
+            "plan_budget": plan.budget_questions,
+            "plan_breadth": plan.breadth,
+            "planner_fallback": plan.planner_fallback,
+        }
 
     def select_topic(state: SessionState) -> dict:
         visited = d.visits.visited_topic_ids(state["session_id"])
@@ -344,6 +407,7 @@ def build_graph(d: Deps):
         return "__end__" if state.get("finished") else "select_topic"
 
     g = StateGraph(SessionState)
+    g.add_node("build_plan", build_plan)
     g.add_node("select_topic", select_topic)
     g.add_node("load_dossier", load_dossier)
     g.add_node("generate_question", generate_question)
@@ -354,7 +418,8 @@ def build_graph(d: Deps):
     g.add_node("update_confidence", update_confidence)
     g.add_node("decide_next", decide_next)
 
-    g.add_edge(START, "select_topic")
+    g.add_edge(START, "build_plan")
+    g.add_edge("build_plan", "select_topic")
     g.add_conditional_edges("select_topic", _after_select)
     g.add_edge("load_dossier", "generate_question")
     g.add_edge("generate_question", "answer_turn")

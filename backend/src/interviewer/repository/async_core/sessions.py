@@ -121,3 +121,49 @@ class AsyncSessionStore:
             .where(S.session.c.session_id == session_id)
             .values(state="ended", ended_reason=reason, ended_at=sa.func.now())
         )
+    async def plan(self, session_id: str) -> dict[str, Any] | None:
+        """The Session's plan, as the route serves it (ISSUE-0041).
+
+        Read-only, and there is no writer here on purpose: a plan is written
+        once by `SessionPlanner`, inside the graph, in one transaction. A second
+        writer reachable from a request is how a fixed plan stops being fixed —
+        `trg_plan_item_fixed` would refuse the UPDATE, but the call should not
+        exist to be made.
+
+        Ordered by `item_order`, so two reads of an unchanged plan are the same
+        bytes.
+        """
+        head = (await self._s.execute(
+            sa.select(S.session_plan)
+            .where(S.session_plan.c.session_id == session_id)
+        )).first()
+        if head is None:
+            return None
+        rows = (await self._s.execute(
+            sa.select(S.plan_item)
+            .where(S.plan_item.c.session_id == session_id)
+            .order_by(S.plan_item.c.item_order)
+        )).all()
+        h = head._mapping
+        return {
+            "session_id": session_id,
+            "budget_questions": h["budget_questions"],
+            "suggested_seconds": h["suggested_seconds"],
+            "chosen_seconds": h["chosen_seconds"],
+            "breadth": h["breadth"],
+            # Which planner produced this, and whether it had to fall back. A
+            # fallback plan is still a plan; it is not the same claim, and a
+            # reading that hid the difference would make the two identical.
+            "planner_provider": h["planner_provider"],
+            "planner_fallback": h["planner_fallback"],
+            "items": [
+                {
+                    "plan_item_id": r._mapping["plan_item_id"],
+                    "item_order": r._mapping["item_order"],
+                    "topic_ids": list(r._mapping["topic_ids"]),
+                    "focus": r._mapping["focus"],
+                    "state": r._mapping["state"],
+                }
+                for r in rows
+            ],
+        }

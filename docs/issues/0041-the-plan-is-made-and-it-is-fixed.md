@@ -1,6 +1,6 @@
 # ISSUE-0041 — The plan is made, and it is fixed
 
-Status: open
+Status: resolved
 Type: AFK
 Source: SPEC-0007 §6; amends ADR-0005
 Covers: the Session decides what it will ask before it asks anything
@@ -60,16 +60,79 @@ record rather than indistinguishable from a good plan.
 
 ## Acceptance criteria
 
-- [ ] `rank` returns every Topic, ordered; `choose` is `rank()[0]` and its tests are untouched
-- [ ] Randomness stays injected — the same seed plans the same Session
-- [ ] A 15-minute Session over 12 Topics yields 5 items, some spanning
-- [ ] `GET /v1/sessions/{session_id}/plan` twice returns byte-identical plans
-- [ ] An UPDATE of a `plan_item`'s topics is refused by the database
-- [ ] A malformed model reply still yields a valid plan, with `planner_fallback` true
-- [ ] A plan never names a Topic outside the Session's scope
-- [ ] ADR-0005 is amended, naming the clause that changed
+- [x] `rank` returns every Topic, ordered; `choose` is `rank()[0]` and its tests are untouched
+- [x] Randomness stays injected — the same seed plans the same Session
+- [x] A 15-minute Session over 12 Topics yields 5 items, some spanning
+- [x] `GET /v1/sessions/{session_id}/plan` twice returns byte-identical plans
+- [x] An UPDATE of a `plan_item`'s topics is refused by the database
+- [x] A malformed model reply still yields a valid plan, with `planner_fallback` true
+- [x] A plan never names a Topic outside the Session's scope
+- [x] ADR-0005 is amended, naming the clause that changed
 
 ## Blocked by
 
 - ISSUE-0039 — the tables
 - ISSUE-0040 — `budget_questions`
+
+
+## What landed — 2026-09-01
+
+`TopicSelector.rank` orders the whole scope from one round of Beta draws, in the
+order the ids were given, and `choose` is its head. The draws and the tie-break
+are what they were, so `test_selection.py` is untouched and the sampler still has
+one implementation.
+
+`service/graph/planner.py` holds the whole of it: `SessionPlanner.plan` ranks,
+budgets, asks once, validates hard, and persists; `PlanStore` writes the header
+and its items in one transaction and reads them back. There is no `update` on
+`PlanStore` — the trigger would refuse one, and the call should not exist to be
+made. `build_plan` is the graph's first node and asks `stored()` before it plans,
+so a resume reads the plan rather than making a second one.
+
+`GET /v1/sessions/{session_id}/plan` serves it, ordered by `item_order`, with
+titles resolved at read time rather than copied onto the item — the plan is fixed
+on Topic identity, not on how a Topic was captioned.
+
+### Deviations, and why
+
+**The budget is capped at the number of Topics.** The ticket says
+`breadth = "full" if budget >= len(ranked) else "compressed"` and "exactly N
+items". Taken literally, a two-hour Session over three Topics wants forty items
+of at least one Topic each with no Topic repeated, which is not satisfiable.
+`budget_questions` is recorded as the ticket defines it and `breadth` is decided
+from it; the number of items asked for is `min(budget, len(ranked))`, because a
+question about no Topic is not a question.
+
+**A Provider failure is not a fallback.** "The plan may not fail" is implemented
+for what the model *says* — prose, the wrong count, an out-of-scope Topic, a
+Topic in two items — and every one of those falls back to contiguous chunking
+with `planner_fallback` true. A `ProviderFailure` propagates and parks the
+Session the way every other model call does. The plan is fixed once written, so a
+dropped connection must not lock a Candidate into a fallback plan that retrying
+can never replace.
+
+**The planner's call is attributed to `plan_<session_id>`.** SPEC-0005 rejects a
+model call carrying no attribution, and the plan belongs to no Topic Visit — it
+is what decides that Visits there will be. It binds a Provider under that id and
+is metered normally. Two consequences, both deliberate: `GET /sessions/{id}/spend`
+grew a `planning` line and counts it in the total, because a total built only
+from Visits is smaller than what the ledger actually took; and the Operator
+console's `count(distinct topic_visit_id)` now counts one extra unit per Session,
+which is a distortion of `credits_per_visit` that a `call_record.kind` column
+would fix and that is schema work this slice did not open.
+
+**The fallback writes no `focus`.** Contiguous chunking has nothing to say about
+what a group tests, and a sentence manufactured from titles would read as a claim
+the planner did not make. `planner_fallback` is what distinguishes the two.
+
+### Test rewritten
+
+`test_walking_skeleton.py::test_a_topic_visit_row_exists_before_the_first_model_call`
+became `test_every_model_call_is_attributed_and_the_visit_row_precedes_its_own`.
+It asserted that the first model call in a Session resolves to an open
+`topic_visit` row. The first model call is now the planner's, and it deliberately
+does not: the plan precedes every Visit. The rule it holds is stated as two
+clauses now — every call carries an attribution, and every call attributed to a
+Topic Visit finds that Visit already open.
+
+Suite: 961 passed, 8 skipped.

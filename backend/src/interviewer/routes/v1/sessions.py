@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     # repository package for no runtime gain.
     from ...repository.async_repositories import (
         AsyncBindingStore,
+        AsyncDossierLoader,
         AsyncConfidenceStore,
         AsyncCorpusService,
         AsyncCreditLedger,
@@ -183,6 +184,46 @@ async def get_session(
     }
 
 
+@router.get("/sessions/{session_id}/plan")
+async def plan(
+    session_id: str,
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+    loader: AsyncDossierLoader = Depends(get_async_dossier_loader),
+) -> dict:
+    """What this Session will ask, decided before it asked anything.
+
+    Read twice, this returns the same bytes: the plan is fixed at the database
+    (`trg_plan_item_fixed`), the items come back in `item_order`, and there is
+    no writer on this path. The Candidate can see the shape of their Session in
+    advance, which is what fixing the plan bought.
+
+    Titles are resolved here rather than stored on the item. A stored title is a
+    copy of the Corpus that goes stale when a Topic is renamed, and the plan is
+    fixed on `topic_ids` — the identity — not on how they were captioned.
+    """
+    await _get_owned_session(session_id, candidate_id, sessions)
+    stored = await sessions.plan(session_id)
+    if stored is None:
+        raise HTTPException(404, "this session has no plan")
+
+    def title(topic_id: str) -> str:
+        try:
+            return loader.load(topic_id).topic_title
+        except LookupError:
+            # A Topic retired since the plan was fixed. It keeps its place in
+            # the plan under its id rather than vanishing from it.
+            return topic_id
+
+    return {
+        **stored,
+        "items": [
+            {**item, "topic_titles": [title(t) for t in item["topic_ids"]]}
+            for item in stored["items"]
+        ],
+    }
+
+
 @router.post("/sessions/{session_id}/resume")
 async def resume(
     session_id: str,
@@ -231,14 +272,20 @@ async def spend(
     row = await _get_owned_session(session_id, candidate_id, sessions)
     visits_list = await visits.for_session(session_id)
     byok = row["payment_route"] != "credits"
+    # Planning is a model call and therefore a charge, and it belongs to no
+    # Visit — so a total built only from Visits would be smaller than what the
+    # ledger actually took. It is reported on its own line rather than folded
+    # into a Visit that did not make it (ISSUE-0041).
+    planning = None if byok else await credits.visit_cost(f"plan_{session_id}")
     return {
         "route": row["payment_route"],
         # BYOK and MCP carry null, never 0 — zero reads as "it was free".
         # A list, not a generator: `await` inside a bare genexp makes an async
         # generator, and `sum` cannot consume one.
-        "credits": None if byok else sum(
+        "credits": None if byok else planning + sum(
             [await credits.visit_cost(v["topic_visit_id"]) for v in visits_list]
         ),
+        "planning": planning,
         "balance": None if byok else await credits.balance(row["candidate_id"]),
         "per_visit": [
             {

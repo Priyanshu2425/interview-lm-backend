@@ -201,7 +201,7 @@ def test_evidence_accumulated_before_a_re_ingest_still_reads_after_it(
     re-minted ids would leave that posterior orphaned — no error, just a number
     that stopped meaning what it meant.
     """
-    from interviewer.service.confidence.store import ConfidenceStore
+    from interviewer.repository.core import ConfidenceStore
     from interviewer.db import schema as S
     import sqlalchemy as sa
 

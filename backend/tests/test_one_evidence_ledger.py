@@ -16,7 +16,7 @@ import asyncio
 from conftest import grade_session
 
 from interviewer.repository.async_core.evidence import AsyncEvidenceLedger
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_one_ledger"

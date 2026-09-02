@@ -7,32 +7,31 @@ no storage, clock or randomness it does not receive.
 import numpy as np
 import pytest
 
-from interviewer.service.confidence.math import (
+from interviewer.model.confidence_models import (
     BAND_FIRM,
     BAND_UNKNOWN,
     PRIOR,
     Band,
     NotReportable,
     Posterior,
-    apply_evidence,
-    evidence_delta,
+    EvidenceDelta,
 )
-from interviewer.service.confidence.reporting import coverage, mastery, read_topic
+from interviewer.model.readings_models import CoverageReading, MasteryReading, TopicReading
 
 
 # -- the update rule --------------------------------------------------------
 
 @pytest.mark.parametrize("weight", [1.0, 0.7, 0.5])
 def test_the_update_moves_alpha_and_beta_by_exactly_w_times_s(weight):
-    d = evidence_delta(0.8, weight)
+    d = EvidenceDelta.of(0.8, weight)
     assert d.alpha_delta == pytest.approx(weight * 0.8)
     assert d.beta_delta == pytest.approx(weight * 0.2)
 
 
 def test_score_and_weight_are_never_conflated():
     """An answer reached after hints is worth roughly half — in `s`, not `w`."""
-    hinted = evidence_delta(0.5, 1.0)      # ground-truth graded, half credit
-    unhinted = evidence_delta(1.0, 0.5)    # model judgment, full credit
+    hinted = EvidenceDelta.of(0.5, 1.0)      # ground-truth graded, half credit
+    unhinted = EvidenceDelta.of(1.0, 0.5)    # model judgment, full credit
     assert hinted.alpha_delta == unhinted.alpha_delta == 0.5
     assert hinted.beta_delta == 0.5
     assert unhinted.beta_delta == 0.0      # different evidence entirely
@@ -40,9 +39,9 @@ def test_score_and_weight_are_never_conflated():
 
 def test_an_out_of_range_score_or_unknown_weight_is_refused():
     with pytest.raises(ValueError):
-        evidence_delta(1.4, 1.0)
+        EvidenceDelta.of(1.4, 1.0)
     with pytest.raises(ValueError):
-        evidence_delta(0.5, 0.85)
+        EvidenceDelta.of(0.5, 0.85)
 
 
 def test_the_prior_reads_as_unknown_not_as_zero():
@@ -76,7 +75,7 @@ def test_repeated_identical_evidence_narrows_the_interval_and_holds_the_mean():
     p = PRIOR
     means, widths = [], []
     for _ in range(8):
-        p = apply_evidence(p, 0.75, 1.0)
+        p = p.updated(0.75, 1.0)
         if p.band.reportable:
             means.append(p.mastery)
         widths.append(p.width)
@@ -93,28 +92,28 @@ def test_a_firm_weak_reading_needs_its_upper_bound_below_the_ceiling():
 
 def test_coverage_is_effective_evidence_not_a_count_of_questions():
     p = PRIOR
-    p = apply_evidence(p, 1.0, 0.5)   # model judgment
-    p = apply_evidence(p, 1.0, 0.7)   # text grounded
+    p = p.updated(1.0, 0.5)   # model judgment
+    p = p.updated(1.0, 0.7)   # text grounded
     assert p.coverage == pytest.approx(1.2)   # two questions, 1.2 effective visits
 
 
 def test_an_untested_topic_and_a_missing_row_read_identically():
-    assert read_topic("t", PRIOR).mastery is None
-    assert read_topic("t", PRIOR).band is Band.UNTESTED
-    assert read_topic("t", PRIOR).interval is None
+    assert TopicReading.of("t", PRIOR).mastery is None
+    assert TopicReading.of("t", PRIOR).band is Band.UNTESTED
+    assert TopicReading.of("t", PRIOR).interval is None
 
 
 # -- reporting keeps the two readings apart ---------------------------------
 
 def test_coverage_and_mastery_are_separate_and_never_fused():
     readings = [
-        read_topic("a", Posterior(8.2, 3.2)),
-        read_topic("b", Posterior(3.6, 7.4)),
-        read_topic("c", Posterior(1.5, 1.5)),
-        read_topic("d", PRIOR),
+        TopicReading.of("a", Posterior(8.2, 3.2)),
+        TopicReading.of("b", Posterior(3.6, 7.4)),
+        TopicReading.of("c", Posterior(1.5, 1.5)),
+        TopicReading.of("d", PRIOR),
     ]
-    cov = coverage(readings, topics_total=71)
-    mas = mastery(readings)
+    cov = CoverageReading.of(readings, topics_total=71)
+    mas = MasteryReading.of(readings)
 
     assert cov.topics_examined == 3
     assert cov.topics_total == 71
@@ -129,7 +128,7 @@ def test_coverage_and_mastery_are_separate_and_never_fused():
 
 
 def test_a_topic_below_the_floor_carries_no_number_in_its_reading():
-    r = read_topic("t", PRIOR)
+    r = TopicReading.of("t", PRIOR)
     assert r.mastery is None
     assert r.label == "Untested"
 

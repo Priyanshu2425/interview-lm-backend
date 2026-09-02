@@ -207,3 +207,34 @@ def test_the_summary_reports_spend_and_provenance(client, module_ids):
     assert s["spend"]["credits"] is not None
     assert s["provider"] == "deepseek"
     assert s["duration_seconds"] == 1800
+
+
+def test_one_session_reports_one_total(client, module_ids):
+    """`/spend` and `/summary` bill the same Session the same.
+
+    They used to disagree: `/spend` billed the planning call and every Visit,
+    `/summary` billed neither the planning call nor a Visit short of
+    `answered`. The Candidate saw the smaller figure beside their result.
+    """
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    client.post(f"/v1/sessions/{sid}/turns", json={"answer": "a"})
+
+    spend = client.get(f"/v1/sessions/{sid}/spend").json()
+    summary = client.get(f"/v1/sessions/{sid}/summary").json()["spend"]
+
+    assert spend["credits"] == summary["credits"]
+    assert spend["planning"] == summary["planning"]
+    assert spend["balance"] == summary["balance"]
+
+
+def test_the_planning_call_is_billed_and_carried_on_its_own_line(client, module_ids):
+    """Planning is a charge belonging to no Visit (ISSUE-0041)."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    client.post(f"/v1/sessions/{sid}/turns", json={"answer": "a"})
+
+    spend = client.get(f"/v1/sessions/{sid}/spend").json()
+    visits_total = sum(v["credits"] for v in spend["per_visit"])
+    assert spend["planning"] is not None
+    assert spend["credits"] == spend["planning"] + visits_total

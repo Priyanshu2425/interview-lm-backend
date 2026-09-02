@@ -19,7 +19,7 @@ import anyio.to_thread
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
-    from ...service.metering.keyvault import AttachedKey
+    from ...service.metering.keyvault_service import AttachedKey
 
 
 class AsyncKeyVault:

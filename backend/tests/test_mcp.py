@@ -9,7 +9,7 @@ import pytest
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.service.mcp.server import (
+from interviewer.mcp.mcp_server import (
     HOST_TOOLS, McpServer, RedemptionRefused, ScopeViolation, VisitUnresolved,
 )
 

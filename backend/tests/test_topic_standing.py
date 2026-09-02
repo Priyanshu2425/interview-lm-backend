@@ -13,11 +13,10 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.service.confidence.comparison import (
-    COHORT_FLOOR, CoverageStanding, Standing, coverage_percentile,
-    rank_within_topic,
+from interviewer.model.standing_models import (
+    COHORT_FLOOR, CoverageStanding, Standing,
 )
-from interviewer.service.confidence.math import Posterior
+from interviewer.model.confidence_models import Posterior
 
 TOPIC = "aiml-attention"
 
@@ -37,7 +36,7 @@ def cohort(**overrides: Posterior) -> dict[str, Posterior]:
 
 def test_a_rank_is_returned_for_a_topic_the_candidate_was_examined_on():
     people = cohort(me=firm(0.95))
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert standing.rank == 1
     assert standing.cohort == len(people)
     assert standing.available is True
@@ -50,7 +49,7 @@ def test_a_rank_counts_only_the_candidates_definitely_above():
     stops the rank claiming a difference the measurement does not have.
     """
     people = cohort(me=firm(0.10), top=firm(0.97), second=firm(0.90))
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert standing.rank == standing.cohort
     assert standing.shared is False
 
@@ -58,8 +57,8 @@ def test_a_rank_counts_only_the_candidates_definitely_above():
 def test_overlapping_posteriors_share_a_position():
     """0.82 and 0.81 may be the same measurement twice, and are not separated."""
     people = cohort(me=firm(0.82), twin=firm(0.81))
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
-    twin = rank_within_topic(TOPIC, candidate_id="twin", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
+    twin = Standing.of(TOPIC, candidate_id="twin", posteriors=people)
     assert standing.rank == twin.rank
     assert standing.shared is True and twin.shared is True
 
@@ -68,14 +67,14 @@ def test_candidates_the_maths_can_separate_are_separated():
     people = {f"c{i}": firm(0.5, weight=400) for i in range(COHORT_FLOOR)}
     people["me"] = firm(0.99, weight=400)
     people["far_below"] = firm(0.01, weight=400)
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert standing.rank == 1
     assert standing.shared is False
 
 
 def test_a_rank_is_stated_against_the_cohort_it_was_taken_over():
     people = cohort(me=firm(0.7))
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert 1 <= standing.rank <= standing.cohort
 
 
@@ -87,22 +86,22 @@ def test_candidates_below_the_evidence_floor_are_excluded_not_counted_as_zero():
     to prevent."""
     people = cohort(me=firm(0.5))
     with_untested = {**people, **{f"u{i}": Posterior(1.0, 1.0) for i in range(50)}}
-    tested = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
-    mixed = rank_within_topic(TOPIC, candidate_id="me", posteriors=with_untested)
+    tested = Standing.of(TOPIC, candidate_id="me", posteriors=people)
+    mixed = Standing.of(TOPIC, candidate_id="me", posteriors=with_untested)
     assert mixed.rank == tested.rank
     assert mixed.cohort == tested.cohort
 
 
 def test_a_topic_the_candidate_has_not_been_examined_on_yields_no_rank():
     people = cohort(me=Posterior(1.0, 1.0))
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert standing.rank is None
     assert standing.available is False
     assert "Untested" in standing.reason
 
 
 def test_an_unknown_candidate_is_not_ranked_last():
-    standing = rank_within_topic(TOPIC, candidate_id="nobody", posteriors=cohort())
+    standing = Standing.of(TOPIC, candidate_id="nobody", posteriors=cohort())
     assert standing.rank is None
 
 
@@ -111,7 +110,7 @@ def test_an_unknown_candidate_is_not_ranked_last():
 def test_fewer_than_the_cohort_floor_yields_no_rank_and_a_stated_reason():
     """`#1 of 2` discloses the other Candidate completely."""
     people = {"me": firm(0.9), "you": firm(0.5)}
-    standing = rank_within_topic(TOPIC, candidate_id="me", posteriors=people)
+    standing = Standing.of(TOPIC, candidate_id="me", posteriors=people)
     assert standing.rank is None
     assert standing.cohort == 2
     assert "not enough Candidates yet" in standing.reason
@@ -120,7 +119,7 @@ def test_fewer_than_the_cohort_floor_yields_no_rank_and_a_stated_reason():
 def test_the_cohort_floor_is_one_named_constant_documented_as_provisional():
     """One constant, labelled a guess. Unlike the Evidence Floor it is derived
     from nothing — it is a privacy judgement, and it says so where it is set."""
-    from interviewer.service.confidence import comparison
+    from interviewer.model import standing_models as comparison
 
     assert COHORT_FLOOR == 10
     source = __import__("inspect").getsource(comparison)
@@ -131,7 +130,7 @@ def test_the_cohort_floor_is_one_named_constant_documented_as_provisional():
 
 def test_the_floor_is_a_parameter_so_a_deployment_can_state_its_own():
     people = {"me": firm(0.9), "you": firm(0.5)}
-    standing = rank_within_topic(
+    standing = Standing.of(
         TOPIC, candidate_id="me", posteriors=people, cohort_floor=2
     )
     assert standing.rank == 1
@@ -140,7 +139,7 @@ def test_the_floor_is_a_parameter_so_a_deployment_can_state_its_own():
 # -- Coverage is compared as Coverage ---------------------------------------
 
 def test_coverage_is_a_separate_reading_of_its_own_shape():
-    standing = coverage_percentile(
+    standing = CoverageStanding.of(
         candidate_id="me",
         examined={"me": 45, **{f"c{i}": i for i in range(COHORT_FLOOR)}},
         topics_available=71,
@@ -155,7 +154,7 @@ def test_no_function_takes_both_a_rank_and_a_coverage():
     """The refusal, enforced by the absence of a call rather than by review."""
     import inspect
 
-    from interviewer.service.confidence import comparison
+    from interviewer.model import standing_models as comparison
 
     for _, fn in inspect.getmembers(comparison, inspect.isfunction):
         params = inspect.signature(fn).parameters
@@ -165,7 +164,7 @@ def test_no_function_takes_both_a_rank_and_a_coverage():
 
 
 def test_a_candidate_with_no_tested_topic_gets_no_coverage_percentile():
-    standing = coverage_percentile(
+    standing = CoverageStanding.of(
         candidate_id="me",
         examined={"me": 0, **{f"c{i}": 5 for i in range(COHORT_FLOOR)}},
         topics_available=71,
@@ -175,7 +174,7 @@ def test_a_candidate_with_no_tested_topic_gets_no_coverage_percentile():
 
 
 def test_coverage_below_the_cohort_floor_says_so():
-    standing = coverage_percentile(
+    standing = CoverageStanding.of(
         candidate_id="me", examined={"me": 5, "you": 3}, topics_available=71
     )
     assert standing.percentile is None

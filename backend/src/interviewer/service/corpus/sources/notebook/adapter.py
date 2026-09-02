@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Mapping, Sequence
 
 from interviewer.service.corpus.conformance import Report, validate
-from interviewer.model.corpus import (
+from interviewer.model.corpus_models import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 from .chunking import Chunk, chunk_source, leaf_title

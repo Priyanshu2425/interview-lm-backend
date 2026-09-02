@@ -120,7 +120,7 @@ def test_a_session_can_be_scoped_to_ready_modules_while_others_are_stubs(
 def test_deleting_a_notebook_empties_content_and_keeps_every_evidence_row(
     client, ingested, real_notes, engine
 ):
-    from interviewer.service.confidence.store import ConfidenceStore, EvidenceLedger
+    from interviewer.repository.core import ConfidenceStore, EvidenceLedger
 
     notebook_id, _, session_id, candidate = _notebook_with_a_graded_visit(
         client, ingested, real_notes
@@ -241,7 +241,7 @@ def test_deleting_a_notebook_mid_session_ends_it_after_the_current_visit(
     client, ingested, real_notes, engine
 ):
     """The soft deadline already built for duration, reused for deletion."""
-    from interviewer.service.confidence.store import EvidenceLedger
+    from interviewer.repository.core import EvidenceLedger
 
     created = client.post(
         "/v1/notebooks", json={"candidate_id": "cand-mid", "title": "Notes"}

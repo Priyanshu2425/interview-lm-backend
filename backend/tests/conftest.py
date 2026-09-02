@@ -28,7 +28,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "backend" / "src"))
 
 from interviewer.service.corpus.sources.interview_lm import ingest  # noqa: E402
-from interviewer.service.corpus.loader import DossierLoader  # noqa: E402
+from interviewer.service.corpus.loader_service import DossierLoader  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -120,7 +120,7 @@ def clean_db(engine):
 
 def session_grader(deps, *, provider: str = "deepseek"):
     """The real grader, built over whatever this `Deps` was given."""
-    from interviewer.service.judge.session_grader import SessionGrader
+    from interviewer.service.judge.session_grader_service import SessionGrader
 
     return SessionGrader(
         sessions=deps.sessions,
@@ -156,20 +156,20 @@ def metered_deps(clean_db, loader, corpus):
 
     import numpy as np
 
-    from interviewer.service.confidence.selector import TopicSelector
-    from interviewer.service.confidence.store import (
+    from interviewer.service.confidence.selector_service import TopicSelector
+    from interviewer.repository.core import (
         ConfidenceStore, EvidenceLedger, VisitLifecycle,
     )
     from interviewer.service.corpus import CorpusService
-    from interviewer.service.graph.machine import Deps
-    from interviewer.service.graph.planner import PlanStore, SessionPlanner
+    from interviewer.service.graph.machine_service import Deps
+    from interviewer.service.graph.planner_service import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import FrozenClock, Ports
     from interviewer.service.graph.sessions import SessionStore
     from interviewer.service.graph.transcript import Transcript
-    from interviewer.service.judge.interviewer import Interviewer
-    from interviewer.service.judge.judge import Judge
-    from interviewer.service.judge.question_writer import QuestionWriter
-    from interviewer.service.metering.client import BindingStore, MeteredModelClient
+    from interviewer.service.judge.interviewer_service import Interviewer
+    from interviewer.service.judge.judge_service import Judge
+    from interviewer.service.judge.question_writer_service import QuestionWriter
+    from interviewer.service.metering.client_service import BindingStore, MeteredModelClient
     from interviewer.service.metering.ledger import CreditLedger, PoolLedger
     from interviewer.adapters.openrouter import ScriptedTransport
 
@@ -208,19 +208,19 @@ def metered_deps(clean_db, loader, corpus):
 @pytest.fixture()
 def deps(clean_db, loader, corpus):
     """A fully wired, fully deterministic set of dependencies."""
-    from interviewer.service.confidence.store import (
+    from interviewer.repository.core import (
         ConfidenceStore, EvidenceLedger, VisitLifecycle,
     )
     from interviewer.service.corpus import CorpusService
-    from interviewer.service.graph.machine import Deps
-    from interviewer.service.graph.planner import PlanStore, SessionPlanner
+    from interviewer.service.graph.machine_service import Deps
+    from interviewer.service.graph.planner_service import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import Ports, ScriptedModel
     from interviewer.service.graph.sessions import SessionStore
     from interviewer.service.graph.transcript import Transcript
-    from interviewer.service.judge.judge import Judge
-    from interviewer.service.judge.question_writer import QuestionWriter
-    from interviewer.service.confidence.selector import TopicSelector
-    from interviewer.service.judge.interviewer import Interviewer
+    from interviewer.service.judge.judge_service import Judge
+    from interviewer.service.judge.question_writer_service import QuestionWriter
+    from interviewer.service.confidence.selector_service import TopicSelector
+    from interviewer.service.judge.interviewer_service import Interviewer
 
     model = ScriptedModel(
         replies={

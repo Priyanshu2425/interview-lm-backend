@@ -16,8 +16,8 @@ from interviewer.service.corpus.sources.notebook.documents import (
     ingest_notebook,
 )
 from interviewer.service.corpus.conformance import validate
-from interviewer.model.corpus import GradingMode, LeafKind
-from interviewer.service.corpus.loader import DossierLoader
+from interviewer.model.corpus_models import GradingMode, LeafKind
+from interviewer.service.corpus.loader_service import DossierLoader
 
 ATTENTION = """# Attention
 

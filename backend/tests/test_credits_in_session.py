@@ -7,9 +7,9 @@ exhausted balance, and the Session stops at the boundary instead.
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
-from interviewer.service.metering.credits import HEADROOM_CREDITS
+from interviewer.model.credits_models import HEADROOM_CREDITS
 
 CAND = "cand_credit_session"
 
@@ -172,7 +172,7 @@ def test_the_spend_gate_has_exactly_one_call_site():
         f"{f.relative_to(src)}:{i}"
         for f in src.rglob("*.py")
         for i, line in enumerate(f.read_text().splitlines(), 1)
-        if re.search(r"\bclears_headroom\(", line) and "def " not in line
+        if re.search(r"\.clears_headroom\(", line) and "def " not in line
     ]
     assert len(hits) == 1, hits
-    assert "machine.py" in hits[0]
+    assert "machine_service.py" in hits[0]

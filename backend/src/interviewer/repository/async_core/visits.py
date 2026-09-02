@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import schema as S
-from ...model.corpus import GradingMode
-from ...service.confidence.store import new_id
+from ...model.corpus_models import GradingMode
+from interviewer.util.ids_utils import new_id
 
 
 class AsyncVisitLifecycle:

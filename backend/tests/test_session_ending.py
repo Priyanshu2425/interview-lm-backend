@@ -15,7 +15,7 @@ import pytest
 
 from conftest import signed_in_client
 
-from interviewer.service.ending import EndReason, SessionEnding
+from interviewer.service.ending_service import EndReason, SessionEnding
 
 
 class _Sessions:

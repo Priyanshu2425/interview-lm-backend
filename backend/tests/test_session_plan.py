@@ -19,16 +19,16 @@ from sqlalchemy.exc import DBAPIError
 from conftest import signed_in_client
 
 from interviewer.db import schema as S
-from interviewer.service.confidence.selector import TopicSelector
-from interviewer.service.confidence.store import ConfidenceStore
+from interviewer.service.confidence.selector_service import TopicSelector
+from interviewer.repository.core import ConfidenceStore
 from interviewer.service.graph.pacing import SECONDS_PER_QUESTION
-from interviewer.service.graph.planner import (
+from interviewer.service.graph.planner_service import (
     PlanRejected,
     PlanStore,
     SessionPlanner,
 )
 from interviewer.service.graph.ports import ModelReply
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_plan"
@@ -291,7 +291,7 @@ def test_validation_says_what_was_wrong_rather_than_repairing_it():
 def test_a_provider_failure_is_not_a_bad_plan(a_session):
     """It parks, like every other model call. A dropped connection must not
     lock a Candidate into a fallback plan they can never replace."""
-    from interviewer.service.metering.client import ProviderFailure
+    from interviewer.service.metering.client_service import ProviderFailure
 
     class _Down:
         def complete(self, **kw):

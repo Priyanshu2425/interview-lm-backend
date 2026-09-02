@@ -19,27 +19,27 @@ from functools import lru_cache
 
 import numpy as np
 
-from interviewer.service.confidence.selector import TopicSelector
-from interviewer.service.confidence.store import (
+from interviewer.service.confidence.selector_service import TopicSelector
+from interviewer.repository.core import (
     ConfidenceStore, EvidenceLedger, VisitLifecycle,
 )
-from interviewer.service.confidence.reading import SessionReadingService
-from interviewer.service.confidence.summary import CandidateReadings
+from interviewer.service.confidence.reading_service import SessionReadingService
+from interviewer.service.confidence.summary_service import CandidateReadings
 from interviewer.db.engine import create_content, create_core, make_engine
 from interviewer.db.engine_async import make_async_engine
-from interviewer.service.graph.machine import Deps
-from interviewer.service.graph.planner import PlanStore, SessionPlanner
+from interviewer.service.graph.machine_service import Deps
+from interviewer.service.graph.planner_service import PlanStore, SessionPlanner
 from interviewer.service.graph.ports import Ports, SystemClock
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionStore
 from interviewer.service.graph.transcript import Transcript
-from interviewer.service.judge.interviewer import Interviewer
-from interviewer.service.judge.judge import Judge
-from interviewer.service.judge.question_writer import QuestionWriter
-from interviewer.service.ending import SessionEnding
-from interviewer.service.judge.session_grader import SessionGrader
-from interviewer.service.metering.client import BindingStore, MeteredModelClient
-from interviewer.service.metering.keyvault import (
+from interviewer.service.judge.interviewer_service import Interviewer
+from interviewer.service.judge.judge_service import Judge
+from interviewer.service.judge.question_writer_service import QuestionWriter
+from interviewer.service.ending_service import SessionEnding
+from interviewer.service.judge.session_grader_service import SessionGrader
+from interviewer.service.metering.client_service import BindingStore, MeteredModelClient
+from interviewer.service.metering.keyvault_service import (
     AcceptingValidator, KeyVault, LocalKms, OpenRouterValidator,
 )
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger

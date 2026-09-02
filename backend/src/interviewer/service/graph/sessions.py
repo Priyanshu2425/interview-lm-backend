@@ -12,7 +12,7 @@ from ...db import schema as S
 # Re-exported, never redeclared. The rubric's version is the Judge's fact; a
 # Session and an Evidence row only record which rubric graded them, and a second
 # literal here is how a Session comes to claim a rubric the Judge never ran.
-from ..judge.judge import RUBRIC_VERSION
+from ..judge.judge_service import RUBRIC_VERSION
 
 __all__ = ["RUBRIC_VERSION", "SessionConfig", "SessionStore"]
 

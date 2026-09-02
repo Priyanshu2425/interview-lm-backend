@@ -12,8 +12,8 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 
-from interviewer.model.corpus import Corpus
-from interviewer.service.corpus.loader import DossierLoader
+from interviewer.model.corpus_models import Corpus
+from interviewer.service.corpus.loader_service import DossierLoader
 from interviewer.service.corpus import CorpusService
 
 
@@ -151,7 +151,7 @@ def get_related_topics():
     a precomputed file because the Corpus was a file; ADR-0021 records why that
     reason went away.
     """
-    from interviewer.service.corpus.related import RelatedTopics
+    from interviewer.service.corpus.related_service import RelatedTopics
 
     return RelatedTopics(get_notebook_service().store)
 

@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import schema as S
-from ...service.confidence.math import Posterior, PRIOR
+from ...model.confidence_models import Posterior, PRIOR
 
 
 class AsyncConfidenceStore:
@@ -60,8 +60,15 @@ class AsyncConfidenceStore:
         )
         return {r[0]: Posterior(float(r[1]), float(r[2])) for r in result.all()}
 
-    async def examined_counts(self, topic_ids: list[str]) -> dict[str, int]:
-        """Count examined topics per candidate (above Evidence Floor)."""
+    async def posteriors_on(
+        self, topic_ids: list[str]
+    ) -> dict[str, list[Posterior]]:
+        """Every Candidate's posteriors across these Topics, unfiltered.
+
+        Rows, not a count: which of them read above the Evidence Floor is
+        decided in `CoverageStanding.examined_counts`, beside the cohort rules
+        that use it.
+        """
         if not topic_ids:
             return {}
         result = await self._s.execute(
@@ -71,13 +78,12 @@ class AsyncConfidenceStore:
                 S.topic_confidence.c.beta,
             ).where(S.topic_confidence.c.topic_id.in_(topic_ids))
         )
-        counts: dict[str, int] = {}
+        out: dict[str, list[Posterior]] = {}
         for candidate_id, alpha, beta in result.all():
-            if Posterior(float(alpha), float(beta)).band.reportable:
-                counts[candidate_id] = counts.get(candidate_id, 0) + 1
-            else:
-                counts.setdefault(candidate_id, 0)
-        return counts
+            out.setdefault(candidate_id, []).append(
+                Posterior(float(alpha), float(beta))
+            )
+        return out
 
     async def all_for(self, candidate_id: str) -> dict[str, Posterior]:
         """Get all posteriors for a candidate."""

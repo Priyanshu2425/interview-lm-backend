@@ -22,11 +22,11 @@ from interviewer.service.corpus.sources.notebook.chunking import chunk_source, l
 from interviewer.service.corpus.sources.notebook.documents.extract import extract
 from interviewer.service.corpus.sources.notebook.documents.sources import digest
 from interviewer.service.embeddings.hashing import centroid_of
-from interviewer.model.corpus import Corpus
+from interviewer.model.corpus_models import Corpus
 from interviewer.db.content import PERSONAL, SHARED
 
 from .corpus_view import corpus_for, merge
-from .ingest_cost import IngestCost, IngestMeter, estimate
+from .ingest_cost_service import IngestCost, IngestMeter, estimate
 from .progress_embedder import ProgressEmbedder
 from .reusing_embedder import ReusingEmbedder
 from ...repository.notebooks import NotebookRecord, NotebookStore

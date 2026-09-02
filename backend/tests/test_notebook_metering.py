@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import pytest
 
 from interviewer.service.corpus.sources.notebook.documents import HashingEmbedder
-from interviewer.service.notebooks.ingest_cost import InsufficientBalance, estimate
+from interviewer.service.notebooks.ingest_cost_service import InsufficientBalance, estimate
 
 
 class Priced(HashingEmbedder):

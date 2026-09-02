@@ -1,0 +1,795 @@
+<title>Interview Mode QA Runbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root {
+    --ground:   #f6f7f9;
+    --surface:  #ffffff;
+    --raised:   #eef1f4;
+    --ink:      #161a21;
+    --muted:    #5c6470;
+    --faint:    #868f9c;
+    --rule:     #dce0e7;
+    --rule-soft:#e8ebf0;
+    --accent:   #0f6e6e;
+    --accent-b: #e2f0ef;
+    --pass:     #1f7a4d;
+    --warn:     #8a5a06;
+    --stop:     #a32c2c;
+    --code-bg:  #12171d;
+    --code-ink: #dfe6ee;
+    --shadow:   0 1px 2px rgba(22,26,33,.06), 0 8px 24px -16px rgba(22,26,33,.28);
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif:"IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #111419;
+      --surface:  #171b22;
+      --raised:   #1e242d;
+      --ink:      #e6e9ee;
+      --muted:    #98a2b0;
+      --faint:    #7a8390;
+      --rule:     #272e39;
+      --rule-soft:#20262f;
+      --accent:   #4bb3aa;
+      --accent-b: #10312f;
+      --pass:     #4cb07a;
+      --warn:     #d09a3c;
+      --stop:     #e0736b;
+      --code-bg:  #0c1015;
+      --code-ink: #d6dee7;
+      --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #111419;
+    --surface:  #171b22;
+    --raised:   #1e242d;
+    --ink:      #e6e9ee;
+    --muted:    #98a2b0;
+    --faint:    #7a8390;
+    --rule:     #272e39;
+    --rule-soft:#20262f;
+    --accent:   #4bb3aa;
+    --accent-b: #10312f;
+    --pass:     #4cb07a;
+    --warn:     #d09a3c;
+    --stop:     #e0736b;
+    --code-bg:  #0c1015;
+    --code-ink: #d6dee7;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+  /* ---- masthead ---- */
+  header.top { border-bottom: 1px solid var(--rule); background: var(--surface); }
+  .masthead { max-width: 60rem; margin: 0 auto; padding: 2.75rem 1.5rem 2rem; }
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 .9rem;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.15; margin: 0 0 .7rem; text-wrap: balance; letter-spacing: -.015em;
+  }
+  .standfirst { margin: 0; max-width: 46rem; color: var(--muted); font-size: 1.02rem; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1.5rem;
+    font-family: var(--mono); font-size: .76rem; color: var(--faint);
+  }
+  .meta b { color: var(--ink); font-weight: 500; }
+
+  /* ---- sticky progress ---- */
+  .progress {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--surface); border-bottom: 1px solid var(--rule);
+    box-shadow: var(--shadow);
+  }
+  .progress-in {
+    max-width: 60rem; margin: 0 auto; padding: .7rem 1.5rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .bar { flex: 1 1 12rem; height: 6px; background: var(--raised); border-radius: 99px; overflow: hidden; min-width: 8rem; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+  .count { font-family: var(--mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .count b { color: var(--ink); }
+  button.reset {
+    font-family: var(--mono); font-size: .74rem; color: var(--muted);
+    background: none; border: 1px solid var(--rule); border-radius: 5px;
+    padding: .3rem .65rem; cursor: pointer;
+  }
+  button.reset:hover { color: var(--ink); border-color: var(--accent); }
+  button.reset:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- lanes ---- */
+  .lane { margin-top: 3.25rem; }
+  .lane-head { border-top: 2px solid var(--ink); padding-top: .8rem; margin-bottom: .4rem; }
+  .lane-tag {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .lane h2 {
+    font-family: var(--serif); font-size: 1.5rem; font-weight: 600;
+    margin: .25rem 0 .4rem; letter-spacing: -.01em;
+  }
+  .lane-note { color: var(--muted); margin: 0 0 1.5rem; max-width: 46rem; font-size: .94rem; }
+  .needs {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-family: var(--mono); font-size: .72rem; color: var(--muted);
+    background: var(--raised); border-radius: 4px; padding: .2rem .5rem; margin-bottom: 1rem;
+  }
+
+  /* ---- check cards ---- */
+  .check {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 1.1rem 1.25rem; margin-bottom: .8rem;
+    display: grid; grid-template-columns: auto 1fr; gap: .1rem .85rem;
+    align-items: start;
+  }
+  .check.done { border-color: var(--rule-soft); opacity: .62; }
+  .check input[type="checkbox"] {
+    width: 1.05rem; height: 1.05rem; margin: .3rem 0 0; accent-color: var(--accent); cursor: pointer;
+  }
+  .check-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .id {
+    font-family: var(--mono); font-size: .74rem; color: var(--accent);
+    background: var(--accent-b); border-radius: 4px; padding: .1rem .4rem;
+  }
+  .ticket { font-family: var(--mono); font-size: .72rem; color: var(--faint); }
+  .check h3 { font-size: 1rem; font-weight: 600; margin: 0; letter-spacing: -.005em; }
+  .body { grid-column: 2; }
+  .body > :last-child { margin-bottom: 0; }
+  .body p { margin: .5rem 0 .7rem; color: var(--muted); }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink);
+    border-radius: 6px; padding: .75rem .9rem; overflow-x: auto;
+    font-family: var(--mono); font-size: .8rem; line-height: 1.55; margin: .6rem 0;
+  }
+  code { font-family: var(--mono); font-size: .86em; }
+  .body p code, li code { background: var(--raised); border-radius: 3px; padding: .08em .32em; }
+
+  .expect {
+    border-left: 2px solid var(--pass); padding: .1rem 0 .1rem .8rem;
+    margin: .7rem 0; color: var(--ink); font-size: .92rem;
+  }
+  .expect .lbl {
+    display: block; font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--pass); margin-bottom: .15rem;
+  }
+  .proves {
+    font-size: .87rem; color: var(--faint); margin: .6rem 0 0;
+    padding-top: .55rem; border-top: 1px dashed var(--rule);
+  }
+  .proves b { color: var(--muted); font-weight: 500; }
+
+  .flag {
+    display: inline-block; font-family: var(--mono); font-size: .68rem;
+    letter-spacing: .08em; text-transform: uppercase; padding: .12rem .45rem;
+    border-radius: 3px; border: 1px solid currentColor;
+  }
+  .flag.stop { color: var(--stop); }
+  .flag.warn { color: var(--warn); }
+
+  ol, ul { margin: .5rem 0 .7rem; padding-left: 1.3rem; color: var(--muted); }
+  li { margin: .28rem 0; }
+  li::marker { color: var(--faint); }
+
+  /* ---- watch list ---- */
+  .watch { border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); overflow: hidden; }
+  .watch-item { padding: 1.05rem 1.25rem; border-bottom: 1px solid var(--rule-soft); }
+  .watch-item:last-child { border-bottom: none; }
+  .watch-item h3 { margin: 0 0 .35rem; font-size: .97rem; font-weight: 600; }
+  .watch-item p { margin: 0; color: var(--muted); font-size: .91rem; }
+  .watch-item p + p { margin-top: .45rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: .5rem 0 0; }
+  th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule-soft); }
+  th { font-family: var(--mono); font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--faint); font-size: .85rem; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 34rem) {
+    .check { padding: .95rem 1rem; gap: .1rem .65rem; }
+    .masthead { padding: 2rem 1.25rem 1.5rem; }
+  }
+</style>
+
+<header class="top">
+  <div class="masthead">
+    <p class="eyebrow">InterviewLM · manual verification</p>
+    <h1>Interview Mode QA Runbook</h1>
+    <p class="standfirst">
+      Eight slices shipped: the Session stopped being a sequence of independently graded
+      Topic Visits and became a plan, fixed before the first question, executed against a
+      transcript, and graded once at the end. This walks every one of them by hand.
+    </p>
+    <div class="meta">
+      <span><b>8</b> tickets</span>
+      <span><b>1019</b> passing / 8 skipped</span>
+      <span>HEAD <b>331610c</b></span>
+      <span>local Postgres only — prod not migrated</span>
+    </div>
+  </div>
+</header>
+
+<div class="progress">
+  <div class="progress-in">
+    <span class="count"><b id="done">0</b> / <span id="total">0</span> checked</span>
+    <div class="bar"><span id="fill"></span></div>
+    <button class="reset" id="reset" type="button">Clear all</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ SETUP ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Before you start</p>
+      <h2>Setting up</h2>
+    </div>
+    <p class="lane-note">
+      Lane A needs nothing but the database. Lane B needs the API and a real bearer token —
+      there is no development bypass, which is worth knowing before you try to curl anything.
+    </p>
+
+    <div class="check" data-id="s1">
+      <input type="checkbox" aria-labelledby="s1h">
+      <div class="check-head"><span class="id">S1</span><h3 id="s1h">Postgres is up</h3></div>
+      <div class="body">
+<pre>docker exec cortex-pg psql -U cortex -d cortex -c "select current_database()"</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>cortex</code>. If the container is not running, start it — see <code>backend/README.md</code>.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="s2">
+      <input type="checkbox" aria-labelledby="s2h">
+      <div class="check-head"><span class="id">S2</span><h3 id="s2h">The API answers</h3></div>
+      <div class="body">
+<pre>cd ~/Desktop/buildspace/scaler-ai-interview
+backend/.venv/bin/uvicorn interviewer.app:app --port 8000
+
+# in another shell
+curl -s localhost:8000/v1/health/live</pre>
+        <div class="expect"><span class="lbl">Expect</span>A healthy response, and no traceback in the server log at startup.</div>
+        <p class="proves"><b>Note</b> — <code>backend/.env</code> now points <code>DATABASE_URL</code> at local Postgres. The Neon DSN moved to <code>INTERVIEW_LM_DATABASE_URL</code>, so nothing here can reach production by accident.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="s3">
+      <input type="checkbox" aria-labelledby="s3h">
+      <div class="check-head"><span class="id">S3</span><h3 id="s3h">Get a bearer token</h3></div>
+      <div class="body">
+        <p>Every Candidate-scoped route depends on <code>current_candidate</code> and none takes an id from the caller. There is <em>no</em> dev bypass, so Lane B needs a genuine Gatehouse token.</p>
+        <ol>
+          <li>Run <code>backend/scripts/dev-auth-setup.sh</code> once (idempotent).</li>
+          <li>Start the surface: <code>cd frontend &amp;&amp; npm run dev</code>, with <code>VITE_API_URL</code> pointing at <code>localhost:8000</code>.</li>
+          <li>Sign in at <code>https://interview-lm.dev.buildspacelabs.com:5173</code>.</li>
+          <li>DevTools → Network → any <code>/v1/</code> request → copy the <code>Authorization</code> header value.</li>
+        </ol>
+<pre>export TOKEN="eyJ..."   # without the "Bearer " prefix
+export API=localhost:8000
+curl -s -H "Authorization: Bearer $TOKEN" $API/v1/candidates/me</pre>
+        <div class="expect"><span class="lbl">Expect</span>JSON with a <code>candidate_id</code>. A 401 means the token expired — sign in again, they are short-lived.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LANE A ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Lane A · ISSUE-0039</p>
+      <h2>What the store refuses</h2>
+    </div>
+    <p class="lane-note">
+      These are invariants with no surface at all. They are enforced by triggers and constraints
+      rather than by application code, on the argument that a constraint is the only thing a prompt
+      cannot talk its way past — the MCP host is a ReAct agent nobody controls. Every command below
+      was run against this database while the plan was written; the errors quoted are the real ones.
+    </p>
+    <span class="needs">needs: database only</span>
+
+    <div class="check" data-id="a0">
+      <input type="checkbox" aria-labelledby="a0h">
+      <div class="check-head"><span class="id">A0</span><span class="ticket">setup</span><h3 id="a0h">Make a scratch Session</h3></div>
+      <div class="body">
+        <p>Everything in Lane A hangs off these rows. Paste the whole block into <code>docker exec -i cortex-pg psql -U cortex -d cortex</code>.</p>
+<pre>SET search_path TO interview_lm_core;
+INSERT INTO candidate (candidate_id) VALUES ('qa_cand');
+INSERT INTO session (session_id, candidate_id, mode, payment_route,
+                     scope_module_ids, duration_seconds, rubric_version)
+VALUES ('qa_sess','qa_cand','managed','credits','{mod-1}',1800,'v2');
+INSERT INTO plan_item (plan_item_id, session_id, item_order, topic_ids, focus)
+VALUES ('qa_pi','qa_sess',0,'{t-1}','the derivative');</pre>
+        <div class="expect"><span class="lbl">Expect</span>Three <code>INSERT 0 1</code> lines.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="a1">
+      <input type="checkbox" aria-labelledby="a1h">
+      <div class="check-head"><span class="id">A1</span><span class="ticket">0039</span><h3 id="a1h">The new tables exist</h3></div>
+      <div class="body">
+<pre>SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'interview_lm_core'
+  AND table_name IN ('session_plan','plan_item','message')
+ORDER BY 1;</pre>
+        <div class="expect"><span class="lbl">Expect</span>All three rows: <code>message</code>, <code>plan_item</code>, <code>session_plan</code>.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="a2">
+      <input type="checkbox" aria-labelledby="a2h">
+      <div class="check-head"><span class="id">A2</span><span class="ticket">0039</span><h3 id="a2h">All four triggers are applied</h3></div>
+      <div class="body">
+<pre>SELECT c.relname, t.tgname FROM pg_trigger t
+JOIN pg_class c ON c.oid = t.tgrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'interview_lm_core' AND NOT t.tgisinternal
+ORDER BY 1;</pre>
+        <div class="expect"><span class="lbl">Expect</span>Exactly four: <code>trg_evidence_append_only</code>, <code>trg_message_append_only</code>, <code>trg_plan_item_fixed</code>, <code>trg_session_immutable</code>.</div>
+        <p class="proves"><b>Proves</b> — the async engine builds these too. It used to run <code>create_all</code> and stop, so a database built through that path had every table and not one invariant, inside the very suite meant to prove they held.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a3">
+      <input type="checkbox" aria-labelledby="a3h">
+      <div class="check-head"><span class="id">A3</span><span class="ticket">0039</span><h3 id="a3h">The plan is fixed, but its state still moves</h3></div>
+      <div class="body">
+<pre>UPDATE plan_item SET topic_ids = '{t-9}' WHERE plan_item_id = 'qa_pi';   -- must fail
+UPDATE plan_item SET state = 'unreached' WHERE plan_item_id = 'qa_pi';   -- must succeed</pre>
+        <div class="expect"><span class="lbl">Expect</span>
+          First: <code>ERROR: plan item topics are fixed once planned</code>.<br>
+          Second: <code>UPDATE 1</code>.
+        </div>
+        <p class="proves"><b>Proves</b> — fixedness is a constraint, not a convention. <code>state</code> is deliberately exempt: whether an item was reached is a fact about the run, not about the plan. Try <code>item_order</code> and <code>focus</code> too; both must refuse.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a4">
+      <input type="checkbox" aria-labelledby="a4h">
+      <div class="check-head"><span class="id">A4</span><span class="ticket">0039</span><h3 id="a4h">The transcript cannot be rewritten</h3></div>
+      <div class="body">
+<pre>INSERT INTO message (message_id, session_id, seq, role, kind, text)
+VALUES ('qa_m1','qa_sess',0,'interviewer','question','What is a derivative?');
+
+UPDATE message SET text = 'never said this' WHERE message_id = 'qa_m1';  -- must fail
+DELETE FROM message WHERE message_id = 'qa_m1';                          -- must fail</pre>
+        <div class="expect"><span class="lbl">Expect</span>The insert succeeds; both the UPDATE and the DELETE raise <code>ERROR: message is append-only</code>.</div>
+        <p class="proves"><b>Proves</b> — the transcript is what the Session is graded against, so a record editable after the fact would grade something that never happened.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a5">
+      <input type="checkbox" aria-labelledby="a5h">
+      <div class="check-head"><span class="id">A5</span><span class="ticket">0039</span><h3 id="a5h">One observation per Topic per Session</h3></div>
+      <div class="body">
+        <p>Run this twice. The second must fail.</p>
+<pre>INSERT INTO evidence (evidence_id, candidate_id, topic_id, session_id, score,
+                      truth_score, grading_mode, weight, alpha_delta, beta_delta,
+                      grader_kind, rubric_version)
+VALUES ('qa_e1','qa_cand','t-1','qa_sess',0.6,0.8,'model_judgment',
+        0.50,0.30,0.20,'server_judge','v2');</pre>
+        <div class="expect"><span class="lbl">Expect</span>Second run: <code>ERROR: duplicate key value violates unique constraint "uq_evidence_session_topic"</code> (change the <code>evidence_id</code> so you are testing the key you mean to test).</div>
+        <p class="proves"><b>Proves</b> — this constraint <em>is</em> ADR-0004. The guarantee did not change; its key did. An observation may now be assembled from several questions, and one spanning question may contribute to several observations.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a6">
+      <input type="checkbox" aria-labelledby="a6h">
+      <div class="check-head"><span class="id">A6</span><span class="ticket">0039</span><h3 id="a6h">A question spans at most three Topics</h3></div>
+      <div class="body">
+<pre>INSERT INTO plan_item (plan_item_id, session_id, item_order, topic_ids)
+VALUES ('qa_pi2','qa_sess',1,'{a,b,c,d}');</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>ERROR: … violates check constraint "ck_plan_item_topic_span"</code>. Three topics must succeed.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="a7">
+      <input type="checkbox" aria-labelledby="a7h">
+      <div class="check-head"><span class="id">A7</span><span class="ticket">0039</span><h3 id="a7h">A Topic may now be asked about twice</h3></div>
+      <div class="body">
+        <p>This is what the break exists to allow — <code>uq_visit_session_topic</code> is gone.</p>
+<pre>INSERT INTO topic_visit (topic_visit_id, session_id, candidate_id,
+                         topic_id, visit_index, state)
+VALUES ('qa_v1','qa_sess','qa_cand','t-1',0,'abandoned'),
+       ('qa_v2','qa_sess','qa_cand','t-1',1,'abandoned');</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>INSERT 0 2</code>. Two questions, one Topic, one Session — allowed.</div>
+        <p class="proves"><b>Proves</b> — how many questions a Topic is worth is the plan's decision, not the store's. What the store still refuses is two <em>observations</em>, which is A5.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a8">
+      <input type="checkbox" aria-labelledby="a8h">
+      <div class="check-head"><span class="id">A8</span><span class="ticket">0039</span><h3 id="a8h">The destructive script refuses three ways</h3></div>
+      <div class="body">
+        <p><span class="flag stop">destructive</span> Run these from <code>backend/</code>. All three must refuse, and none may touch a row.</p>
+<pre>export DATABASE_URL="postgresql+psycopg://cortex:cortex@127.0.0.1:55432/cortex"
+
+python scripts/reset_core.py                                   # no env var, no host
+INTERVIEWER_ALLOW_DESTRUCTIVE_RESET=1 \
+  python scripts/reset_core.py --confirm-host neon.tech         # wrong host
+python scripts/reset_core.py --confirm-host 127.0.0.1           # host, no env var</pre>
+        <div class="expect"><span class="lbl">Expect</span>Exit code <code>2</code> each time, and a message naming the schema and host it would have dropped.</div>
+        <p class="proves"><b>Proves</b> — the env var is the intent; the echoed host is the target, which is the thing people actually get wrong. A script that only asked "are you sure" would be answered yes by someone certain about the wrong database.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="a9">
+      <input type="checkbox" aria-labelledby="a9h">
+      <div class="check-head"><span class="id">A9</span><span class="ticket">cleanup</span><h3 id="a9h">Remove the scratch rows</h3></div>
+      <div class="body">
+        <p>Append-only means the triggers must come off to clean up — which is itself a demonstration that they work.</p>
+<pre>ALTER TABLE evidence DISABLE TRIGGER trg_evidence_append_only;
+DELETE FROM evidence WHERE session_id = 'qa_sess';
+ALTER TABLE evidence ENABLE TRIGGER trg_evidence_append_only;
+ALTER TABLE message DISABLE TRIGGER trg_message_append_only;
+DELETE FROM message WHERE session_id = 'qa_sess';
+ALTER TABLE message ENABLE TRIGGER trg_message_append_only;
+DELETE FROM topic_visit WHERE session_id = 'qa_sess';
+DELETE FROM plan_item  WHERE session_id = 'qa_sess';
+DELETE FROM session    WHERE session_id = 'qa_sess';
+DELETE FROM candidate  WHERE candidate_id = 'qa_cand';</pre>
+        <div class="expect"><span class="lbl">Expect</span>No errors, and re-enabling both triggers before you move on. Confirm with A2 that all four are still listed.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LANE B ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Lane B · 0040 · 0048 · 0041 · 0042 · 0043 · 0044 · 0045</p>
+      <h2>Walking one Session end to end</h2>
+    </div>
+    <p class="lane-note">
+      B1–B4 stand alone. B5 onward are one continuous Session: create it, run it, end it, read the
+      report. Keep the <code>session_id</code> from B5 in a shell variable — everything after depends on it.
+    </p>
+    <span class="needs">needs: API running · bearer token from S3</span>
+
+    <div class="check" data-id="b1">
+      <input type="checkbox" aria-labelledby="b1h">
+      <div class="check-head"><span class="id">B1</span><span class="ticket">0040</span><h3 id="b1h">A scope suggests a time</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" \
+  "$API/v1/skills/scope?module_ids=&lt;a real module id&gt;" | python3 -m json.tool</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>suggested_seconds</code>, <code>minimum_seconds</code> and <code>questions_at_full_coverage</code>. Check the arithmetic by hand: <code>suggested_seconds == topic_count × 180</code>, and <code>minimum_seconds == ceil(topic_count / 3) × 180</code>.</div>
+        <p class="proves"><b>Proves</b> — the reading is Coverage, not difficulty. Add a module with far longer dossiers and confirm the time moves <em>only</em> with Topic count. A time that grew with text length would be a difficulty reading wearing a duration's clothes.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="b2">
+      <input type="checkbox" aria-labelledby="b2h">
+      <div class="check-head"><span class="id">B2</span><span class="ticket">0048</span><h3 id="b2h">A new Candidate reads as not onboarded</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" $API/v1/candidates/me</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>{candidate_id, display_name, onboarded}</code> with <code>onboarded: false</code> for a token that has never completed the form. No email anywhere in the response.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b3">
+      <input type="checkbox" aria-labelledby="b3h">
+      <div class="check-head"><span class="id">B3</span><span class="ticket">0048</span><h3 id="b3h">Onboarding stamps once and only once</h3></div>
+      <div class="body">
+<pre>curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"display_name":"Priyanshu","target_role":"ML Engineer","goal":"interview prep"}' \
+  $API/v1/candidates/me
+
+# read the stamp
+docker exec cortex-pg psql -U cortex -d cortex -tAc \
+  "select onboarded_at from interview_lm_core.candidate order by created_at desc limit 1"
+
+# patch again, changing only the name
+curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"display_name":"P. Semwal"}' $API/v1/candidates/me</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>onboarded</code> flips to true on the first PATCH. After the second, <code>onboarded_at</code> is <em>unchanged</em>, the name is updated, and <code>goal</code> still says "interview prep" — omitted fields are left alone, not blanked.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b4">
+      <input type="checkbox" aria-labelledby="b4h">
+      <div class="check-head"><span class="id">B4</span><span class="ticket">0048</span><h3 id="b4h">No route takes an identity from the caller</h3></div>
+      <div class="body">
+<pre>curl -s -o /dev/null -w '%{http_code}\n' -X PATCH \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"candidate_id":"someone-else","email":"x@y.z"}' $API/v1/candidates/me</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>422</code>. Not a 200 that quietly ignores the fields — a surface that sent <code>candidate_id</code> and got a 200 would believe it meant something.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b5">
+      <input type="checkbox" aria-labelledby="b5h">
+      <div class="check-head"><span class="id">B5</span><span class="ticket">0041</span><h3 id="b5h">The plan is made before the first question</h3></div>
+      <div class="body">
+<pre>curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"module_ids":["&lt;module&gt;"],"duration_seconds":1800}' $API/v1/sessions
+
+export SID="&lt;session_id from the response&gt;"
+curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/plan | python3 -m json.tool</pre>
+        <div class="expect"><span class="lbl">Expect</span>A full plan — every item present with its <code>topic_ids</code>, <code>focus</code> and <code>item_order</code> — <em>before</em> you have answered anything. Item states read <code>planned</code>, with the first possibly <code>asked</code>.</div>
+        <p class="proves"><b>Proves</b> — the trade the whole set turns on. Thompson sampling did not die; it moved to plan-construction time, over what previous Sessions established. What was given up is adaptive selection <em>within</em> a Session; what was bought is a plan the Candidate can see.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="b6">
+      <input type="checkbox" aria-labelledby="b6h">
+      <div class="check-head"><span class="id">B6</span><span class="ticket">0041</span><h3 id="b6h">The plan does not move under you</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/plan &gt; /tmp/plan-1.json
+# answer a question (B7), then:
+curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/plan &gt; /tmp/plan-2.json
+diff &lt;(python3 -c "import json,sys;d=json.load(open('/tmp/plan-1.json'));[i.pop('state',None) for i in d.get('items',[])];print(json.dumps(d,sort_keys=True,indent=1))") \
+     &lt;(python3 -c "import json,sys;d=json.load(open('/tmp/plan-2.json'));[i.pop('state',None) for i in d.get('items',[])];print(json.dumps(d,sort_keys=True,indent=1))")</pre>
+        <div class="expect"><span class="lbl">Expect</span>No difference. <code>state</code> is stripped because it legitimately moves — the fixed columns are <code>topic_ids</code>, <code>item_order</code> and <code>focus</code>, and those must be identical.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b7">
+      <input type="checkbox" aria-labelledby="b7h">
+      <div class="check-head"><span class="id">B7</span><span class="ticket">0042</span><h3 id="b7h">The transcript records the exchange, and no score</h3></div>
+      <div class="body">
+<pre>curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"answer":"A derivative is the instantaneous rate of change."}' \
+  $API/v1/sessions/$SID/turns
+
+curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/transcript | python3 -m json.tool</pre>
+        <div class="expect"><span class="lbl">Expect</span>Messages in <code>seq</code> order, alternating <code>interviewer</code> / <code>candidate</code>, each with a <code>kind</code> of question, answer, probe or hint. <strong>No score, band or verdict anywhere in it.</strong></div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b8">
+      <input type="checkbox" aria-labelledby="b8h">
+      <div class="check-head"><span class="id">B8</span><span class="ticket">0042</span><h3 id="b8h">Nothing is graded while the Session runs</h3></div>
+      <div class="body">
+        <p>With the Session still open, after several answers:</p>
+<pre>docker exec cortex-pg psql -U cortex -d cortex -tAc \
+  "select count(*) from interview_lm_core.evidence where session_id = '$SID'"</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>0</code>. Also confirm the posterior has not moved: <code>topic_confidence</code> holds no new row for these Topics.</div>
+        <p class="proves"><b>Proves</b> — grading genuinely moved to the end. A Session mid-flight has produced no measurement at all.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="b9">
+      <input type="checkbox" aria-labelledby="b9h">
+      <div class="check-head"><span class="id">B9</span><span class="ticket">0044</span><h3 id="b9h">Ending the Session grades it</h3></div>
+      <div class="body">
+<pre>curl -s -X POST -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/end
+
+docker exec cortex-pg psql -U cortex -d cortex -c \
+  "select topic_id, score, source_score, truth_score, question_count
+     from interview_lm_core.evidence where session_id = '$SID' order by topic_id"</pre>
+        <div class="expect"><span class="lbl">Expect</span>One row per Topic you actually reached. <code>truth_score</code> always present; <code>source_score</code> null only under model judgment. <code>question_count</code> reflects how many questions fed the observation — and is never the Beta count.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b10">
+      <input type="checkbox" aria-labelledby="b10h">
+      <div class="check-head"><span class="id">B10</span><span class="ticket">0044</span><h3 id="b10h">An unreached Topic scores nothing at all</h3></div>
+      <div class="body">
+        <p>This is the property the whole set was ordered around. Run a Session whose clock runs out before its plan does — a short <code>duration_seconds</code> over a wide scope — then end it.</p>
+<pre>docker exec cortex-pg psql -U cortex -d cortex -c \
+  "select state, count(*) from interview_lm_core.plan_item
+     where session_id = '$SID' group by state"
+
+docker exec cortex-pg psql -U cortex -d cortex -c \
+  "select topic_id from interview_lm_core.evidence where session_id = '$SID'"</pre>
+        <div class="expect"><span class="lbl">Expect</span>Some items in <code>unreached</code>, and <strong>no Evidence row whatsoever</strong> for their Topics. Not a zero, not a low score — no row, and no key in <code>topic_confidence</code> for that Candidate and Topic.</div>
+        <p class="proves"><b>Proves</b> — the distinction between "we did not ask" and "you did badly". A fixture where every Topic was reached could never test it, which is why 0044 was ordered after 0042.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="b11">
+      <input type="checkbox" aria-labelledby="b11h">
+      <div class="check-head"><span class="id">B11</span><span class="ticket">0043 · 0045</span><h3 id="b11h">The report keeps two readings apart</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/report | python3 -m json.tool</pre>
+        <ul>
+          <li><code>topics[]</code> — what was measured: band, coverage, mastery, interval, and <code>source_score</code> / <code>truth_score</code> <em>separately</em>.</li>
+          <li><code>planned_not_reached[]</code> — a different shape entirely: only <code>{topic_id, title}</code>, with no band, interval or score field to fill in by accident.</li>
+          <li><code>plan.items[].topics[].reached</code> — the full accounting.</li>
+        </ul>
+        <div class="expect"><span class="lbl">Expect</span>The two lists are disjoint. There is <strong>no headline score</strong> on the report — no <code>coverage</code>, <code>mastery</code> or <code>score</code> at the top level. Below the Evidence Floor, <code>mastery</code> and <code>interval</code> are null and the label reads "Untested".</div>
+        <p class="proves"><b>Proves</b> — the refusal to fuse two different questions into one number. "How much of the material did you explain" and "were you right" are different readings, and their average answers neither.</p>
+      </div>
+    </div>
+
+    <div class="check" data-id="b12">
+      <input type="checkbox" aria-labelledby="b12h">
+      <div class="check-head"><span class="id">B12</span><span class="ticket">0045</span><h3 id="b12h">The report is a read, not a write</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/report &gt; /tmp/r1.json
+curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/report &gt; /tmp/r2.json
+diff /tmp/r1.json /tmp/r2.json &amp;&amp; echo IDENTICAL</pre>
+        <div class="expect"><span class="lbl">Expect</span><code>IDENTICAL</code>, and no new rows in <code>evidence</code> or <code>credit_ledger</code>.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="b13">
+      <input type="checkbox" aria-labelledby="b13h">
+      <div class="check-head"><span class="id">B13</span><span class="ticket">0041</span><h3 id="b13h">Spend accounts for the planner</h3></div>
+      <div class="body">
+<pre>curl -s -H "Authorization: Bearer $TOKEN" $API/v1/sessions/$SID/spend | python3 -m json.tool</pre>
+        <div class="expect"><span class="lbl">Expect</span>A <code>planning</code> line, counted in the total. Cross-check the total against <code>credit_ledger</code> for this Session — they must agree.</div>
+        <p class="proves"><b>Proves</b> — the planner's model call is attributed rather than free-floating. See W1 below for the cost of that choice.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LANE C ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Lane C · the surface</p>
+      <h2>Through the browser</h2>
+    </div>
+    <p class="lane-note">
+      The surface lives in a separate git repository and did not move in this run. These checks are
+      about what the backend changes did to screens that already existed.
+    </p>
+    <span class="needs">needs: frontend dev server · signed-in browser</span>
+
+    <div class="check" data-id="c1">
+      <input type="checkbox" aria-labelledby="c1h">
+      <div class="check-head"><span class="id">C1</span><span class="ticket">0048</span><h3 id="c1h">Onboarding gate <span class="flag warn">not built</span></h3></div>
+      <div class="body">
+        <p>The backend is done — <code>GET</code> and <code>PATCH /v1/candidates/me</code> both work (B2–B4). The surface gate is not: <code>RequireSession</code> needs a second gate that reads <code>onboarded</code> on first authenticated load and routes to a form.</p>
+        <div class="expect"><span class="lbl">Expect</span>Nothing to test in the browser yet. Tick this once you have confirmed no onboarding form appears — so the gap is recorded rather than assumed.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="c2">
+      <input type="checkbox" aria-labelledby="c2h">
+      <div class="check-head"><span class="id">C2</span><span class="ticket">0042 · 0044</span><h3 id="c2h">The live exchange still works</h3></div>
+      <div class="body">
+        <p>Run a Session through the UI start to finish.</p>
+        <ul>
+          <li>Setup screen: the suggested and minimum times appear and respond to changing the scope.</li>
+          <li>The exchange runs; questions arrive; answers submit.</li>
+          <li><strong>No score appears after each Topic.</strong> The score arrives once, at the end.</li>
+          <li>The summary screen renders without a console error.</li>
+        </ul>
+        <div class="expect"><span class="lbl">Expect</span>Anywhere the old surface showed a per-Topic score mid-Session, it now shows nothing — that reading no longer exists until the Session ends. If a screen renders an empty band there, that is surface work worth a ticket.</div>
+      </div>
+    </div>
+
+    <div class="check" data-id="c3">
+      <input type="checkbox" aria-labelledby="c3h">
+      <div class="check-head"><span class="id">C3</span><span class="ticket">0042</span><h3 id="c3h">MCP Mode still grades per Visit</h3></div>
+      <div class="body">
+        <p>MCP Mode was deliberately left on the old path — it still writes and reads <code>topic_visit.exchange</code> and still uses the <code>graded</code> visit state. Exercise an MCP session if you have a host wired up.</p>
+        <div class="expect"><span class="lbl">Expect</span>Per-Visit grading unchanged. A Session will not advance past an unresolved Visit.</div>
+        <p class="proves"><b>Watch</b> — that last guarantee moved from the database to application code. See W2.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WATCH LIST ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Decisions, not defects</p>
+      <h2>Worth your eyes</h2>
+    </div>
+    <p class="lane-note">
+      Four things that are working as built but were judgement calls. None is a bug; each is
+      somewhere the shipped behaviour differs from what you might reasonably expect.
+    </p>
+
+    <div class="watch">
+      <div class="watch-item">
+        <h3>W1 · The planner's call dilutes a reading in the Operator console</h3>
+        <p>SPEC-0005 forbids an unattributed model call, but at planning time no Topic Visit exists yet — the plan is what decides Visits exist. The call is attributed to <code>plan_&lt;session_id&gt;</code>.</p>
+        <p>Consequence: the Operator console's <code>count(distinct topic_visit_id)</code> counts one extra unit per Session, so <code>credits_per_visit</code> reads slightly low. The clean fix is a <code>call_record.kind</code> column, which is schema work ISSUE-0041 correctly declined to open unasked.</p>
+      </div>
+      <div class="watch-item">
+        <h3>W2 · MCP's open-Visit guard is no longer enforced by the store</h3>
+        <p><code>uq_visit_one_open_per_session</code> narrowed from <code>state IN ('open','answered')</code> to <code>state = 'open'</code>. It had to: with no grading between questions, a Session's second question collides with its own first answered row.</p>
+        <p>But that index carried the comment "a partial unique index is what makes that a property of the store rather than a request to a ReAct agent". For MCP Mode, that rule now lives in <code>McpServer</code> via <code>visits.unresolved</code> — application code, in the one mode whose host is an agent nobody controls. Recoverable by denormalising <code>session.mode</code> onto <code>topic_visit</code>.</p>
+      </div>
+      <div class="watch-item">
+        <h3>W3 · <code>topic_visit.exchange</code> and the <code>graded</code> state are still here</h3>
+        <p>ISSUE-0039 specified removing both. They stayed, because MCP Mode still writes <em>and reads</em> them. Retiring them would have broken MCP silently, so both columns carry a comment naming the slice that may finally retire them.</p>
+      </div>
+      <div class="watch-item">
+        <h3>W4 · Production has not been migrated</h3>
+        <p>Every one of these changes has been proven against local Postgres only. The shared Neon deployment still runs the old schema, and its stored credential currently fails authentication. Migrating it needs a written plan and a dump first — neither exists yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT SHIPPED ============ -->
+  <section class="lane">
+    <div class="lane-head">
+      <p class="lane-tag">Reference</p>
+      <h2>What shipped</h2>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Ticket</th><th>Slice</th><th>Commit</th><th>Checks</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="n">0039</td><td>The schema breaks and is rebuilt</td><td class="n">e77e9ed</td><td class="n">A1–A9</td></tr>
+          <tr><td class="n">0040</td><td>A scope suggests a time</td><td class="n">b7c23e5</td><td class="n">B1</td></tr>
+          <tr><td class="n">0048</td><td>A Candidate says who they are</td><td class="n">10a11d9</td><td class="n">B2–B4, C1</td></tr>
+          <tr><td class="n">0043</td><td>The Judge reads two dimensions</td><td class="n">b6bb0c1</td><td class="n">B9, B11</td></tr>
+          <tr><td class="n">0041</td><td>The plan is made, and it is fixed</td><td class="n">7b74c1d</td><td class="n">B5, B6, B13</td></tr>
+          <tr><td class="n">0042</td><td>The Session runs the plan</td><td class="n">9af1cff</td><td class="n">B7, B8, C2, C3</td></tr>
+          <tr><td class="n">0044</td><td>The Session is graded at the end</td><td class="n">a9f476a</td><td class="n">B9, B10</td></tr>
+          <tr><td class="n">0045</td><td>The report</td><td class="n">331610c</td><td class="n">B11, B12</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Still open: <b>0046</b> (the documents catch up — parked), <b>0047</b> (a partial ingest resumes —
+      waiting on a cost measurement). Your ticks are saved in this browser only.
+    </p>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = "interviewlm-qa-v1";
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".check input[type=checkbox]"));
+    var doneEl = document.getElementById("done");
+    var totalEl = document.getElementById("total");
+    var fill = document.getElementById("fill");
+    totalEl.textContent = boxes.length;
+
+    function read() {
+      try { return JSON.parse(localStorage.getItem(KEY) || "{}"); }
+      catch (e) { return {}; }
+    }
+    function save(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* private mode */ }
+    }
+    function paint() {
+      var n = 0;
+      boxes.forEach(function (b) {
+        var card = b.closest(".check");
+        if (b.checked) { n++; card.classList.add("done"); }
+        else { card.classList.remove("done"); }
+      });
+      doneEl.textContent = n;
+      fill.style.width = boxes.length ? (n / boxes.length * 100) + "%" : "0%";
+    }
+
+    var state = read();
+    boxes.forEach(function (b) {
+      var id = b.closest(".check").dataset.id;
+      b.checked = !!state[id];
+      b.addEventListener("change", function () {
+        var s = read();
+        s[id] = b.checked;
+        save(s);
+        paint();
+      });
+    });
+    paint();
+
+    document.getElementById("reset").addEventListener("click", function () {
+      boxes.forEach(function (b) { b.checked = false; });
+      save({});
+      paint();
+    });
+  })();
+</script>

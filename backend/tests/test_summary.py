@@ -2,14 +2,14 @@
 
 from conftest import grade_session
 
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CAND = "cand_summary"
 
 
 def _svc(deps, corpus):
-    from interviewer.service.confidence.reading import SessionReadingService
+    from interviewer.service.confidence.reading_service import SessionReadingService
 
     return SessionReadingService(
         sessions=deps.sessions, visits=deps.visits, evidence=deps.evidence,
@@ -21,7 +21,7 @@ def _svc(deps, corpus):
 def _readings(corpus, deps):
     """The Candidate-level readings — not about one Session, and not read
     through the Session reading."""
-    from interviewer.service.confidence.summary import CandidateReadings
+    from interviewer.service.confidence.summary_service import CandidateReadings
 
     return CandidateReadings(corpus, deps.confidence)
 

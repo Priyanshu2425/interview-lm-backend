@@ -10,7 +10,7 @@ import pytest
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.service.metering.keyvault import (
+from interviewer.service.metering.keyvault_service import (
     AcceptingValidator, KeyVault, LocalKms, RejectedKey,
 )
 
@@ -80,7 +80,7 @@ def test_the_key_never_appears_in_a_log(vault, caplog):
 def test_the_key_never_appears_in_a_call_record(clean_db):
     from decimal import Decimal
 
-    from interviewer.service.metering.client import Binding, MeteredModelClient
+    from interviewer.service.metering.client_service import Binding, MeteredModelClient
     from interviewer.service.metering.ledger import CreditLedger
     from interviewer.adapters.openrouter import ScriptedTransport
 
@@ -154,7 +154,7 @@ def test_only_one_active_key_per_candidate_is_possible(clean_db, vault):
 
 def test_grading_never_moves_to_the_client():
     """A Candidate who produces their own score can mint their own Mastery."""
-    from interviewer.service.judge import judge as judge_mod
+    from interviewer.service.judge import judge_service as judge_mod
 
     src = (judge_mod.__file__)
     text = open(src).read()
@@ -178,7 +178,7 @@ def test_a_key_is_revocable_only_by_the_candidate_holding_it(vault, clean_db):
 def test_a_key_attached_before_a_restart_is_readable_after_one():
     """The defect this closes: a generated key lived in one process, so every
     row it wrapped stayed in the table and became permanently unreadable."""
-    from interviewer.service.metering.keyvault import LocalKms
+    from interviewer.service.metering.keyvault_service import LocalKms
 
     secret = {"BYOK_KEK": "a3f9c2b18e7d4a6f9c0b5e2d8a1f7c34"}
     before = LocalKms(env=secret)
@@ -189,7 +189,7 @@ def test_a_key_attached_before_a_restart_is_readable_after_one():
 
 
 def test_a_different_secret_cannot_read_it():
-    from interviewer.service.metering.keyvault import LocalKms
+    from interviewer.service.metering.keyvault_service import LocalKms
 
     wrapped = LocalKms(env={"BYOK_KEK": "one"}).wrap(b"a data key")
     with pytest.raises(Exception):
@@ -198,7 +198,7 @@ def test_a_different_secret_cannot_read_it():
 
 def test_generating_a_key_is_something_a_deployment_has_to_ask_for():
     """Silently inventing one is what made the keys unreadable."""
-    from interviewer.service.metering.keyvault import EphemeralKek, LocalKms
+    from interviewer.service.metering.keyvault_service import EphemeralKek, LocalKms
 
     with pytest.raises(EphemeralKek, match="BYOK_KEK"):
         LocalKms(env={})
@@ -210,7 +210,7 @@ def test_whatever_the_platform_generated_is_a_usable_key():
     value. Refusing it would make not knowing that a boot loop."""
     from cryptography.fernet import Fernet
 
-    from interviewer.service.metering.keyvault import LocalKms
+    from interviewer.service.metering.keyvault_service import LocalKms
 
     for secret in (Fernet.generate_key().decode(), "x" * 40, "correct horse battery staple"):
         a, b = LocalKms(env={"BYOK_KEK": secret}), LocalKms(env={"BYOK_KEK": secret})

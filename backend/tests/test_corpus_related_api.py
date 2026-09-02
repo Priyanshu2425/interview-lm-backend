@@ -16,7 +16,7 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.service.corpus.related import MIN_SCORE, TOP_K, centre, rank
+from interviewer.service.corpus.related_service import MIN_SCORE, TOP_K, centre, rank
 
 
 @pytest.fixture()

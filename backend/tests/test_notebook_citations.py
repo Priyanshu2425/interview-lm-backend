@@ -12,7 +12,7 @@ from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
 from interviewer.service.corpus.citations import render, resolve
-from interviewer.service.corpus.loader import DossierLoader
+from interviewer.service.corpus.loader_service import DossierLoader
 
 
 @pytest.fixture()
@@ -128,7 +128,7 @@ def test_a_graded_visit_carries_the_spans_that_grounded_its_question(
     session_id, payload = _run_one_visit(client, ingested, real_notes)
     assert payload, "no Visit closed"
 
-    from interviewer.service.confidence.store import EvidenceLedger
+    from interviewer.repository.core import EvidenceLedger
 
     rows = EvidenceLedger(engine).for_session(session_id)
     assert rows, "a graded Visit wrote no Evidence"

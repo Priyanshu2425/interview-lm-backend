@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from interviewer.util.digest import digest
+from interviewer.util.digest_utils import digest
 from .extract import Page
 
 

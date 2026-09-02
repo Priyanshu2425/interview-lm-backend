@@ -6,13 +6,13 @@ from interviewer.service.corpus.sources import markdown_folder
 from interviewer.service.corpus.conformance import (
     CONFORMANCE_EXPECTATIONS, diff_topics, fixture_corpus, validate,
 )
-from interviewer.model.corpus import GradingMode
-from interviewer.service.corpus.loader import DossierLoader
+from interviewer.model.corpus_models import GradingMode
+from interviewer.service.corpus.loader_service import DossierLoader
 
 
 def test_the_report_names_every_violation_not_only_the_first():
     """An Adapter author fixing one error at a time is the failure mode."""
-    from interviewer.model.corpus import (
+    from interviewer.model.corpus_models import (
         Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
     )
 
@@ -56,7 +56,7 @@ def test_leaves_with_no_content_are_kept_as_stubs_not_omitted(corpus):
 
 
 def test_a_topic_that_is_all_stubs_is_flagged_rather_than_rejected():
-    from interviewer.model.corpus import (
+    from interviewer.model.corpus_models import (
         Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
     )
 
@@ -90,7 +90,7 @@ def test_a_reingest_that_moves_topic_boundaries_is_reported(corpus, corpus_path)
 
 
 def test_the_cli_validates_a_corpus_locally(corpus_path, capsys):
-    from interviewer.util.cli import main
+    from interviewer.util.cli_utils import main
 
     assert main(["cli", str(corpus_path)]) == 0
     out = capsys.readouterr().out
@@ -98,7 +98,7 @@ def test_the_cli_validates_a_corpus_locally(corpus_path, capsys):
 
 
 def test_the_cli_reports_a_broken_corpus_rather_than_crashing(tmp_path, capsys):
-    from interviewer.util.cli import main
+    from interviewer.util.cli_utils import main
 
     bad = tmp_path / "corpus.json"
     bad.write_text("{ not json", encoding="utf-8")

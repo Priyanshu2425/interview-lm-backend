@@ -48,7 +48,7 @@ def test_no_module_outside_metering_constructs_a_provider_client():
 
 def test_confidence_math_depends_on_nothing_in_the_system():
     """PRD-0002 calls it the deepest module; the boundary erodes first."""
-    math = SRC / "service" / "confidence" / "math.py"
+    math = SRC / "model" / "confidence_models.py"
     for mod in _imports(math):
         assert not mod.startswith("interviewer"), mod
         assert "graph" not in mod and "db" not in mod, mod
@@ -186,7 +186,7 @@ def test_the_session_grader_assembles_no_probe_and_no_hint():
     kinds it currently does not. Asserted rather than trusted, because the
     failure is silent: a Judge shown the hints grades the help.
     """
-    grader = SRC / "service" / "judge" / "session_grader.py"
+    grader = SRC / "service" / "judge" / "session_grader_service.py"
     tree = ast.parse(grader.read_text())
     literals = {
         n.value for n in ast.walk(tree)

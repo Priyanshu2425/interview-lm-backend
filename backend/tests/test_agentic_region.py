@@ -14,9 +14,9 @@ import sqlalchemy as sa
 from conftest import grade_session
 
 from interviewer.db import schema as S
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
-from interviewer.service.judge.interviewer import Interviewer
+from interviewer.service.judge.interviewer_service import Interviewer
 from interviewer.service.graph.ports import ScriptedModel
 
 CANDIDATE = "cand_region"
@@ -173,8 +173,8 @@ def test_a_model_that_returns_nothing_useful_closes_rather_than_looping():
 
 
 def _dossier():
-    from interviewer.model.corpus import GradingMode
-    from interviewer.service.corpus.loader import Dossier
+    from interviewer.model.corpus_models import GradingMode
+    from interviewer.service.corpus.loader_service import Dossier
 
     return Dossier(
         topic_id="t", topic_title="T", module_id="m", module_title="M",

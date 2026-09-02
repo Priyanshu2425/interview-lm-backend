@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from conftest import grade_session
 
 from interviewer.db import schema as S
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_resume"
@@ -104,7 +104,7 @@ def test_session_state_is_readable_without_instantiating_a_graph(deps):
     r.submit(sid, "answer")
     grade_session(deps, sid)
 
-    from interviewer.service.confidence.store import ConfidenceStore
+    from interviewer.repository.core import ConfidenceStore
     from interviewer.service.graph.sessions import SessionStore
 
     assert SessionStore(deps.sessions._e).get(sid)["state"] in ("running", "ended")
@@ -117,9 +117,9 @@ def _deps_with(deps, seed):
     """The same world, one seed. A planner is not optional: the Session runs a
     plan, so a `Deps` without one has nothing to run."""
     import numpy as np
-    from interviewer.service.confidence.selector import TopicSelector
-    from interviewer.service.graph.machine import Deps
-    from interviewer.service.graph.planner import PlanStore, SessionPlanner
+    from interviewer.service.confidence.selector_service import TopicSelector
+    from interviewer.service.graph.machine_service import Deps
+    from interviewer.service.graph.planner_service import PlanStore, SessionPlanner
     from interviewer.service.graph.ports import Ports, FrozenClock, ScriptedModel
     from interviewer.service.graph.transcript import Transcript
 

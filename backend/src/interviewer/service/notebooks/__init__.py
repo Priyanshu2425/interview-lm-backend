@@ -1,4 +1,4 @@
-from .ingest_cost import InsufficientBalance
+from .ingest_cost_service import InsufficientBalance
 from .notebook_service import (
     AddedSource,
     DocumentStoreUnavailable,

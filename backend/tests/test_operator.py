@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 from interviewer import idempotency
 from interviewer.app import create_app
 from interviewer.wiring import wiring
-from interviewer.service.metering.client import Binding, MeteredModelClient
+from interviewer.service.metering.client_service import Binding, MeteredModelClient
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger
-from interviewer.service.metering.operator import POOL_HEADROOM_ALERT, OperatorService
+from interviewer.service.metering.operator_service import POOL_HEADROOM_ALERT, OperatorService
 from interviewer.adapters.openrouter import ScriptedTransport
 
 HDR = {"x-operator-token": "dev-operator-token"}

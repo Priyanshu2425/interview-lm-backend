@@ -14,20 +14,20 @@ it, and there is one reading now.
 
 from conftest import signed_in_client
 
-from interviewer.service.confidence.reading import (
+from interviewer.service.confidence.reading_service import (
     SessionFacts,
     reached_topic_ids,
     title_of,
 )
-from interviewer.service.graph.planner import PlanStore
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.planner_service import PlanStore
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CAND = "cand_one_reading"
 
 
 def _svc(deps, clean_db, corpus=None):
-    from interviewer.service.confidence.reading import SessionReadingService
+    from interviewer.service.confidence.reading_service import SessionReadingService
 
     return SessionReadingService(
         sessions=deps.sessions, visits=deps.visits, evidence=deps.evidence,

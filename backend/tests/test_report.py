@@ -16,9 +16,9 @@ import pytest
 
 from conftest import SIGNED_IN_CANDIDATE, grade_session, signed_in_client
 
-from interviewer.service.confidence.reading import SessionReadingService
-from interviewer.service.graph.planner import PlanStore
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.confidence.reading_service import SessionReadingService
+from interviewer.service.graph.planner_service import PlanStore
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_reads_the_report"

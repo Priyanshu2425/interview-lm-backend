@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import schema as S
-from ...service.metering.credits import usd_to_credits, CostStatus
+from ...model.credits_models import Cost, CostStatus
 # One Entry type and one id minter for both ledgers. A second definition is
 # how `already_existed` came to mean nothing on this side.
 from ...service.metering.ledger import Entry, _id

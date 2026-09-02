@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import schema as S
-from ...service.metering.client import Binding
+from ...service.metering.client_service import Binding
 
 
 class AsyncBindingStore:

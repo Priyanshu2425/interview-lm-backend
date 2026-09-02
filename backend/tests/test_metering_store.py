@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy as sa
 
 from interviewer.db import schema as S
-from interviewer.service.metering.client import (
+from interviewer.service.metering.client_service import (
     Binding, BindingStore, MeteredModelClient, ProviderFailure,
 )
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger

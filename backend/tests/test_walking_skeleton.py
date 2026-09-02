@@ -17,10 +17,10 @@ from sqlalchemy import text
 
 from conftest import grade_session
 
-from interviewer.service.confidence.math import PRIOR
-from interviewer.model.corpus import GradingMode
+from interviewer.model.confidence_models import PRIOR
+from interviewer.model.corpus_models import GradingMode
 from interviewer.db import schema as S
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_test"

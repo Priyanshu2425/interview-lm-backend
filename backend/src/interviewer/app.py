@@ -15,12 +15,12 @@ from .middleware import (
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
-from .routes.v1.candidate import router as candidate_router
-from .routes.v1.skills import router as skills_router
-from .routes.v1.health import router as health_router
-from .routes.v1.notebooks import router as notebooks_router
-from .routes.v1.operator import router as operator_router
-from .routes.v1.sessions import router as sessions_router
+from .routes.v1.candidate_router import router as candidate_router
+from .routes.v1.skills_router import router as skills_router
+from .routes.v1.health_router import router as health_router
+from .routes.v1.notebooks_router import router as notebooks_router
+from .routes.v1.operator_router import router as operator_router
+from .routes.v1.sessions_router import router as sessions_router
 
 # Re-exported: `allowed_origins` is read as configuration by callers that know
 # this module as the API.

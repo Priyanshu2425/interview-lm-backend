@@ -3,9 +3,9 @@
 from conftest import grade_session
 
 from interviewer.service.graph.ports import ScriptedModel
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
-from interviewer.service.judge.rejudge import ReJudge
+from interviewer.service.judge.rejudge_service import ReJudge
 
 CAND = "cand_rejudge"
 

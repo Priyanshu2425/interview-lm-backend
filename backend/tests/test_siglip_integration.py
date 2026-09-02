@@ -108,7 +108,7 @@ def _centroids(corpus, model) -> dict[str, tuple[float, ...]]:
     can tell two subjects apart.
     """
     from interviewer.service.embeddings.hashing import centroid_of
-    from interviewer.util.chunking import chunk_source
+    from interviewer.util.chunking_utils import chunk_source
 
     out: dict[str, tuple[float, ...]] = {}
     for topic in corpus.topics:
@@ -140,7 +140,7 @@ def test_related_topics_beat_chance_by_a_wide_margin(model):
     from pathlib import Path
 
     from interviewer.service.corpus.sources.interview_lm import ingest
-    from interviewer.service.corpus.related import rank
+    from interviewer.service.corpus.related_service import rank
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
     centroids = _centroids(corpus, model)
@@ -177,7 +177,7 @@ def test_the_space_spreads_out_once_centred(model):
     from pathlib import Path
 
     from interviewer.service.corpus.sources.interview_lm import ingest
-    from interviewer.service.corpus.related import _mean, centre
+    from interviewer.service.corpus.related_service import _mean, centre
 
     corpus = ingest(Path(__file__).resolve().parents[2] / "data" / "corpus.json")
     centroids = _centroids(corpus, model)

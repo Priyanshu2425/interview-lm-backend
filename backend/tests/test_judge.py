@@ -10,11 +10,11 @@ import pytest
 
 from conftest import grade_session
 
-from interviewer.model.corpus import GradingMode
+from interviewer.model.corpus_models import GradingMode
 from interviewer.service.graph.ports import ScriptedModel
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
-from interviewer.service.judge.judge import Judge
+from interviewer.service.judge.judge_service import Judge
 
 CANDIDATE = "cand_judge"
 
@@ -84,8 +84,8 @@ def test_a_text_grounded_call_receives_material_and_no_answer_key(deps, corpus):
 
 def test_a_model_judgment_call_receives_no_grounding():
     """The DSA Track's shape: no text behind the question."""
-    from interviewer.model.corpus import Leaf, LeafKind, Topic
-    from interviewer.service.corpus.loader import Dossier
+    from interviewer.model.corpus_models import Leaf, LeafKind, Topic
+    from interviewer.service.corpus.loader_service import Dossier
 
     d = Dossier(
         topic_id="t", topic_title="Binary Search", module_id="m",
@@ -106,7 +106,7 @@ def test_a_model_judgment_call_receives_no_grounding():
 
 
 def test_the_same_answer_scored_twice_gives_the_same_score(deps):
-    from interviewer.service.corpus.loader import Dossier
+    from interviewer.service.corpus.loader_service import Dossier
 
     d = Dossier(
         topic_id="t", topic_title="T", module_id="m", module_title="M",
@@ -164,7 +164,7 @@ def test_an_ungrounded_verdict_has_no_source_and_scores_as_truth_alone():
 
 
 def test_the_ungrounded_rubric_never_asks_for_a_source_reading():
-    from interviewer.service.corpus.loader import Dossier
+    from interviewer.service.corpus.loader_service import Dossier
 
     d = Dossier(
         topic_id="t", topic_title="Binary Search", module_id="m",

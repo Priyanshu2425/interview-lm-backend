@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Sequence
 
 from interviewer.service.corpus.conformance import validate
-from interviewer.model.corpus import (
+from interviewer.model.corpus_models import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 from ..adapter import ADAPTER_NAME, ADAPTER_VERSION, FrozenTopic, Ingested, IngestReport

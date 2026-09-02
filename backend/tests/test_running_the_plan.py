@@ -14,13 +14,13 @@ import sqlalchemy as sa
 from conftest import SIGNED_IN_CANDIDATE, signed_in_client
 
 from interviewer.db import schema as S
-from interviewer.model.corpus import GradingMode, Leaf, LeafKind
-from interviewer.service.corpus.loader import Dossier
-from interviewer.service.graph.planner import PlanStore
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.model.corpus_models import GradingMode, Leaf, LeafKind
+from interviewer.service.corpus.loader_service import Dossier
+from interviewer.service.graph.planner_service import PlanStore
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 from interviewer.service.graph.transcript import Transcript
-from interviewer.service.judge.question_writer import QuestionWriter, weakest
+from interviewer.service.judge.question_writer_service import QuestionWriter, weakest
 
 CANDIDATE = "cand_runs_plan"
 

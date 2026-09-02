@@ -43,7 +43,7 @@ def test_one_candidate_may_hold_several_identities(clean_db):
 def test_merging_repoints_identities_and_leaves_permanent_rows_untouched(
     clean_db, deps
 ):
-    from interviewer.service.graph.runner import SessionRunner
+    from interviewer.service.graph.runner_service import SessionRunner
     from interviewer.service.graph.sessions import SessionConfig
 
     s = IdentityStore(clean_db)
@@ -73,7 +73,7 @@ def test_merging_repoints_identities_and_leaves_permanent_rows_untouched(
 
 
 def test_swapping_the_provider_leaves_every_permanent_row_untouched(clean_db, deps):
-    from interviewer.service.graph.runner import SessionRunner
+    from interviewer.service.graph.runner_service import SessionRunner
     from interviewer.service.graph.sessions import SessionConfig
 
     s = IdentityStore(clean_db)
@@ -105,7 +105,7 @@ def test_a_subject_is_unique_per_issuer(clean_db):
 
 
 def test_a_candidate_keeps_their_balance_and_key_across_a_provider_change(clean_db):
-    from interviewer.service.metering.keyvault import AcceptingValidator, KeyVault, LocalKms
+    from interviewer.service.metering.keyvault_service import AcceptingValidator, KeyVault, LocalKms
     from interviewer.service.metering.ledger import CreditLedger
 
     s = IdentityStore(clean_db)

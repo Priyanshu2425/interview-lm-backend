@@ -13,7 +13,7 @@ from interviewer.service.corpus.sources.notebook.documents import (
     HashingEmbedder, Notebook, Source, ingest_notebook,
 )
 from interviewer.service.corpus.conformance import validate
-from interviewer.model.corpus import GradingMode, LeafKind
+from interviewer.model.corpus_models import GradingMode, LeafKind
 
 WORKED = """# Exercises: bias and variance
 
@@ -107,7 +107,7 @@ def test_every_key_is_text_that_came_from_the_source(mined):
 
 
 def test_ground_truth_never_reaches_the_question_asker(mined):
-    from interviewer.service.corpus.loader import DossierLoader
+    from interviewer.service.corpus.loader_service import DossierLoader
 
     loader = DossierLoader(mined.corpus)
     for topic in mined.corpus.topics:
@@ -120,7 +120,7 @@ def test_ground_truth_never_reaches_the_question_asker(mined):
 
 
 def test_a_key_is_retrievable_by_the_prompt_it_answers(mined):
-    from interviewer.service.corpus.loader import DossierLoader
+    from interviewer.service.corpus.loader_service import DossierLoader
 
     loader = DossierLoader(mined.corpus)
     for topic in mined.corpus.topics:

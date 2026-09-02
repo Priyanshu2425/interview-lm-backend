@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from interviewer.model.corpus import (
+from interviewer.model.corpus_models import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 

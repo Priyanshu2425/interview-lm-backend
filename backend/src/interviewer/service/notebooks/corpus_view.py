@@ -8,7 +8,7 @@ and no clusterer, only rows.
 
 from __future__ import annotations
 
-from interviewer.model.corpus import (
+from interviewer.model.corpus_models import (
     Corpus, CorpusProvenance, Leaf, LeafKind, Module, Topic, Track,
 )
 

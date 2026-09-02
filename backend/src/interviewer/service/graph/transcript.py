@@ -27,21 +27,12 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
 from ...db import schema as S
-from ..confidence.store import new_id
+from interviewer.util.ids_utils import new_id
+from ...model.transcript_models import Turn
 
 __all__ = ["Turn", "Transcript"]
 
 
-@dataclass(frozen=True, slots=True)
-class Turn:
-    """One thing that was said, and what it was said about."""
-
-    role: str          # interviewer | candidate
-    kind: str          # question | probe | hint | answer
-    text: str
-    topic_ids: tuple[str, ...] = ()
-    topic_visit_id: str = ""
-    plan_item_id: str = ""
 
 
 class Transcript:

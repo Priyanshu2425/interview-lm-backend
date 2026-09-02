@@ -82,8 +82,9 @@ service at all.
 | `_service.py` | orchestrates an operation, holds injected collaborators | can you name **one verb** it does? two verbs is two modules |
 | `_store.py`, or `repository/` | talks to the database and to nothing else | it contains SQL |
 | `_adapter.py`, `_embedder.py`, `_client.py` | satisfies a port defined elsewhere | it implements somebody else's interface |
-| *(no suffix)* | a concept: data and the rules that are true of it | it imports with no engine, no config, no clock |
-| `_util.py`, and it lives in `util/` | a helper with no domain in it | could it exist in a project that has never heard of a Candidate? |
+| `_models.py`, and it lives in `model/` | a concept: data and the rules that are true of it | it imports with no engine, no config, no clock — and it carries **no free functions**: a rule true of a shape hangs off that shape |
+| `_utils.py`, and it lives in `util/` | a helper with no domain in it | could it exist in a project that has never heard of a Candidate? |
+| `_router.py`, and it lives in `routes/` | binds HTTP to a module; holds no rule of its own | delete the decorators — is there anything left? |
 
 `adapters/` is a directory, not a category: it holds one file per system we do
 not own, named after that system — `gatehouse.py`, `openrouter.py`, `s3.py`

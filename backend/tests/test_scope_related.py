@@ -14,7 +14,7 @@ import pytest
 from conftest import signed_in_client
 from fastapi.testclient import TestClient
 
-from interviewer.service.corpus.related import modules_touched
+from interviewer.service.corpus.related_service import modules_touched
 
 
 @pytest.fixture()
@@ -108,7 +108,7 @@ def test_the_reading_needs_no_candidate_and_takes_none(client):
     """It is a statement about the material, so it cannot be about a person."""
     import inspect
 
-    from interviewer.routes.v1 import skills as routes_corpus
+    from interviewer.routes.v1 import skills_router as routes_corpus
 
     params = inspect.signature(routes_corpus.scope_related).parameters
     assert "candidate_id" not in params

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from ...model.corpus import Corpus, GradingMode, Leaf, LeafKind, Module, Topic, Track
+from ...model.corpus_models import Corpus, GradingMode, Leaf, LeafKind, Module, Topic, Track
 
 
 @dataclass
@@ -62,7 +62,7 @@ def validate(corpus: Corpus) -> Report:
     an author needs to see all at once, and the observations a Session depends
     on (sizes, stubs, ceilings).
     """
-    from .loader import DossierLoader
+    from .loader_service import DossierLoader
 
     r = Report(provenance=corpus.provenance.model_dump())
     r.tracks = len(corpus.tracks)
@@ -146,7 +146,7 @@ def fixture_corpus() -> Corpus:
     and the conformance test below runs against it — which is what makes the
     contract's generality checkable rather than asserted.
     """
-    from ...model.corpus import CorpusProvenance
+    from ...model.corpus_models import CorpusProvenance
 
     prompt = Leaf(id="l3", order=3, title="Assessment", kind=LeafKind.PROMPT,
                   text="Q1. Why scale by sqrt(d_k)?")

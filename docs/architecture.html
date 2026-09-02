@@ -1,0 +1,725 @@
+<title>InterviewLM Backend Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --ground:#eff2f0; --surface:#f8faf8; --ink:#141918; --ink-soft:#4d5b58;
+  --ink-faint:#75837f; --rule:#d2dad6; --rule-soft:#e2e8e5;
+  --accent:#0d6570; --accent-soft:#e0eeee; --signal:#9a6210; --signal-soft:#f4ebdc;
+  --grade:#5d4b8c;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0e1213; --surface:#161b1c; --ink:#e6ebe8; --ink-soft:#a8b5b1; --ink-faint:#7e8c88;
+    --rule:#2a3335; --rule-soft:#1f2728;
+    --accent:#54c0c9; --accent-soft:#12292c; --signal:#d3a05a; --signal-soft:#2a2318;
+    --grade:#a99ad6;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0e1213; --surface:#161b1c; --ink:#e6ebe8; --ink-soft:#a8b5b1; --ink-faint:#7e8c88;
+  --rule:#2a3335; --rule-soft:#1f2728;
+  --accent:#54c0c9; --accent-soft:#12292c; --signal:#d3a05a; --signal-soft:#2a2318;
+  --grade:#a99ad6;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+a{color:var(--accent)}
+code,.mono{font-family:var(--mono)}
+
+/* ---- top bar ---- */
+nav.bar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--ground) 92%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+nav.bar .wrap{display:flex;gap:22px;align-items:center;height:46px;overflow-x:auto;white-space:nowrap}
+nav.bar b{font-family:var(--display);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+nav.bar a{font-family:var(--mono);font-size:12px;color:var(--ink-faint);text-decoration:none}
+nav.bar a:hover,nav.bar a:focus-visible{color:var(--accent)}
+
+/* ---- masthead ---- */
+header.mast{border-bottom:1px solid var(--rule);padding:64px 0 40px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(38px,6vw,64px);line-height:1.02;
+  letter-spacing:-.025em;margin:14px 0 0;text-wrap:balance;max-width:16ch}
+.lede{max-width:62ch;color:var(--ink-soft);margin:20px 0 0;font-size:19px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:1px;background:var(--rule);
+  border:1px solid var(--rule);margin-top:38px}
+.stats div{background:var(--surface);padding:14px 16px}
+.stats .n{font-family:var(--display);font-weight:600;font-size:26px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stats .k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
+
+/* ---- sections ---- */
+section{padding:56px 0;border-bottom:1px solid var(--rule-soft)}
+h2{font-family:var(--display);font-weight:600;font-size:clamp(24px,3.4vw,32px);letter-spacing:-.02em;
+  margin:8px 0 10px;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:-.01em;margin:0 0 6px}
+p{max-width:68ch;margin:0 0 14px}
+.muted{color:var(--ink-soft)}
+figure{margin:26px 0 8px;padding:0}
+figure .scroll{overflow-x:auto;border:1px solid var(--rule);background:var(--surface);padding:18px}
+svg{max-width:100%;height:auto;display:block;color:var(--ink)}
+figcaption{font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--ink-faint);margin-top:10px;max-width:78ch}
+
+/* ---- folder atlas ---- */
+.atlas{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--rule);
+  border:1px solid var(--rule);margin-top:28px}
+.card{background:var(--surface);padding:18px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.card .path{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)}
+.card p{font-size:15px;margin:0;color:var(--ink-soft)}
+.files{font-family:var(--mono);font-size:12px;color:var(--ink-faint);line-height:1.8;margin-top:auto}
+.files span{border:1px solid var(--rule);padding:1px 6px;margin:0 4px 4px 0;display:inline-block;white-space:nowrap}
+
+/* ---- tables ---- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);margin-top:24px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+  border-bottom:1px solid var(--rule);font-weight:500}
+tbody tr:last-child td{border-bottom:0}
+td.m,th.m{font-family:var(--mono);font-size:13px;white-space:nowrap}
+
+/* ---- rules / refusals ---- */
+.rules{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:26px}
+.rule{background:var(--surface);padding:16px 18px;display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:start}
+.rule .mark{font-family:var(--mono);font-size:12px;color:var(--signal);border:1px solid var(--signal);
+  width:24px;height:24px;display:grid;place-items:center;line-height:1}
+.rule strong{font-family:var(--display);font-weight:600;font-size:15px;display:block;margin-bottom:2px}
+.rule p{margin:0;font-size:15px;color:var(--ink-soft)}
+
+.pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
+.pill{font-family:var(--mono);font-size:12px;padding:3px 9px;border:1px solid var(--rule);color:var(--ink-soft)}
+.pill.acc{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.pill.sig{border-color:var(--signal);color:var(--signal);background:var(--signal-soft)}
+
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;margin-top:26px}
+.note{border-left:2px solid var(--accent);padding:2px 0 2px 16px;color:var(--ink-soft);font-size:15px;max-width:66ch}
+footer{padding:40px 0 70px;font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<nav class="bar"><div class="wrap">
+  <b>InterviewLM</b>
+  <a href="#stack">Stack</a><a href="#turn">Answer&nbsp;Turn</a><a href="#graph">Session&nbsp;graph</a>
+  <a href="#ingest">Ingest</a><a href="#atlas">Folder&nbsp;atlas</a><a href="#naming">Naming&nbsp;law</a>
+  <a href="#data">Data</a><a href="#choke">Chokepoints</a><a href="#refusals">Refusals</a>
+</div></nav>
+
+<header class="mast"><div class="wrap">
+  <div class="eyebrow">backend/src/interviewer · system design</div>
+  <h1>A graph examines a Candidate on a Corpus.</h1>
+  <p class="lede">Everything under <code>src/interviewer/</code> exists to serve one act: a deterministic
+  LangGraph skeleton loads one Topic at a time, lets a small agentic region probe an answer, and writes
+  Evidence exactly once — while a metered client counts every provider cent on the way through.</p>
+  <div class="stats">
+    <div><div class="n">137</div><div class="k">modules</div></div>
+    <div><div class="n">48</div><div class="k">endpoints</div></div>
+    <div><div class="n">6</div><div class="k">routers</div></div>
+    <div><div class="n">9</div><div class="k">graph nodes</div></div>
+    <div><div class="n">19</div><div class="k">tables</div></div>
+    <div><div class="n">3</div><div class="k">foreign systems</div></div>
+  </div>
+</div></header>
+
+<section id="stack"><div class="wrap">
+  <div class="eyebrow">the stack</div>
+  <h2>Six layers, and one rule about which engine they run on</h2>
+  <p>HTTP arrives through four middlewares and an identity join before a router sees it. Routers hold no
+  rules — strip the decorators and nothing is left. Services own the verbs, repositories own the SQL, and
+  <code>adapters/</code> holds one file per system we do not control.</p>
+
+  <figure><div class="scroll">
+  <svg viewBox="0 0 860 560" role="img" aria-label="Layered map: callers enter through middleware and auth, reach six v1 routers, which call services, which call repositories, which reach Postgres, R2, OpenRouter and Gatehouse.">
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
+
+      <!-- band 1 callers -->
+      <rect x="20" y="16" width="820" height="58" fill="none" stroke="currentColor" stroke-width="1" opacity=".45"/>
+      <text x="34" y="40" font-size="11" opacity=".6">CALLERS</text>
+      <rect x="180" y="28" width="180" height="34" fill="none" stroke="currentColor"/>
+      <text x="270" y="50" text-anchor="middle">React surface at /</text>
+      <rect x="380" y="28" width="180" height="34" fill="none" stroke="currentColor"/>
+      <text x="470" y="50" text-anchor="middle">MCP host agent</text>
+      <rect x="580" y="28" width="240" height="34" fill="none" stroke="currentColor"/>
+      <text x="700" y="50" text-anchor="middle">operator console</text>
+
+      <line x1="430" y1="74" x2="430" y2="98" stroke="currentColor" marker-end="url(#a1)"/>
+
+      <!-- band 2 edge -->
+      <rect x="20" y="100" width="820" height="72" fill="none" stroke="currentColor" opacity=".45"/>
+      <text x="34" y="124" font-size="11" opacity=".6">EDGE</text>
+      <text x="34" y="142" font-size="11" opacity=".6">app.py</text>
+      <rect x="140" y="112" width="150" height="30" fill="none" stroke="currentColor"/>
+      <text x="215" y="132" text-anchor="middle">security headers</text>
+      <rect x="300" y="112" width="130" height="30" fill="none" stroke="currentColor"/>
+      <text x="365" y="132" text-anchor="middle">rate limit</text>
+      <rect x="440" y="112" width="150" height="30" fill="none" stroke="currentColor"/>
+      <text x="515" y="132" text-anchor="middle">request logging</text>
+      <rect x="600" y="112" width="90" height="30" fill="none" stroke="currentColor"/>
+      <text x="645" y="132" text-anchor="middle">CORS</text>
+      <rect x="700" y="112" width="120" height="30" fill="none" stroke="currentColor"/>
+      <text x="760" y="132" text-anchor="middle">refusals</text>
+      <rect x="140" y="146" width="680" height="18" fill="none" stroke="currentColor" stroke-dasharray="3 3"/>
+      <text x="480" y="159" text-anchor="middle" font-size="11">security/auth.py — Gatehouse token → IdentityStore → Candidate id (never from the body)</text>
+
+      <line x1="430" y1="172" x2="430" y2="196" stroke="currentColor" marker-end="url(#a1)"/>
+
+      <!-- band 3 routes -->
+      <rect x="20" y="198" width="820" height="58" fill="none" stroke="currentColor" opacity=".45"/>
+      <text x="34" y="222" font-size="11" opacity=".6">ROUTES</text>
+      <text x="34" y="240" font-size="11" opacity=".6">/v1</text>
+      <rect x="120" y="210" width="112" height="34" fill="none" stroke="currentColor"/><text x="176" y="232" text-anchor="middle">sessions</text>
+      <rect x="240" y="210" width="112" height="34" fill="none" stroke="currentColor"/><text x="296" y="232" text-anchor="middle">skills</text>
+      <rect x="360" y="210" width="112" height="34" fill="none" stroke="currentColor"/><text x="416" y="232" text-anchor="middle">candidates</text>
+      <rect x="480" y="210" width="112" height="34" fill="none" stroke="currentColor"/><text x="536" y="232" text-anchor="middle">notebooks</text>
+      <rect x="600" y="210" width="112" height="34" fill="none" stroke="currentColor"/><text x="656" y="232" text-anchor="middle">operator</text>
+      <rect x="720" y="210" width="100" height="34" fill="none" stroke="currentColor"/><text x="770" y="232" text-anchor="middle">health</text>
+
+      <line x1="430" y1="256" x2="430" y2="280" stroke="currentColor" marker-end="url(#a1)"/>
+
+      <!-- band 4 service -->
+      <rect x="20" y="282" width="820" height="94" fill="none" stroke="currentColor" opacity=".45"/>
+      <text x="34" y="306" font-size="11" opacity=".6">SERVICE</text>
+      <text x="34" y="324" font-size="11" opacity=".6">the verbs</text>
+      <rect x="120" y="294" width="130" height="32" fill="none" stroke="currentColor"/><text x="185" y="314" text-anchor="middle">graph/</text>
+      <rect x="258" y="294" width="130" height="32" fill="none" stroke="currentColor"/><text x="323" y="314" text-anchor="middle">judge/</text>
+      <rect x="396" y="294" width="130" height="32" fill="none" stroke="currentColor"/><text x="461" y="314" text-anchor="middle">corpus/</text>
+      <rect x="534" y="294" width="130" height="32" fill="none" stroke="currentColor"/><text x="599" y="314" text-anchor="middle">confidence/</text>
+      <rect x="672" y="294" width="148" height="32" fill="none" stroke="currentColor"/><text x="746" y="314" text-anchor="middle">ending_service</text>
+      <rect x="120" y="332" width="130" height="32" fill="none" stroke="currentColor"/><text x="185" y="352" text-anchor="middle">metering/</text>
+      <rect x="258" y="332" width="130" height="32" fill="none" stroke="currentColor"/><text x="323" y="352" text-anchor="middle">notebooks/</text>
+      <rect x="396" y="332" width="130" height="32" fill="none" stroke="currentColor"/><text x="461" y="352" text-anchor="middle">embeddings/</text>
+      <rect x="534" y="332" width="130" height="32" fill="none" stroke="currentColor"/><text x="599" y="352" text-anchor="middle">identity/</text>
+      <rect x="672" y="332" width="148" height="32" fill="none" stroke="currentColor" stroke-dasharray="3 3"/><text x="746" y="352" text-anchor="middle">model/ · util/</text>
+
+      <line x1="430" y1="376" x2="430" y2="400" stroke="currentColor" marker-end="url(#a1)"/>
+
+      <!-- band 5 repository -->
+      <rect x="20" y="402" width="820" height="58" fill="none" stroke="currentColor" opacity=".45"/>
+      <text x="34" y="426" font-size="11" opacity=".6">REPOSITORY</text>
+      <text x="34" y="444" font-size="11" opacity=".6">the SQL</text>
+      <rect x="140" y="414" width="200" height="34" fill="none" stroke="currentColor"/>
+      <text x="240" y="436" text-anchor="middle">core/ — sync, for the graph</text>
+      <rect x="356" y="414" width="464" height="34" fill="none" stroke="currentColor"/>
+      <text x="588" y="436" text-anchor="middle">async_core · async_corpus · async_metering · async_notebooks</text>
+
+      <line x1="430" y1="460" x2="430" y2="484" stroke="currentColor" marker-end="url(#a1)"/>
+
+      <!-- band 6 outside -->
+      <rect x="20" y="486" width="820" height="58" fill="none" stroke="currentColor" opacity=".45"/>
+      <text x="34" y="510" font-size="11" opacity=".6">OUTSIDE</text>
+      <rect x="140" y="498" width="220" height="34" fill="none" stroke="currentColor"/>
+      <text x="250" y="520" text-anchor="middle">Postgres · core + content</text>
+      <rect x="376" y="498" width="140" height="34" fill="none" stroke="currentColor"/>
+      <text x="446" y="520" text-anchor="middle">R2 (s3.py)</text>
+      <rect x="532" y="498" width="150" height="34" fill="none" stroke="currentColor"/>
+      <text x="607" y="520" text-anchor="middle">OpenRouter</text>
+      <rect x="698" y="498" width="122" height="34" fill="none" stroke="currentColor"/>
+      <text x="759" y="520" text-anchor="middle">Gatehouse</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Dashed = things that cross a band. The identity join sits in the edge because no route accepts a
+  candidate id; <code>model/</code> and <code>util/</code> are dashed because every layer imports them and none
+  of them imports an engine, a clock or a config.</figcaption>
+  </figure>
+
+  <div class="note">Two engines, on purpose. Routes are async (<code>deps_async.py</code>); the LangGraph
+  session runs on the synchronous engine (<code>wiring.py</code>, <code>repository/core/</code>). A Session
+  ending through <code>POST /end</code> therefore goes through <code>SessionEnding</code> rather than writing
+  on both — one transaction, one order.</div>
+</div></section>
+
+<section id="turn"><div class="wrap">
+  <div class="eyebrow">the hot path</div>
+  <h2>What one Answer Turn touches</h2>
+  <p>The Answer Turn is a request, not a socket (ADR-0011). It resumes a parked graph, runs until the graph
+  parks again, and returns whatever it parked on.</p>
+
+  <figure><div class="scroll">
+  <svg viewBox="0 0 880 340" role="img" aria-label="Sequence of an answer turn: router resumes the runner, the graph resumes at the interrupt, the interviewer and judge call models only through the metered client, and the transcript is written before the decision.">
+    <defs>
+      <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
+      <!-- lanes -->
+      <g opacity=".5" font-size="11">
+        <text x="20" y="34">POST /v1/sessions/{id}/turns</text>
+        <line x1="20" y1="44" x2="860" y2="44" stroke="currentColor" stroke-dasharray="2 4"/>
+      </g>
+
+      <rect x="20" y="64" width="150" height="40" fill="none" stroke="currentColor"/>
+      <text x="95" y="88" text-anchor="middle">sessions_router</text>
+
+      <line x1="170" y1="84" x2="228" y2="84" stroke="currentColor" marker-end="url(#a2)"/>
+      <text x="199" y="76" text-anchor="middle" font-size="10" opacity=".7">answer</text>
+
+      <rect x="230" y="64" width="150" height="40" fill="none" stroke="currentColor"/>
+      <text x="305" y="88" text-anchor="middle">SessionRunner</text>
+
+      <line x1="380" y1="84" x2="438" y2="84" stroke="currentColor" marker-end="url(#a2)"/>
+      <text x="409" y="76" text-anchor="middle" font-size="10" opacity=".7">resume</text>
+
+      <rect x="440" y="64" width="180" height="40" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="530" y="88" text-anchor="middle">graph @ answer_turn</text>
+
+      <line x1="620" y1="84" x2="678" y2="84" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="680" y="64" width="180" height="40" fill="none" stroke="currentColor"/>
+      <text x="770" y="88" text-anchor="middle">interviewer_move</text>
+
+      <!-- down into metered client -->
+      <line x1="770" y1="104" x2="770" y2="146" stroke="currentColor" marker-end="url(#a2)"/>
+      <text x="778" y="130" font-size="10" opacity=".7">probe / hint / close</text>
+
+      <rect x="300" y="148" width="560" height="44" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="580" y="168" text-anchor="middle">MeteredModelClient — the single chokepoint</text>
+      <text x="580" y="184" text-anchor="middle" font-size="10" opacity=".75">no topic_visit_id → refused · binding fixed per Visit · cost in integer cents</text>
+
+      <line x1="300" y1="170" x2="242" y2="170" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="80" y="148" width="160" height="44" fill="none" stroke="currentColor"/>
+      <text x="160" y="176" text-anchor="middle">Judge (blind)</text>
+
+      <!-- provider -->
+      <line x1="580" y1="192" x2="580" y2="222" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="440" y="224" width="280" height="38" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+      <text x="580" y="248" text-anchor="middle">OpenRouter · or ScriptedTransport</text>
+
+      <!-- writes -->
+      <line x1="160" y1="192" x2="160" y2="222" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="20" y="224" width="280" height="38" fill="none" stroke="currentColor"/>
+      <text x="160" y="248" text-anchor="middle">record_exchange → message row</text>
+
+      <line x1="160" y1="262" x2="160" y2="288" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="20" y="290" width="280" height="38" fill="none" stroke="currentColor"/>
+      <text x="160" y="314" text-anchor="middle">decide_next — clock · plan · scope · balance</text>
+
+      <line x1="300" y1="309" x2="438" y2="309" stroke="currentColor" marker-end="url(#a2)"/>
+      <rect x="440" y="290" width="280" height="38" fill="none" stroke="currentColor"/>
+      <text x="580" y="314" text-anchor="middle">park at next answer_turn, or END</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>While a Session runs it writes questions, answers and a transcript — and no Evidence at all.
+  Evidence arrives once, at <code>grade_session</code>, on the edge to END.</figcaption>
+  </figure>
+</div></section>
+
+<section id="graph"><div class="wrap">
+  <div class="eyebrow">service/graph/machine_service.py</div>
+  <h2>The Session graph</h2>
+  <p>Model calls happen <em>inside</em> nodes; models never decide which node runs next. Everything that must
+  happen exactly once is an edge, because an edge cannot not run. Agency is confined to one node.</p>
+
+  <figure><div class="scroll">
+  <svg viewBox="0 0 880 300" role="img" aria-label="Session graph: build_plan, next_planned_item, load_dossiers, generate_question, answer_turn, interviewer_move looping back to answer_turn, record_exchange, decide_next looping to next_planned_item, and grade_session to END.">
+    <defs>
+      <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+      <text x="24" y="46" opacity=".6">START</text>
+      <line x1="70" y1="42" x2="106" y2="42" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="108" y="24" width="128" height="36" fill="none" stroke="currentColor"/>
+      <text x="172" y="46" text-anchor="middle">build_plan</text>
+      <line x1="236" y1="42" x2="272" y2="42" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="274" y="24" width="150" height="36" fill="none" stroke="currentColor"/>
+      <text x="349" y="46" text-anchor="middle">next_planned_item</text>
+      <line x1="424" y1="42" x2="460" y2="42" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="462" y="24" width="130" height="36" fill="none" stroke="currentColor"/>
+      <text x="527" y="46" text-anchor="middle">load_dossiers</text>
+      <line x1="592" y1="42" x2="628" y2="42" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="630" y="24" width="152" height="36" fill="none" stroke="currentColor"/>
+      <text x="706" y="46" text-anchor="middle">generate_question</text>
+
+      <line x1="706" y1="60" x2="706" y2="108" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="630" y="110" width="152" height="40" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="706" y="128" text-anchor="middle">answer_turn</text>
+      <text x="706" y="143" text-anchor="middle" font-size="10" opacity=".7">interrupt() — parks</text>
+
+      <line x1="630" y1="130" x2="576" y2="130" stroke="currentColor" marker-end="url(#a3)"/>
+
+      <rect x="424" y="110" width="150" height="40" fill="none" stroke="currentColor" stroke-dasharray="5 3"/>
+      <text x="499" y="128" text-anchor="middle">interviewer_move</text>
+      <text x="499" y="143" text-anchor="middle" font-size="10" opacity=".7">the agentic region</text>
+
+      <!-- probe/hint loop back up to answer_turn -->
+      <path d="M499 150 L499 176 L706 176 L706 152" fill="none" stroke="currentColor" stroke-dasharray="4 3" marker-end="url(#a3)"/>
+      <text x="602" y="190" text-anchor="middle" font-size="10" opacity=".75">probe · hint</text>
+
+      <line x1="424" y1="130" x2="370" y2="130" stroke="currentColor" marker-end="url(#a3)"/>
+      <text x="397" y="120" text-anchor="middle" font-size="10" opacity=".75">close</text>
+
+      <rect x="218" y="110" width="150" height="40" fill="none" stroke="currentColor"/>
+      <text x="293" y="135" text-anchor="middle">record_exchange</text>
+
+      <line x1="218" y1="130" x2="180" y2="130" stroke="currentColor" marker-end="url(#a3)"/>
+      <rect x="30" y="110" width="148" height="40" fill="none" stroke="currentColor"/>
+      <text x="104" y="135" text-anchor="middle">decide_next</text>
+
+      <!-- decide_next back to next_planned_item -->
+      <path d="M104 110 L104 84 L349 84 L349 62" fill="none" stroke="currentColor" marker-end="url(#a3)"/>
+      <text x="226" y="78" text-anchor="middle" font-size="10" opacity=".75">not finished</text>
+
+      <!-- to grade -->
+      <path d="M104 150 L104 226" fill="none" stroke="currentColor" marker-end="url(#a3)"/>
+      <text x="112" y="196" font-size="10" opacity=".75">finished</text>
+      <path d="M349 62 L349 226" fill="none" stroke="currentColor" stroke-dasharray="2 4" marker-end="url(#a3)"/>
+      <text x="357" y="196" font-size="10" opacity=".75">plan empty</text>
+
+      <rect x="30" y="228" width="360" height="42" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="210" y="246" text-anchor="middle">grade_session → SessionEnding.close()</text>
+      <text x="210" y="261" text-anchor="middle" font-size="10" opacity=".75">the only place Evidence is written</text>
+
+      <line x1="390" y1="249" x2="430" y2="249" stroke="currentColor" marker-end="url(#a3)"/>
+      <text x="452" y="253" opacity=".6">END</text>
+
+      <g opacity=".8">
+        <rect x="520" y="222" width="330" height="54" fill="none" stroke="currentColor" stroke-dasharray="2 4"/>
+        <text x="536" y="242" font-size="10.5">parked, not ended: credits_exhausted · _mid_visit</text>
+        <text x="536" y="258" font-size="10.5">ended and graded: duration · plan_exhausted ·</text>
+        <text x="536" y="271" font-size="10.5">scope_exhausted · candidate_ended · provider_failure</text>
+      </g>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Solid boxes are deterministic nodes; the dashed one is the only node whose output changes what
+  runs next. Selection stopped being adaptive when ISSUE-0041 fixed the plan up front — which is what let
+  grading move out of the loop and onto the edge to END.</figcaption>
+  </figure>
+
+  <div class="pillrow">
+    <span class="pill acc">planner_service — plan decided once</span>
+    <span class="pill">pacing — clock → question budget</span>
+    <span class="pill">ports — Clock, ModelClient injected</span>
+    <span class="pill">sessions — the record, outliving the checkpoint</span>
+    <span class="pill">transcript — one row per turn</span>
+    <span class="pill sig">selector_service — Thompson sampling</span>
+  </div>
+</div></section>
+
+<section id="ingest"><div class="wrap">
+  <div class="eyebrow">service/corpus/sources/notebook/</div>
+  <h2>Turning a Candidate's upload into an examinable Corpus</h2>
+  <p>InterviewLM hands us Modules, Topics, order and answer keys. A PDF hands us none of them, so the Notebook
+  Adapter manufactures the structure the contract requires — inside the Adapter, exactly where the mess belongs
+  (ADR-0007). One uploaded Source is one Module (ADR-0015), so clustering can never move a boundary in a Source
+  it is not looking at.</p>
+
+  <figure><div class="scroll">
+  <svg viewBox="0 0 880 220" role="img" aria-label="Ingest pipeline: extract, chunk, embed, cluster, label, freeze, dossier, validate; with figures branching to the object store and structured imports bypassing the clusterer.">
+    <defs>
+      <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+      <g>
+        <rect x="20" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="64" y="94" text-anchor="middle">extract</text>
+        <rect x="126" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="170" y="94" text-anchor="middle">chunk</text>
+        <rect x="232" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="276" y="94" text-anchor="middle">embed</text>
+        <rect x="338" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="382" y="94" text-anchor="middle">cluster</text>
+        <rect x="444" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="488" y="94" text-anchor="middle">label</text>
+        <rect x="550" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="594" y="94" text-anchor="middle">freeze</text>
+        <rect x="656" y="70" width="88" height="38" fill="none" stroke="currentColor"/><text x="700" y="94" text-anchor="middle">dossier</text>
+        <rect x="762" y="70" width="96" height="38" fill="none" stroke="currentColor" stroke-width="2"/><text x="810" y="94" text-anchor="middle">validate</text>
+      </g>
+      <g stroke="currentColor">
+        <line x1="108" y1="89" x2="122" y2="89" marker-end="url(#a4)"/>
+        <line x1="214" y1="89" x2="228" y2="89" marker-end="url(#a4)"/>
+        <line x1="320" y1="89" x2="334" y2="89" marker-end="url(#a4)"/>
+        <line x1="426" y1="89" x2="440" y2="89" marker-end="url(#a4)"/>
+        <line x1="532" y1="89" x2="546" y2="89" marker-end="url(#a4)"/>
+        <line x1="638" y1="89" x2="652" y2="89" marker-end="url(#a4)"/>
+        <line x1="744" y1="89" x2="758" y2="89" marker-end="url(#a4)"/>
+      </g>
+
+      <!-- upload above extract -->
+      <rect x="20" y="16" width="200" height="34" fill="none" stroke="currentColor"/>
+      <text x="120" y="38" text-anchor="middle">POST /notebooks/{id}/files</text>
+      <path d="M64 50 L64 66" fill="none" stroke="currentColor" marker-end="url(#a4)"/>
+      <text x="230" y="38" font-size="10.5" opacity=".75">bytes written to R2 under sha256, before the row</text>
+
+      <!-- figures branch -->
+      <path d="M64 108 L64 150 L300 150" fill="none" stroke="currentColor" stroke-dasharray="4 3" marker-end="url(#a4)"/>
+      <rect x="302" y="132" width="230" height="36" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+      <text x="417" y="155" text-anchor="middle">figures → modality='image' chunks</text>
+      <text x="546" y="155" font-size="10.5" opacity=".75">support a question; never ground one</text>
+
+      <!-- structured bypass -->
+      <path d="M170 70 L170 40" fill="none" stroke="currentColor" opacity="0"/>
+      <path d="M276 70 L276 196 L440 196" fill="none" stroke="currentColor" opacity="0"/>
+      <rect x="20" y="180" width="250" height="32" fill="none" stroke="currentColor"/>
+      <text x="145" y="201" text-anchor="middle">structured.py — given divisions</text>
+      <path d="M270 196 L640 196 L640 112" fill="none" stroke="currentColor" marker-end="url(#a4)"/>
+      <text x="400" y="212" font-size="10.5" opacity=".75">imports no clusterer at all — order, ids and titles come from the source</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Structure is given or derived, and the Source says which (ISSUE-0034). Ingest runs in a thread in
+  the API process (<code>ingest_worker.py</code>) while the surface polls; anything still marked
+  <code>ingesting</code> at boot is stale by definition and reset before traffic arrives.</figcaption>
+  </figure>
+
+  <div class="pillrow">
+    <span class="pill">extract · pdf, html, text + locators</span>
+    <span class="pill">mining · finds the notebook's own answer keys</span>
+    <span class="pill">reingest · matches a changed Source to frozen Topics</span>
+    <span class="pill acc">EMBEDDING_PROVIDER = hashing | siglip | http</span>
+    <span class="pill sig">vector(768), width fixed deployment-wide</span>
+  </div>
+</div></section>
+
+<section id="atlas"><div class="wrap">
+  <div class="eyebrow">the folders</div>
+  <h2>Folder atlas</h2>
+  <p>The folder names the domain; the file names the thing. Everything below is a directory under
+  <code>src/interviewer/</code>.</p>
+
+  <div class="atlas">
+    <div class="card">
+      <div class="path">app.py · wiring.py · deps*.py</div>
+      <p>The composition root. <code>wiring.py</code> builds one provider per thing, lazily, for the graph's
+      sync engine; <code>deps_async.py</code> does the same for routes. <code>app.py</code> mounts middleware,
+      refusals, six routers and the built surface at <code>/</code>.</p>
+      <div class="files"><span>idempotency.py</span><span>ingest_worker.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">adapters/</div>
+      <p>One file per system we do not own, named after that system. Answers exactly one question: what do we
+      depend on that we cannot control? A fourth file fails <code>test_architecture.py</code> (ADR-0027).</p>
+      <div class="files"><span>gatehouse.py</span><span>openrouter.py</span><span>s3.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">model/</div>
+      <p>Concepts: data plus the rules true of them. No engine, no config, no clock, and no free functions —
+      a rule about a shape hangs off that shape.</p>
+      <div class="files"><span>corpus</span><span>confidence</span><span>credits</span><span>dossier</span><span>ending</span><span>evidence</span><span>failures</span><span>judging</span><span>plan</span><span>readings</span><span>report</span><span>spend</span><span>standing</span><span>transcript</span></div>
+    </div>
+    <div class="card">
+      <div class="path">routes/v1/</div>
+      <p>Binds HTTP to a module and holds no rule of its own. 48 endpoints across six routers; none of them
+      takes a candidate id from the caller.</p>
+      <div class="files"><span>sessions 10</span><span>candidate 11</span><span>operator 10</span><span>notebooks 8</span><span>skills 7</span><span>health 2</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/graph/</div>
+      <p>The Session: the LangGraph machine, the runner that exposes one operation to a surface, the planner,
+      pacing arithmetic, the transcript, and the ports through which every non-deterministic thing is injected.</p>
+      <div class="files"><span>machine_service</span><span>runner_service</span><span>planner_service</span><span>pacing</span><span>ports</span><span>sessions</span><span>transcript</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/judge/</div>
+      <p>Everything that talks to a model about an answer. The Judge is a separate call, blind to the
+      conversation (ADR-0002); the Session Grader runs once, at the end.</p>
+      <div class="files"><span>interviewer_service</span><span>judge_service</span><span>question_writer_service</span><span>session_grader_service</span><span>rejudge_service</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/corpus/</div>
+      <p>The Corpus Contract in practice: the Dossier Loader (the only module that knows how content is
+      stored), citations, related Topics from stored centroids, and a conformance suite an Adapter author can
+      run locally.</p>
+      <div class="files"><span>loader_service</span><span>readings_service</span><span>related_service</span><span>citations</span><span>conformance</span><span>sources/</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/corpus/sources/</div>
+      <p>The Adapters of ADR-0007 — one per shape of incoming material, each the only component that knows
+      that shape.</p>
+      <div class="files"><span>interview_lm.py</span><span>markdown_folder.py</span><span>notebook/</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/confidence/</div>
+      <p>Reads posteriors back as readings. A Session is assembled once and projected four ways; the selector
+      samples Topics; the summary serves Session and Candidate views.</p>
+      <div class="files"><span>reading_service</span><span>selector_service</span><span>summary_service</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/metering/</div>
+      <p>What a provider call costs and who pays. The Metered Model Client is the single chokepoint; the
+      Key Vault does envelope encryption for BYOK (ADR-0013); the ledgers are append-only.</p>
+      <div class="files"><span>client_service</span><span>keyvault_service</span><span>ledger</span><span>operator_service</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/notebooks/</div>
+      <p>Ingesting a Source and serving what was ingested, plus two Embedder decorators: one reports progress
+      while work happens, one refuses to embed the same span twice.</p>
+      <div class="files"><span>notebook_service</span><span>corpus_view</span><span>ingest_cost_service</span><span>progress_embedder</span><span>reusing_embedder</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/embeddings/</div>
+      <p>The port and its implementations. An unknown <code>EMBEDDING_PROVIDER</code> fails at boot rather
+      than falling back to something that silently means something else.</p>
+      <div class="files"><span>hashing</span><span>siglip</span><span>http</span><span>openrouter</span><span>registry</span><span>errors</span></div>
+    </div>
+    <div class="card">
+      <div class="path">repository/</div>
+      <p>Talks to the database and to nothing else — the test is that it contains SQL. <code>core/</code> is
+      synchronous because the graph is; the <code>async_*</code> packages serve the routes.</p>
+      <div class="files"><span>core/</span><span>async_core/</span><span>async_corpus/</span><span>async_metering/</span><span>async_notebooks/</span><span>notebooks.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">db/</div>
+      <p>Two schemas and the engines that reach them. There is no Alembic: <code>create_core</code> and
+      <code>create_content</code> apply their DDL idempotently on every boot.</p>
+      <div class="files"><span>schema.py</span><span>content.py</span><span>engine.py</span><span>engine_async.py</span><span>evidence_reads.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">mcp/</div>
+      <p>MCP Mode. The host is a ReAct agent we do not control, so both invariants are enforced in the tool
+      surface rather than asked for in a prompt.</p>
+      <div class="files"><span>mcp_server.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">middleware/ · security/ · exception/</div>
+      <p>The edge: security headers, a sliding-window rate limit, correlation-id logging, the Gatehouse →
+      Candidate identity join, and the Refusal shape the surface renders from.</p>
+      <div class="files"><span>security_headers</span><span>rate_limit</span><span>request_logging</span><span>auth.py</span><span>definitions.py</span></div>
+    </div>
+    <div class="card">
+      <div class="path">util/ · config/</div>
+      <p>Helpers with no domain in them — the test is whether they could exist in a project that has never
+      heard of a Candidate — and every environment variable, each with a working default.</p>
+      <div class="files"><span>chunking_utils</span><span>digest_utils</span><span>ids_utils</span><span>app_utils</span><span>cli_utils</span></div>
+    </div>
+    <div class="card">
+      <div class="path">service/_audit/</div>
+      <p>Which module and which test satisfies each user story. Underscored because it is about the codebase,
+      not about the product.</p>
+      <div class="files"><span>coverage.py</span></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="naming"><div class="wrap">
+  <div class="eyebrow">the law</div>
+  <h2>What a suffix promises</h2>
+  <p>A suffix is worth writing only where it tells you something the folder has not already said. Each row
+  carries the test that decides it.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th class="m">ends with</th><th>is</th><th>the test that decides it</th></tr></thead>
+    <tbody>
+      <tr><td class="m">_service.py</td><td>orchestrates an operation, holds injected collaborators</td><td>can you name <strong>one verb</strong> it does? two verbs is two modules</td></tr>
+      <tr><td class="m">_store.py · repository/</td><td>talks to the database and to nothing else</td><td>it contains SQL</td></tr>
+      <tr><td class="m">_adapter · _embedder · _client</td><td>satisfies a port defined elsewhere</td><td>it implements somebody else's interface</td></tr>
+      <tr><td class="m">_models.py in model/</td><td>a concept: data and the rules true of it</td><td>imports with no engine, no config, no clock — and carries no free functions</td></tr>
+      <tr><td class="m">_utils.py in util/</td><td>a helper with no domain in it</td><td>could it exist in a project that has never heard of a Candidate?</td></tr>
+      <tr><td class="m">_router.py in routes/</td><td>binds HTTP to a module, holds no rule</td><td>delete the decorators — is there anything left?</td></tr>
+    </tbody>
+  </table></div>
+  <div class="two">
+    <div><h3>No <code>_constants.py</code></h3><p class="muted">A constant lives on the thing whose rule reads
+    it — <code>GradingMode.weight</code>, <code>EndReason.parks</code>. A shared constants file is where two
+    copies of one rule start.</p></div>
+    <div><h3>Don't borrow another domain's word</h3><p class="muted">Ingest's own cost policy is
+    <code>notebooks/ingest_cost_service.py</code>, not a second <code>metering</code>. Words are decided in
+    <code>CONTEXT.md</code> and used everywhere or nowhere.</p></div>
+    <div><h3>A package exports its interface</h3><p class="muted"><code>service/notebooks/</code> exports
+    <code>NotebookService</code> and its errors; the store behind it is internal. The
+    <code>__init__.py</code> export list is the statement Python will not enforce.</p></div>
+  </div>
+</div></section>
+
+<section id="data"><div class="wrap">
+  <div class="eyebrow">two schemas</div>
+  <h2>What is written down</h2>
+  <p><code>core</code> is the permanent record — who was examined, on what, at what cost.
+  <code>content</code> is the material, and it belongs to somebody: there is no Corpus on disk.</p>
+
+  <div class="two">
+    <div>
+      <h3>core — 15 tables</h3>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="m">candidate · identity</td><td>the person, and the tokens that reach them</td></tr>
+          <tr><td class="m">session</td><td>ours, outliving the LangGraph checkpoint</td></tr>
+          <tr><td class="m">session_plan · plan_item</td><td>what the Session decided to ask, before asking</td></tr>
+          <tr><td class="m">topic_visit</td><td>one Visit, one Evidence row</td></tr>
+          <tr><td class="m">evidence</td><td>append-only, idempotent, one writer</td></tr>
+          <tr><td class="m">topic_confidence</td><td>the Beta posterior per Candidate × Topic</td></tr>
+          <tr><td class="m">message</td><td>one row per turn, labelled with kind and topic_ids</td></tr>
+          <tr><td class="m">call_record</td><td>every provider call, keyed to a Visit</td></tr>
+          <tr><td class="m">visit_provider_binding</td><td>fixed for a Visit's lifetime</td></tr>
+          <tr><td class="m">credit_ledger · pool_ledger</td><td>integer cents, append-only</td></tr>
+          <tr><td class="m">byok_key</td><td>envelope-encrypted, fingerprinted</td></tr>
+          <tr><td class="m">corpus_version</td><td>what the Session was examined against</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div>
+      <h3>content — 4 tables</h3>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="m">notebook</td><td>a Corpus somebody owns — shared import or own upload</td></tr>
+          <tr><td class="m">notebook_source</td><td>the document, its object key, its extracted text cache</td></tr>
+          <tr><td class="m">notebook_topic</td><td>frozen at first ingest, with its centroid</td></tr>
+          <tr><td class="m">notebook_chunk</td><td>text or image, with the locator a citation needs</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note" style="margin-top:22px">Evidence outlives the material. Deleting a notebook retires
+      its Topics and keeps every row they produced — and because <code>CASCADE</code> has never heard of the
+      bucket, deleting the bytes is an explicit step in the same call path.</div>
+    </div>
+  </div>
+</div></section>
+
+<section id="choke"><div class="wrap">
+  <div class="eyebrow">enforced, not asked for</div>
+  <h2>Four chokepoints</h2>
+  <div class="rules">
+    <div class="rule"><div class="mark">1</div><div>
+      <strong>Every model call goes through MeteredModelClient</strong>
+      <p>Nothing else may construct a provider client, and a static check enforces it. A call arriving without
+      a <code>topic_visit_id</code> is rejected rather than recorded unattributed — metering, Evidence,
+      provenance and refunds all key on the same unit.</p></div></div>
+    <div class="rule"><div class="mark">2</div><div>
+      <strong>Every Candidate-scoped route goes through <code>current_candidate</code></strong>
+      <p>Gatehouse says which member presented the token; <code>IdentityStore</code> says which Candidate that
+      is. A route that wanted to trust a body would have to ask for it in writing, where a reviewer sees it.</p></div></div>
+    <div class="rule"><div class="mark">3</div><div>
+      <strong>Every ending goes through <code>SessionEnding</code></strong>
+      <p>Three callers stop a Session — the graph's last node, <code>POST /end</code>, and the resumption path
+      that finds a process that died before the grade landed. Whether a reason parks or grades is a value here,
+      not a string test copied into each of them.</p></div></div>
+    <div class="rule"><div class="mark">4</div><div>
+      <strong>Every Corpus read goes through the Dossier Loader</strong>
+      <p>The only module that knows how Corpus content is stored — which is what makes a second Adapter
+      (<code>markdown_folder.py</code>) writable against the contract alone.</p></div></div>
+  </div>
+</div></section>
+
+<section id="refusals"><div class="wrap">
+  <div class="eyebrow">absent APIs</div>
+  <h2>The numbers this system will not produce</h2>
+  <p>Each of these would be easy and natural to compute, which is why each is enforced as a call that does not
+  exist. When you add a convenience, check that you have not re-opened one.</p>
+  <div class="rules">
+    <div class="rule"><div class="mark">·</div><div><strong>Coverage and Mastery are two readings, never one figure.</strong><p>No function returns a combined percentage and no screen renders one.</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>Untested is not zero.</strong><p>Below the Evidence Floor a Topic reads <em>Untested</em> and shows no number — even when a mastery figure is passed in beside an untested band.</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>A Credit is one US cent of provider cost.</strong><p>Off the Credits route every figure is an em dash: a zero would read as "it was free" rather than "this ledger does not apply to you".</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>Difficulty is not a property of the Corpus.</strong><p>None is recorded and none is derived. No screen calls a question easy or hard.</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>A Session's cost is not knowable in advance.</strong><p>It is metered per graded call and reported after each Topic.</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>Pictures alone are not examinable.</strong><p>A Source that extracts no text stays a stub; a figure may support a question grounded in text and may not be what one is grounded in (ADR-0024).</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>A Candidate is compared inside a Topic, never ranked.</strong><p>A leaderboard needs one figure per person, and the only figures available are Coverage and Mastery — so a rank is the fused percentage under another name.</p></div></div>
+    <div class="rule"><div class="mark">·</div><div><strong>No Answer Key enters the interviewing context.</strong><p>In MCP Mode the host holds its context in front of the Candidate. Grading material is redeemed directly by the Judge against a Visit id, single-use, and never passes through the host.</p></div></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  Drawn from <code>backend/src/interviewer/</code> — 137 modules, at commit <code>3b44f06</code>.
+  Vocabulary is authoritative in <code>CONTEXT.md</code>; the reasons are in <code>docs/adr/</code>.
+</div></footer>

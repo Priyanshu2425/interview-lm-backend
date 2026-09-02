@@ -19,7 +19,7 @@ Two rules hold this module in place:
 
 from __future__ import annotations
 
-from .loader import Dossier
+from .loader_service import Dossier
 
 
 def resolve(dossier: Dossier, grounding_ref: dict | None) -> list[dict]:

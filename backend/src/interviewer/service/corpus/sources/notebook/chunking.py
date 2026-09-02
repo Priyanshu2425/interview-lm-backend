@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from functools import partial
 
-from interviewer.util.chunking import (
+from interviewer.util.chunking_utils import (
     MAX_CHARS,
     TARGET_CHARS,
     Chunk,
     first_heading,
     leaf_title,
 )
-from interviewer.util.chunking import chunk_source as _chunk_source
+from interviewer.util.chunking_utils import chunk_source as _chunk_source
 from .documents.extract import Extracted
 
 

@@ -2,9 +2,8 @@
 
 import numpy as np
 
-from interviewer.service.confidence.math import apply_evidence
-from interviewer.service.confidence.selector import TopicSelector
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.confidence.selector_service import TopicSelector
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 
 CANDIDATE = "cand_sel"
@@ -25,7 +24,7 @@ def test_the_opening_question_is_the_plans_first_item(deps, clean_db):
     the plan is the first question. Nothing is exempted because nothing is
     chosen mid-Session any more.
     """
-    from interviewer.service.graph.planner import PlanStore
+    from interviewer.service.graph.planner_service import PlanStore
 
     r = SessionRunner(deps)
     cfg = _cfg(deps)
@@ -38,7 +37,7 @@ def test_the_opening_question_is_the_plans_first_item(deps, clean_db):
 
 
 def test_subsequent_questions_follow_the_plan_in_order(deps, clean_db):
-    from interviewer.service.graph.planner import PlanStore
+    from interviewer.service.graph.planner_service import PlanStore
 
     r = SessionRunner(deps)
     sid, first = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))

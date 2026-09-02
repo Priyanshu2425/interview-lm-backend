@@ -8,14 +8,14 @@ from fastapi.testclient import TestClient
 from interviewer import idempotency
 from interviewer.app import create_app
 from interviewer.wiring import wiring
-from interviewer.service.confidence.reading import SessionReadingService
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.confidence.reading_service import SessionReadingService
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
-from interviewer.service.mcp.server import (
+from interviewer.mcp.mcp_server import (
     TOOL_DESCRIPTIONS, HOST_TOOLS, SUBAGENT_TOOLS, McpServer,
 )
 from interviewer.service.metering.ledger import CreditLedger, PoolLedger
-from interviewer.service.metering.operator import PriceService
+from interviewer.service.metering.operator_service import PriceService
 
 
 @pytest.fixture()
@@ -97,7 +97,7 @@ def test_provider_prices_are_history_and_say_they_are_not_a_forecast(client):
 
 
 def test_provider_prices_come_from_what_visits_actually_cost(clean_db):
-    from interviewer.service.metering.client import Binding, MeteredModelClient
+    from interviewer.service.metering.client_service import Binding, MeteredModelClient
     from interviewer.adapters.openrouter import ScriptedTransport
 
     for provider, cost, visit in (

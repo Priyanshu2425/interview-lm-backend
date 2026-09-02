@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from conftest import grade_session, signed_in_client, SIGNED_IN_CANDIDATE
 
 from interviewer.db import schema as S
-from interviewer.service.graph.planner import PlanStore
-from interviewer.service.graph.runner import SessionRunner
+from interviewer.service.graph.planner_service import PlanStore
+from interviewer.service.graph.runner_service import SessionRunner
 from interviewer.service.graph.sessions import SessionConfig
 from interviewer.service.graph.transcript import Transcript
 

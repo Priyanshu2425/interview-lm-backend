@@ -1,7 +1,7 @@
 # ISSUE-0052 — Two transcribers behind one seam
 
 Status: open
-Type: **HITL** — the model is chosen by a measurement that has not been taken
+Type: **HITL** — the model is settled; the latency that sets the copy is not
 Source: ISSUE-0049
 Covers: the dictation engine — Whisper in a Web Worker, the Web Speech API, and
 the interface that makes either one a swap
@@ -104,7 +104,8 @@ there is no prompt.
 `onnx-community/distil-whisper-small` 404s. The real one is
 `onnx-community/distil-small.en`, whose q8 weights are 92.3MB + 79.7MB = **172MB**.
 **Ship `onnx-community/whisper-base.en`** — 23.2 + 53.7 = 77MB — from a single
-exported constant, so the measurement below can change it in one line.
+exported constant. The measurement below confirms it: base is not the
+compromise this paragraph assumed, it is the better model.
 
 **`device:"webgpu"` with `dtype:"q8"` emits gibberish.** It is the exact pair the
 ticket specified, and it is a known open defect ([transformers.js#1317](https://github.com/huggingface/transformers.js/issues/1317)).

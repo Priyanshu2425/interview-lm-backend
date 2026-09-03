@@ -303,6 +303,27 @@ a percentage would discard that at the last step — and a **Candidate** shown
 into one figure. "Examined on 12 of 57 Topics" and "3 of those look weak" are
 different facts, and a single percentage that merges them means nothing.
 
+## Report
+
+What a **Candidate** reads when a **Session** ends, and the one place a
+Session's result is shown — no turn carries a score, because the Session is
+graded once, at the end.
+
+It holds the plan as it was fixed, a reading per **Topic** the Session
+reached, and the Topics it planned and never reached. Those two lists are
+different shapes rather than one list with gaps: a reached Topic carries a
+band, **Coverage** and **Mastery**; an unreached one carries its name and
+nothing a number could be read into.
+
+There is no figure for a Session as a whole. Coverage and Mastery are two
+readings of one Topic, and a Session is not a Topic — so `SessionReport` has
+no `coverage`, no `mastery` and no `score` field, and that absence is tested.
+
+> The entries above this one still describe the machine as it was before
+> Interview Mode: a **Topic Visit** is now the *question*, and the unit of
+> Evidence is the Topic within a Session. Amending them is ISSUE-0046, which
+> is open and needs a human signature.
+
 ## Managed Mode
 
 The **Session** runs on our own agent — the graph of ADR-0001 — with model

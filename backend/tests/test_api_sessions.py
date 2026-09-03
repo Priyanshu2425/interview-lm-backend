@@ -183,6 +183,46 @@ def test_a_byok_candidate_sees_no_credit_balance(client, module_ids):
     assert body["byok"]["fingerprint"]
 
 
+def test_the_route_defaults_to_the_key_situation(client, module_ids):
+    """Omitted means "whatever my key situation implies"."""
+    assert _start(client, module_ids)["payment_route"] == "credits"
+
+    byok = signed_in_client("c_default_byok")
+    byok.post("/v1/candidates/me/byok",
+              json={"openrouter_key": "sk-or-v1-" + "b" * 32})
+    assert _start(byok, module_ids,
+                  cand="c_default_byok")["payment_route"] == "byok"
+
+
+def test_a_candidate_with_a_key_may_still_choose_credits(client, module_ids):
+    """The choice is obeyed, and it is not a double charge.
+
+    The two routes send different keys: on `credits` the call goes out on ours
+    and the cents land on the ledger, and the attached key is left unused.
+    """
+    cand = "c_chose_credits"
+    byok = signed_in_client(cand)
+    byok.post("/v1/candidates/me/byok",
+              json={"openrouter_key": "sk-or-v1-" + "c" * 32})
+    body = _start(byok, module_ids, cand=cand, payment_route="credits")
+    assert body["payment_route"] == "credits"
+
+
+def test_choosing_own_key_without_one_is_refused(client, module_ids):
+    r = client.post("/v1/sessions", json={
+        "module_ids": module_ids[:1], "duration_seconds": 600,
+        "payment_route": "byok"})
+    assert r.status_code == 409
+    assert "no active key" in r.json()["detail"]
+
+
+def test_the_mcp_route_is_not_a_candidates_to_pick(client, module_ids):
+    r = client.post("/v1/sessions", json={
+        "module_ids": module_ids[:1], "duration_seconds": 600,
+        "payment_route": "mcp"})
+    assert r.status_code == 422
+
+
 def test_a_raw_vendor_key_is_refused_by_the_api(client):
     r = client.post("/v1/candidates/me/byok",
                     json={"openrouter_key": "sk-ant-api03-secret"})
@@ -238,3 +278,77 @@ def test_the_planning_call_is_billed_and_carried_on_its_own_line(client, module_
     visits_total = sum(v["credits"] for v in spend["per_visit"])
     assert spend["planning"] is not None
     assert spend["credits"] == spend["planning"] + visits_total
+
+
+# -- the Sessions a Candidate has sat ----------------------------------------
+#
+# The list the Session screen is a rendering of. What it must say is what
+# happened; what it must never say is how it went, because a Session has no
+# reading — Coverage and Mastery are two readings of one Topic, and a Session
+# is not a Topic.
+
+
+def test_a_candidate_sees_the_sessions_they_have_sat(client, module_ids):
+    started = _start(client, module_ids)
+    listed = client.get("/v1/sessions").json()["sessions"]
+
+    assert [s["session_id"] for s in listed] == [started["session_id"]]
+    row = listed[0]
+    assert row["state"] == "running"
+    assert row["started_at"]
+    assert row["module_ids"] == module_ids[:1]
+    assert row["duration_seconds"] == 1800
+
+
+def test_the_listing_carries_no_reading_of_any_kind(client, module_ids):
+    """The refusal, enforced as an absent field rather than as care at the
+    call site: there is nothing here a score could be read out of."""
+    _start(client, module_ids)
+    row = client.get("/v1/sessions").json()["sessions"][0]
+
+    for absent in ("score", "mastery", "coverage", "band", "grade", "result"):
+        assert absent not in row
+
+
+def test_a_session_says_how_far_into_its_plan_it_got(client, module_ids):
+    """`questions_asked` against `budget_questions` is a position, not a
+    performance. A Session that asked two of five has not failed three."""
+    _start(client, module_ids)
+    row = client.get("/v1/sessions").json()["sessions"][0]
+
+    assert row["questions_asked"] >= 0
+    assert row["topics_measured"] == 0, "nothing is measured until a Session ends"
+    # Null rather than zero where there is no plan at all.
+    assert row["budget_questions"] is None or row["budget_questions"] > 0
+
+
+def test_topics_measured_counts_evidence_once_the_session_ends(client, module_ids):
+    started = _start(client, module_ids, seconds=1800)
+    client.post(f"/v1/sessions/{started['session_id']}/turns",
+                json={"answer": "Broadcasting aligns shapes from the trailing dimension."})
+    client.post(f"/v1/sessions/{started['session_id']}/end")
+
+    row = client.get("/v1/sessions").json()["sessions"][0]
+    assert row["state"] in ("ended", "parked")
+    if row["state"] == "ended":
+        assert row["topics_measured"] >= 1
+        assert row["ended_reason"]
+
+
+def test_newest_first(client, module_ids):
+    first = _start(client, module_ids)
+    client.post(f"/v1/sessions/{first['session_id']}/end")
+    second = _start(client, module_ids)
+
+    listed = client.get("/v1/sessions").json()["sessions"]
+    assert [s["session_id"] for s in listed][0] == second["session_id"]
+
+
+def test_one_candidates_sessions_are_not_anothers(client, module_ids):
+    _start(client, module_ids)
+    with signed_in_client("cand-a-stranger") as stranger:
+        assert stranger.get("/v1/sessions").json()["sessions"] == []
+
+
+def test_a_candidate_who_has_sat_none_gets_a_list_rather_than_an_error(client):
+    assert client.get("/v1/sessions").json() == {"sessions": []}

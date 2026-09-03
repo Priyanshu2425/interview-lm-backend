@@ -98,6 +98,59 @@ class AsyncSessionStore:
         row = result.first()
         return dict(row._mapping) if row else None
 
+    async def for_candidate(self, candidate_id: str) -> list[dict[str, Any]]:
+        """Every Session this Candidate has sat, newest first.
+
+        Three counts travel with each row because the alternative is the
+        surface asking per Session and assembling the answer itself, which is
+        the client deciding something the server owns (ADR-0009):
+
+        * `budget_questions` — how many the plan fixed. Null for a Session
+          that predates the planner, and for MCP Mode, which has no plan.
+        * `asked` — plan items that have been put. A Session's position in its
+          own plan, which is a fact about what happened.
+        * `measured` — Evidence rows, one per Topic the Session measured.
+
+        None of the three says how well it went, and there is nothing here
+        that could: a Session has no reading. Coverage and Mastery are two
+        readings of one Topic, and a Session is not a Topic.
+        """
+        asked = (
+            sa.select(
+                S.plan_item.c.session_id,
+                sa.func.count().label("asked"),
+            )
+            .where(S.plan_item.c.state == "asked")
+            .group_by(S.plan_item.c.session_id)
+            .subquery()
+        )
+        measured = (
+            sa.select(
+                S.evidence.c.session_id,
+                sa.func.count().label("measured"),
+            )
+            .group_by(S.evidence.c.session_id)
+            .subquery()
+        )
+        result = await self._s.execute(
+            sa.select(
+                S.session,
+                S.session_plan.c.budget_questions,
+                sa.func.coalesce(asked.c.asked, 0).label("asked"),
+                sa.func.coalesce(measured.c.measured, 0).label("measured"),
+            )
+            .select_from(S.session)
+            .outerjoin(
+                S.session_plan,
+                S.session_plan.c.session_id == S.session.c.session_id,
+            )
+            .outerjoin(asked, asked.c.session_id == S.session.c.session_id)
+            .outerjoin(measured, measured.c.session_id == S.session.c.session_id)
+            .where(S.session.c.candidate_id == candidate_id)
+            .order_by(S.session.c.started_at.desc(), S.session.c.session_id)
+        )
+        return [dict(r) for r in result.mappings()]
+
     async def park(self, session_id: str, reason: str) -> None:
         """Park a session."""
         await self._s.execute(

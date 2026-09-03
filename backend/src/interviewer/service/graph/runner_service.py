@@ -69,10 +69,32 @@ class SessionRunner:
             return sid, parked
         return sid, self._interpret(sid, out)
 
-    def submit(self, session_id: str, answer: str) -> TurnResult:
+    def begin(self, session_id: str) -> float | None:
+        """The Candidate is ready; start the deadline running.
+
+        Here rather than on the store because the clock is a port, and nothing
+        outside this class is allowed to reach for one (`ports.py`). Idempotent
+        — the store refuses to move a stamp it already has.
+        """
+        return self._d.sessions.begin(session_id, self._d.ports.clock.now())
+
+    def submit(
+        self, session_id: str, answer: str, spoken: bool = False,
+    ) -> TurnResult:
+        """Supply an Answer Turn.
+
+        `spoken` says the text is a transcription rather than something typed.
+        It travels with the answer and is written down beside it, and nothing
+        reads it on the way (ISSUE-0049) — a grader that weighted it would be
+        grading the microphone.
+
+        Keyword with a default, because the answer is the argument and every
+        caller that predates voice still means what it meant.
+        """
         try:
             out = self._graph.invoke(
-                Command(resume={"answer": answer}), self._cfg(session_id)
+                Command(resume={"answer": answer, "spoken": spoken}),
+                self._cfg(session_id),
             )
         except Exception as e:
             parked = self._park_on_provider_failure(session_id, e)
@@ -156,13 +178,24 @@ class SessionRunner:
         return None
 
     def _continue_from_boundary(self, session_id: str, row: dict) -> TurnResult | None:
-        self._d.sessions.resume(session_id)
+        # The clock starts again from here, which is what it has always done —
+        # `started_at` below has been `now()` since this method was written.
+        # Now that the deadline reads its origin from the record (ISSUE-0050),
+        # the record has to be told, or a Session parked for an hour would end
+        # the instant it came back.
+        now = self._d.ports.clock.now()
+        try:
+            self._d.sessions.resume(session_id, now)
+        except TypeError:
+            # A store from before this argument existed. It cannot have a
+            # begin stamp to move either, so there is nothing to lose.
+            self._d.sessions.resume(session_id)
         state = {
             "session_id": session_id,
             "candidate_id": row["candidate_id"],
             "scope_module_ids": list(row["scope_module_ids"]),
             "duration_seconds": row["duration_seconds"],
-            "started_at": self._d.ports.clock.now(),
+            "started_at": now,
             "payment_route": row["payment_route"],
             "provider": row["provider_chosen"] or "deepseek",
             "exchange": [],

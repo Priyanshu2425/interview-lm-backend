@@ -352,3 +352,89 @@ def test_one_candidates_sessions_are_not_anothers(client, module_ids):
 
 def test_a_candidate_who_has_sat_none_gets_a_list_rather_than_an_error(client):
     assert client.get("/v1/sessions").json() == {"sessions": []}
+
+
+# -- ISSUE-0049: an answer can be spoken ------------------------------------
+
+def test_a_spoken_answer_is_recorded_as_spoken(client, module_ids):
+    """The turn reaches the API as text either way. What `spoken` adds is where
+    the text came from — so a low reading on a Topic answered aloud can be told
+    apart from one answered by typing when the grading is audited."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    assert client.post(f"/v1/sessions/{sid}/turns",
+                       json={"answer": "You scale by the root of d k.",
+                             "spoken": True}).status_code == 200
+
+    msgs = client.get(f"/v1/sessions/{sid}/transcript").json()["messages"]
+    answers = [m for m in msgs if m["kind"] == "answer"]
+    assert answers and all(m["spoken"] is True for m in answers)
+
+
+def test_the_interviewer_never_speaks(client, module_ids):
+    """Only a Candidate's turn can be spoken. A question, a probe and a hint
+    are written, and nothing in the loop can set the flag on them."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    client.post(f"/v1/sessions/{sid}/turns",
+                json={"answer": "Because the softmax saturates.", "spoken": True})
+
+    msgs = client.get(f"/v1/sessions/{sid}/transcript").json()["messages"]
+    assert msgs, "the transcript should hold the question at least"
+    assert all(m["spoken"] is False
+               for m in msgs if m["role"] == "interviewer")
+
+
+def test_an_answer_that_says_nothing_about_how_it_arrived_was_typed(client, module_ids):
+    """Every client that predates voice sends `{answer}` and nothing else, and
+    it must keep meaning what it meant."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    assert client.post(f"/v1/sessions/{sid}/turns",
+                       json={"answer": "The gradient vanishes."}).status_code == 200
+
+    msgs = client.get(f"/v1/sessions/{sid}/transcript").json()["messages"]
+    answers = [m for m in msgs if m["kind"] == "answer"]
+    assert answers and all(m["spoken"] is False for m in answers)
+
+
+# -- ISSUE-0050: the clock starts when the Candidate does -------------------
+
+def test_a_session_is_not_running_down_until_it_is_begun(client, module_ids):
+    """A Session exists from `POST /sessions`, because the plan has to be fixed
+    before anything can be asked. The Candidate is not sitting it yet — they
+    are still being asked for a microphone — and a timed examination that
+    counted that would be charging them for our setup."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    assert client.get(f"/v1/sessions/{sid}").json()["clock_started_at"] is None
+
+    r = client.post(f"/v1/sessions/{sid}/begin")
+    assert r.status_code == 200
+    began = r.json()["clock_started_at"]
+    assert began is not None
+    assert client.get(f"/v1/sessions/{sid}").json()["clock_started_at"] == began
+
+
+def test_beginning_twice_does_not_buy_back_the_minutes_already_spent(client, module_ids):
+    """This is a button, and a button gets pressed twice."""
+    b = _start(client, module_ids)
+    sid = b["session_id"]
+    first = client.post(f"/v1/sessions/{sid}/begin").json()["clock_started_at"]
+    second = client.post(f"/v1/sessions/{sid}/begin").json()["clock_started_at"]
+    assert first == second
+
+
+def test_a_session_that_was_never_begun_says_so_in_the_listing(client, module_ids):
+    b = _start(client, module_ids)
+    listed = client.get("/v1/sessions").json()["sessions"]
+    row = next(s for s in listed if s["session_id"] == b["session_id"])
+    assert row["started_at"] is not None
+    assert row["clock_started_at"] is None
+
+
+def test_beginning_somebody_elses_session_is_refused(client, module_ids):
+    b = _start(client, module_ids)
+    stranger = signed_in_client("c_stranger")
+    assert stranger.post(
+        f"/v1/sessions/{b['session_id']}/begin").status_code == 404

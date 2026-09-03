@@ -57,8 +57,26 @@ class StartIn(BaseModel):
     payment_route: Literal["credits", "byok"] | None = None
 
 
+def _iso(epoch: float | None) -> str | None:
+    """An instant from the clock port, as the surface reads instants."""
+    if epoch is None:
+        return None
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+
+
 class TurnIn(BaseModel):
     answer: str
+    # Said out loud and transcribed, rather than typed (ISSUE-0049). Absent
+    # means typed, which is what every client before voice meant.
+    #
+    # It is recorded and reported, and nothing weights on it. A low reading on
+    # a Topic answered aloud and one answered by typing are not the same
+    # evidence, and an audit that cannot tell them apart cannot find a
+    # transcription problem — but the answer is still graded on its text, by a
+    # Judge that never learns how the text arrived.
+    spoken: bool = False
 
 
 class TurnOut(BaseModel):
@@ -153,10 +171,40 @@ async def turn(
     await _get_owned_session(session_id, candidate_id, sessions)
 
     def run():
-        r = runner.submit(session_id, body.answer)
+        r = runner.submit(session_id, body.answer, spoken=body.spoken)
         return TurnOut(kind=r.kind, payload=r.payload)
 
+    # A retry under the same key that changes `spoken` gets the stored result,
+    # not a second turn. That is right: `message` is append-only, and the turn
+    # that happened is the one that was written down.
     return once(f"{session_id}:{idempotency_key}", run) if idempotency_key else run()
+
+
+@router.post("/sessions/{session_id}/begin")
+async def begin(
+    session_id: str,
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """Start the clock. Called when the Candidate says they are ready.
+
+    A Session exists from `POST /sessions`, because the plan has to be fixed
+    before anything can be asked — but the Candidate is not sitting it yet.
+    They are still being asked for a microphone and still waiting for the
+    surface to be ready, and charging a timed examination for that is charging
+    them for our setup.
+
+    So the deadline runs from here, and until this is called it does not run at
+    all: a Session created and abandoned has no elapsed time, because it was
+    never sat.
+
+    Idempotent. The surface calls it from a button, and a button gets pressed
+    twice — the second press returns the first stamp rather than buying back
+    the minutes already spent.
+    """
+    await _get_owned_session(session_id, candidate_id, sessions)
+    began = wiring().runner.begin(session_id)
+    return {"session_id": session_id, "clock_started_at": _iso(began)}
 
 
 @router.get("/sessions")
@@ -183,6 +231,14 @@ async def list_sessions(
                 "session_id": r["session_id"],
                 "state": r["state"],
                 "started_at": r["started_at"].isoformat() if r["started_at"] else None,
+                # When the Candidate began, which is not when they asked for a
+                # Session. Null means they never did — the deadline never
+                # started, and the row is a Session that was set up and walked
+                # away from.
+                "clock_started_at": (
+                    r["clock_started_at"].isoformat()
+                    if r.get("clock_started_at") else None
+                ),
                 "ended_at": r["ended_at"].isoformat() if r["ended_at"] else None,
                 "duration_seconds": r["duration_seconds"],
                 "provider": r["provider_chosen"],
@@ -220,6 +276,13 @@ async def get_session(
         "parked_reason": row["parked_reason"],
         "ended_reason": row["ended_reason"],
         "duration_seconds": row["duration_seconds"],
+        # The timer counts from here, not from `started_at`. Null until the
+        # Candidate presses Begin, and a surface that reads null should show a
+        # Session that has not started rather than one already running down.
+        "clock_started_at": (
+            row["clock_started_at"].isoformat()
+            if row.get("clock_started_at") else None
+        ),
         "provider": row["provider_chosen"],
         "payment_route": row["payment_route"],
         "visits": [

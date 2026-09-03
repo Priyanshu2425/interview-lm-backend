@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -72,6 +73,53 @@ class SessionStore:
             ).first()
         return dict(r._mapping) if r else None
 
+    # -- when the deadline starts running -----------------------------------
+    #
+    # `started_at` is when the row was written, which is when the Candidate
+    # *asked for* a Session — before the microphone was allowed, before the
+    # surface was ready, and before they had seen a question. Running the
+    # deadline from it charged them for setting up (ISSUE-0050).
+    #
+    # `clock_started_at` is when they said they were ready. Null until they do,
+    # and a Session that is never begun has no deadline at all, because it was
+    # never sat.
+
+    def begin(self, session_id: str, at: float) -> float | None:
+        """Stamp when this Session began, once. Returns the stamp either way.
+
+        Idempotent on purpose rather than by accident: the surface calls this
+        from a button, and a button is pressed twice. The second press must
+        return the first answer, or a Candidate could win back the minutes they
+        have already spent by pressing it again.
+
+        `at` comes from the injected clock rather than from Postgres, so a test
+        driving a `FrozenClock` sees the time it set.
+        """
+        stamp = datetime.fromtimestamp(at, tz=timezone.utc)
+        with self._e.begin() as c:
+            c.execute(
+                sa.update(S.session)
+                .where(
+                    S.session.c.session_id == session_id,
+                    S.session.c.clock_started_at.is_(None),
+                )
+                .values(clock_started_at=stamp)
+            )
+            return self._clock_started(c, session_id)
+
+    def clock_started_at(self, session_id: str) -> float | None:
+        """When the deadline started running, or None if it has not."""
+        with self._e.connect() as c:
+            return self._clock_started(c, session_id)
+
+    @staticmethod
+    def _clock_started(c, session_id: str) -> float | None:
+        got = c.execute(
+            sa.select(S.session.c.clock_started_at)
+            .where(S.session.c.session_id == session_id)
+        ).scalar()
+        return got.timestamp() if got is not None else None
+
     def park(self, session_id: str, reason: str) -> None:
         with self._e.begin() as c:
             c.execute(
@@ -80,12 +128,27 @@ class SessionStore:
                 .values(state="parked", parked_reason=reason)
             )
 
-    def resume(self, session_id: str) -> None:
+    def resume(self, session_id: str, at: float | None = None) -> None:
+        """Carry on, and start the clock again from here.
+
+        Re-stamping is not new behaviour: `_continue_from_boundary` has always
+        put `clock.now()` into the graph's `started_at`, so every resume has
+        always given the Session its full duration back. That is defensible —
+        Credits running out is not the Candidate's fault, and neither is the
+        hour they took to top up — and ISSUE-0050 is about the setup screen,
+        not about park. Moving the origin into the record without re-stamping
+        here would have quietly ended a Session the moment it resumed.
+        """
         with self._e.begin() as c:
+            values: dict = {"state": "running", "parked_reason": None}
+            if at is not None and self._clock_started(c, session_id) is not None:
+                values["clock_started_at"] = datetime.fromtimestamp(
+                    at, tz=timezone.utc
+                )
             c.execute(
                 sa.update(S.session)
                 .where(S.session.c.session_id == session_id)
-                .values(state="running", parked_reason=None)
+                .values(**values)
             )
 
     def end(self, session_id: str, reason: str) -> None:

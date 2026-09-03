@@ -123,6 +123,19 @@ class Deps:
     max_turns_per_visit: int = 6
 
 
+def _began_at(d: Deps, session_id: str) -> float | None:
+    """When the deadline started running, or None if it has not started.
+
+    `getattr` rather than a call, because `Deps.sessions` is a duck: MCP Mode
+    and a good half of the suite hand in a store of their own, and none of them
+    owe this graph a method that arrived with ISSUE-0050. A store that cannot
+    answer is not broken — it is a store for something that never presses
+    Begin, and the caller falls back to the old origin.
+    """
+    ask = getattr(d.sessions, "clock_started_at", None)
+    return ask(session_id) if callable(ask) else None
+
+
 def build_graph(d: Deps):
     """Compile the machine. The shape is the contract."""
 
@@ -295,7 +308,9 @@ def build_graph(d: Deps):
 
         It waits for an *event*, never a read from a kind of input — which is
         why voice or a code editor changes who calls resume rather than changing
-        the loop.
+        the loop. ISSUE-0049 is that sentence coming true: a spoken answer
+        arrives here as the same string a typed one does, and the only thing
+        that changed is a flag beside it saying where the string came from.
         """
         follow_up = state.get("follow_up")
         payload = interrupt(
@@ -318,8 +333,10 @@ def build_graph(d: Deps):
             }
         )
         answer = (payload or {}).get("answer", "")
+        spoken = bool((payload or {}).get("spoken", False))
         exchange = list(state.get("exchange", []))
-        exchange.append({"role": "candidate", "kind": "answer", "text": answer})
+        exchange.append({"role": "candidate", "kind": "answer",
+                         "text": answer, "spoken": spoken})
         return {"exchange": exchange, "turn_count": state.get("turn_count", 0) + 1}
 
     def record_exchange(state: SessionState) -> dict:
@@ -349,6 +366,10 @@ def build_graph(d: Deps):
                     topic_ids=topic_ids,
                     topic_visit_id=vid,
                     plan_item_id=state.get("plan_item_id", ""),
+                    # Only `answer_turn` ever sets this. An interviewer's turn
+                    # has no key here and defaults to written, which is what a
+                    # question, a probe and a hint always are.
+                    spoken=bool(t.get("spoken", False)),
                 )
                 for t in state["exchange"]
             ])
@@ -369,7 +390,20 @@ def build_graph(d: Deps):
         inside a Visit, because a Visit cut off mid-exchange corrupts a
         permanent write while an overrun costs a few Credits.
         """
-        elapsed = d.ports.clock.now() - state["started_at"]
+        # Read from the record rather than from `state`, because `state` was
+        # written when the graph was first invoked and never again — a resume
+        # carries the checkpoint's `started_at` forward untouched. The moment
+        # the Candidate pressed Begin arrives after that, so the record is the
+        # only place it can be read (ISSUE-0050).
+        #
+        # A Session that has not been begun falls back to `state["started_at"]`,
+        # which is the behaviour every Session had before this: MCP Mode never
+        # presses a button, and neither does anything older than the setup
+        # screen.
+        began = _began_at(d, state["session_id"])
+        elapsed = d.ports.clock.now() - (
+            began if began is not None else state["started_at"]
+        )
         if elapsed >= state["duration_seconds"]:
             return {"finished": True, "end_reason": "duration"}
 

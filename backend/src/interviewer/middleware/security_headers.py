@@ -16,7 +16,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - X-XSS-Protection: 1; mode=block
     - Strict-Transport-Security: max-age=31536000; includeSubDomains
     - Referrer-Policy: strict-origin-when-cross-origin
-    - Content-Security-Policy: configurable (default: default-src 'self')
+    - Content-Security-Policy: configurable (see DEFAULT_CSP_POLICY)
+
+    Deliberately no COOP or COEP. Without them `SharedArrayBuffer` is
+    undefined and the ONNX runtime falls back to single-threaded WebAssembly,
+    which is slower and works. With them the Google Fonts stylesheet stops
+    loading and `window.opener` is severed, which breaks the Gatehouse sign-in
+    popup — a worse trade than a slower transcription.
     """
 
     #: Swagger UI's own HTML (`/v1/docs`) ships as a page that pulls its JS
@@ -35,10 +41,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "connect-src 'self'"
     )
 
+    #: The surface transcribes speech in the browser (ISSUE-0049), and under a
+    #: bare `default-src 'self'` it cannot:
+    #:
+    #: * `WebAssembly.compile` is refused outright without `'wasm-unsafe-eval'`,
+    #:   with the same silent failure as above — a blocked module is a
+    #:   microphone that never works and never says why.
+    #: * the model weights are fetched from Hugging Face, whose blobs redirect
+    #:   to `cdn-lfs*.hf.co`, and `connect-src` falls back to `'self'`.
+    #:
+    #: `'wasm-unsafe-eval'` permits compiling WebAssembly and nothing else — it
+    #: is not `'unsafe-eval'`, which would hand back `eval()` and `new
+    #: Function()` along with it. The ONNX runtime binary is served from our own
+    #: `/ort/` rather than its CDN, so `script-src` needs no host added.
+    DEFAULT_CSP_POLICY = (
+        "default-src 'self'; "
+        "script-src 'self' 'wasm-unsafe-eval'; "
+        "connect-src 'self' https://huggingface.co https://*.hf.co"
+    )
+
     def __init__(
         self,
         app,
-        csp_policy: str = "default-src 'self'",
+        csp_policy: str = DEFAULT_CSP_POLICY,
         hsts_max_age: int = 31536000,
         hsts_include_subdomains: bool = True,
     ):

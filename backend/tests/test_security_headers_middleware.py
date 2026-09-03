@@ -172,3 +172,54 @@ class TestSecurityHeadersMiddleware:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+class TestTheDefaultPolicyLetsTheSurfaceListen:
+    """ISSUE-0049. The Candidate's speech is transcribed in the browser, and a
+    bare `default-src 'self'` refuses that outright — silently, which is the
+    worst way: a blocked WebAssembly module is a microphone that never works
+    and never says why.
+
+    These are about the *default*, not about a configured deployment. Somebody
+    tightening the policy later should have to change a test that says what the
+    tightening breaks.
+    """
+
+    @pytest.fixture()
+    def client(self):
+        return TestClient(create_test_app(SecurityHeadersMiddleware(app=None)))
+
+    def test_webassembly_may_be_compiled(self, client):
+        csp = client.get("/test").headers["Content-Security-Policy"]
+        assert "'wasm-unsafe-eval'" in csp
+
+    def test_but_nothing_else_may_be_evaluated(self, client):
+        """`'wasm-unsafe-eval'` permits compiling WebAssembly and nothing else.
+        Bare `'unsafe-eval'` would hand back `eval()` and `new Function()`
+        along with it, and the two are one character apart."""
+        csp = client.get("/test").headers["Content-Security-Policy"]
+        assert "'unsafe-eval'" not in csp.replace("'wasm-unsafe-eval'", "")
+        assert "'unsafe-inline'" not in csp
+
+    def test_the_model_weights_can_be_fetched(self, client):
+        """Hugging Face serves the weights, and its blobs redirect to
+        `cdn-lfs*.hf.co` — so both hosts, or the download fails on the
+        redirect."""
+        csp = client.get("/test").headers["Content-Security-Policy"]
+        assert "https://huggingface.co" in csp
+        assert "https://*.hf.co" in csp
+
+    def test_nothing_else_gained_a_host(self, client):
+        """The ONNX runtime is served from our own `/ort/`, deliberately, so
+        that permitting the model download does not also permit a CDN to run
+        code here."""
+        csp = client.get("/test").headers["Content-Security-Policy"]
+        script = next(p for p in csp.split(";") if p.strip().startswith("script-src"))
+        assert "https://" not in script
+
+    def test_the_page_is_not_cross_origin_isolated(self, client):
+        """No COOP or COEP. They would buy threaded WebAssembly and cost the
+        font stylesheet and the sign-in popup, which is a worse trade than a
+        slower transcription."""
+        headers = client.get("/test").headers
+        assert "Cross-Origin-Opener-Policy" not in headers
+        assert "Cross-Origin-Embedder-Policy" not in headers

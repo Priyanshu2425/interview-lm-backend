@@ -199,6 +199,9 @@ class AsyncSessionStore:
                 "topic_ids": list(r._mapping["topic_ids"] or []),
                 "topic_visit_id": r._mapping["topic_visit_id"],
                 "plan_item_id": r._mapping["plan_item_id"],
+                # How the turn arrived, not how good it was. An interviewer's
+                # turn is never spoken; only a Candidate's can be.
+                "spoken": bool(r._mapping["spoken"]),
             }
             for r in rows
         ]

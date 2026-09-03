@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     Enum,
@@ -135,6 +136,14 @@ session = Table(
     Column("parked_reason", String, nullable=True),
     Column("ended_reason", String, nullable=True),
     _ts("started_at", nullable=False, server_default=sa.func.now()),
+    # ISSUE-0050. When the Candidate actually began, which is not when the row
+    # was written. `started_at` is the moment the Session was *created* —
+    # before the microphone was asked for and before the surface was ready —
+    # and running the deadline from it charged the Candidate for setting up.
+    #
+    # Null until `POST /sessions/{id}/begin`. A Session created and never begun
+    # has no deadline, because it was never sat.
+    _ts("clock_started_at", nullable=True),
     _ts("ended_at", nullable=True),
     CheckConstraint("duration_seconds > 0", name="ck_session_duration_positive"),
     CheckConstraint(
@@ -456,6 +465,16 @@ message = Table(
     Column("text", Text, nullable=False),
     Column("topic_visit_id", String, nullable=True),
     Column("plan_item_id", String, nullable=True),
+    # ISSUE-0049. Whether this turn was spoken and transcribed rather than
+    # typed. Recorded and reported; nothing weights on it — putting mode of
+    # input into `w` would conflate it with how far the Grading Mode is
+    # trusted, which is a different question.
+    #
+    # It is here rather than on `topic_visit` because a Visit can hold several
+    # Answer Turns, some spoken and some typed after a microphone failed. And
+    # `message` is append-only, so this is written at insert and there is no
+    # correcting it afterwards.
+    Column("spoken", Boolean, nullable=False, server_default=sa.false()),
     _ts("created_at", nullable=False, server_default=sa.func.now()),
     UniqueConstraint("session_id", "seq", name="uq_message_session_seq"),
     CheckConstraint("seq >= 0", name="ck_message_seq_nonneg"),

@@ -191,6 +191,14 @@ _CORE_ADDED_COLUMNS = (
     ("candidate", "target_role", "text NOT NULL DEFAULT ''"),
     ("candidate", "experience_level", "text NOT NULL DEFAULT ''"),
     ("candidate", "goal", "text NOT NULL DEFAULT ''"),
+    # ISSUE-0049. Every existing row predates voice, so `false` is not a
+    # default standing in for missing knowledge — it is the fact. `message` is
+    # append-only, so this is written at insert and never corrected.
+    ("message", "spoken", "boolean NOT NULL DEFAULT false"),
+    # ISSUE-0050. Null on every existing Session, and it has to be: those ran
+    # their deadline from `started_at`, and inventing a begin time for them
+    # would move a deadline that has already been served.
+    ("session", "clock_started_at", "timestamptz"),
 )
 
 

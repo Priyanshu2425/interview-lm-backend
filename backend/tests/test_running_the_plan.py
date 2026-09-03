@@ -399,3 +399,74 @@ def test_the_transcript_belongs_to_the_candidate_who_ran_the_session(
 
 def test_a_session_that_has_said_nothing_has_an_empty_transcript(client):
     assert client.get("/v1/sessions/sess_nothing/transcript").status_code == 404
+
+
+# --- ISSUE-0049 / ISSUE-0050: how a turn arrived, and when the clock started --
+
+
+def test_a_spoken_answer_travels_the_whole_loop(deps, clean_db):
+    """From `runner.submit` through the interrupt, the exchange and
+    `record_exchange` to a row. This is the only path that covers all four, and
+    a flag that survives three of them and is dropped by the fourth would look
+    exactly like a flag that works."""
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
+    r.submit(sid, "the softmax saturates and the gradient goes to zero",
+             spoken=True)
+
+    turns = Transcript(clean_db).of(sid)
+    answers = [t for t in turns if t["kind"] == "answer"]
+    assert answers and all(t["spoken"] for t in answers)
+    # A question is written, never said.
+    assert all(not t["spoken"] for t in turns if t["role"] == "interviewer")
+
+
+def test_an_answer_that_did_not_say_is_written_down_as_typed(deps, clean_db):
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps))
+    r.submit(sid, "an answer")
+
+    turns = Transcript(clean_db).of(sid)
+    assert all(not t["spoken"] for t in turns)
+
+
+def test_the_deadline_does_not_run_before_the_candidate_begins(deps, clean_db):
+    """The setup screen sits between `POST /sessions` and the first question,
+    and on a slow connection it sits there for a while. Before ISSUE-0050 that
+    came out of the examination.
+
+    An hour passes here — twice the Session's whole duration — and the Session
+    is still open, because it has not been begun.
+    """
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps, seconds=1800))
+
+    deps.ports.clock.advance(3600)
+    r.begin(sid)
+    out = r.submit(sid, "an answer")
+
+    assert out.kind != "session_ended", (
+        "waiting to begin must not spend the Session's time"
+    )
+
+
+def test_the_deadline_runs_from_the_moment_it_was_begun(deps, clean_db):
+    """And once begun it runs normally: the same overrun that used to end a
+    Session still ends it."""
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps, seconds=1800))
+    r.begin(sid)
+
+    deps.ports.clock.advance(3600)
+    out = r.submit(sid, "an answer after the deadline")
+
+    assert out.kind == "session_ended"
+    assert out.payload["reason"] == "duration"
+
+
+def test_beginning_twice_does_not_move_the_deadline(deps, clean_db):
+    r = SessionRunner(deps)
+    sid, _ = r.start(candidate_id=CANDIDATE, cfg=_cfg(deps, seconds=1800))
+    first = r.begin(sid)
+    deps.ports.clock.advance(600)
+    assert r.begin(sid) == first

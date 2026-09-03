@@ -67,6 +67,7 @@ class Transcript:
                     topic_ids=list(t.topic_ids) or None,
                     topic_visit_id=t.topic_visit_id or None,
                     plan_item_id=t.plan_item_id or None,
+                    spoken=t.spoken,
                 ))
         return len(turns)
 

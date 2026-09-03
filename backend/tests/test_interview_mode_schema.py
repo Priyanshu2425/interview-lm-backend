@@ -301,3 +301,68 @@ async def test_the_async_engine_applies_the_same_triggers_as_the_sync_one(clean_
             ), {"s": CORE})
         }
     assert got == {t for _, t in TRIGGERS}
+
+
+# -- ISSUE-0049: how a turn arrived -----------------------------------------
+
+def test_a_turn_is_written_rather_than_spoken_unless_it_says_otherwise(a_session):
+    """Every row that existed before voice was typed, so `false` is the fact.
+
+    It is a default in the sense that nobody has to write it, and not in the
+    sense of standing in for something unknown.
+    """
+    engine, _, sess = a_session
+    mid = _a_message(engine, sess)
+    with engine.connect() as c:
+        assert c.execute(
+            sa.select(S.message.c.spoken)
+            .where(S.message.c.message_id == mid)
+        ).scalar() is False
+
+
+def test_a_spoken_turn_says_so(a_session):
+    engine, _, sess = a_session
+    mid = _ids("msg")
+    with engine.begin() as c:
+        c.execute(sa.insert(S.message).values(
+            message_id=mid, session_id=sess, seq=0,
+            role="candidate", kind="answer", text="You scale by root d k.",
+            spoken=True,
+        ))
+    with engine.connect() as c:
+        assert c.execute(
+            sa.select(S.message.c.spoken)
+            .where(S.message.c.message_id == mid)
+        ).scalar() is True
+
+
+def test_how_a_turn_arrived_cannot_be_corrected_afterwards(a_session):
+    """The append-only trigger covers this column like every other one.
+
+    Worth its own test rather than a comment: ISSUE-0049 claims a spoken turn
+    is recorded at insert and never corrected, and the only thing that makes
+    that a fact rather than a convention is the trigger refusing.
+    """
+    engine, _, sess = a_session
+    mid = _a_message(engine, sess)
+    with pytest.raises(DBAPIError, match="append-only"):
+        with engine.begin() as c:
+            c.execute(sa.update(S.message)
+                      .where(S.message.c.message_id == mid)
+                      .values(spoken=True))
+
+
+# -- ISSUE-0050: when the deadline starts running ---------------------------
+
+def test_a_session_has_no_begin_time_until_it_is_begun(a_session):
+    """`started_at` is when the row was written; `clock_started_at` is when the
+    Candidate said they were ready. A Session created and walked away from has
+    the first and not the second, and its deadline never runs."""
+    engine, _, sess = a_session
+    with engine.connect() as c:
+        row = c.execute(
+            sa.select(S.session.c.started_at, S.session.c.clock_started_at)
+            .where(S.session.c.session_id == sess)
+        ).first()
+    assert row.started_at is not None
+    assert row.clock_started_at is None

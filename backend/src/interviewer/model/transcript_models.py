@@ -21,3 +21,7 @@ class Turn:
     topic_ids: tuple[str, ...] = ()
     topic_visit_id: str = ""
     plan_item_id: str = ""
+    #: Said out loud and transcribed, rather than typed (ISSUE-0049). Only a
+    #: Candidate's turn can be spoken; the interviewer's are always written.
+    #: Defaulted so every existing caller keeps meaning what it meant.
+    spoken: bool = False

@@ -96,6 +96,31 @@ the end.
 | 0045 | The report | AFK | 0044 | ✅ resolved |
 | 0046 | The documents catch up | **HITL** | 0045 | open |
 
+### The answer is spoken — voice as the way a turn is given
+
+Source: ISSUE-0049, and the two prototypes in `frontend/prototypes/`. The
+Candidate speaks, the browser transcribes, and the Answer Turn reaches the API as
+text. The API does not change shape: a turn was always text.
+
+| # | Slice | Type | Blocked by | State |
+|---|---|---|---|---|
+| 0049 | The answer is spoken — the spec, and the drawn screens | **HITL** | — | proposed |
+| 0050 | Spoken reaches the record, and the clock starts when the interview does | AFK | — | open |
+| 0051 | The design system draws a microphone | AFK | — | open |
+| 0052 | Two transcribers behind one seam | **HITL** | 0050 | open |
+| 0053 | Setting up the interview | AFK | 0050, 0051, 0052 | open |
+| 0054 | Answering out loud | AFK | 0050, 0051, 0052 | open |
+| 0055 | The record of what is built | AFK | 0053, 0054 | open |
+
+`0050` and `0051` are independent and can run in parallel: one is the API and the
+schema learning that an answer can be spoken, the other is a token and three
+icons. `0052` is the only slice with platform risk in it, and it is **HITL**
+because two measurements decide what ships and neither has been taken: how badly
+the chosen model mangles technical vocabulary, and how long a forty-second answer
+actually takes to transcribe. `0053` and `0054` are the two screens and touch
+nothing of each other's. `0055` repeals the refusals, and is last because a
+refusal should only be lifted once the thing it refused exists.
+
 > **Note (2026-08-27).** `design-system/` was removed from this repository. The
 > surface is built from the design files outside it — see `DESIGN.md` and
 > `AGENTS.md`. Paths naming `design-system/` below are kept as written: they

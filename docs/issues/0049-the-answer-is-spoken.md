@@ -5,9 +5,13 @@ Type: surface
 Source: none — asked for directly
 Covers: how a Candidate gives an Answer Turn
 
-> Prototype: `frontend/prototypes/voice-answer.prototype.html` — three variants,
-> `?variant=A|B|C`, every state on the keys `1`–`0`. Nothing here is settled until
-> one of them is picked.
+> **Prototypes**, both `?variant=A|B|C` with every state on the keys `1`–`0`:
+>
+> * `frontend/prototypes/voice-answer.prototype.html` — the composer.
+>   **Variant A is settled.**
+> * `frontend/prototypes/interview-setup.prototype.html` — the screen between
+>   Begin and the first question, where the model is fetched. Variant not yet
+>   picked.
 
 ## What to build
 
@@ -57,18 +61,61 @@ That is a false negative in the one measurement this product exists to make,
 and it is the argument for A: a confirmation step the Candidate cannot skip,
 with low-confidence words marked so they know where to look.
 
-**Recommendation: A**, with B's streaming added later if the confirmation step
-proves to be the thing people dislike. C is the one that feels most like an
+**Settled: A.** B's streaming can be added later if the confirmation step turns
+out to be the thing people dislike. C is the one that feels most like an
 interview and the one that can send a misheard term to the grader unread; it
-should not ship first.
+does not ship.
+
+## Setup happens before the clock, not during it
+
+The model is fetched at **Session start**, on its own screen between Begin on
+`/session/new` and the first question — never inside the composer. Two reasons,
+and the second is the one that matters:
+
+**When.** The composer appears with the first question, and the Session clock is
+running by then. A Candidate would spend the opening seconds of a timed
+examination watching a progress bar. At Session start the wait costs nothing.
+
+**What it says.** "Downloading model — 60MB" is our problem in our words. Nobody
+sitting an interview has a view about a model; they are waiting for the
+interview to be ready, and that is what the screen says: *Setting up your
+interview.*
+
+That is not permission to hide it. A friendly sentence over a silent 60MB
+download is fine at 200Mbps and a lie at 2Mbps, where it is a bar that never
+moves with no reason given. So: plain language in the headline, the real detail
+one disclosure away, and **the network named the moment it is slow**.
+
+The wait is honest because it is genuinely three things:
+
+1. **The plan is fixed** — `POST /v1/sessions`, decided once and never again.
+2. **The microphone is asked for** — here, rather than mid-question, where a
+   permission sheet lands on top of a running clock.
+3. **Speech recognition is made ready** — the 60MB, first visit only, cached
+   after, and warmed with one run so the first real answer is not also the
+   slowest.
+
+Two rules this screen does not bend:
+
+- **Setup is never the reason somebody cannot sit their interview.** Model
+  fails, microphone refused, network gives up — each falls through to typing
+  and the Session begins anyway. None of those states is a dead end.
+- **Nothing auto-starts.** The last thing on the screen is a button the
+  Candidate presses. A clock that starts while they are looking at their phone
+  is a clock they lost.
+
+The composer keeps one warming state for the case where setup was skipped or
+the first question outran the download. It does not mention megabytes — the
+Candidate is mid-examination, and the only fact that helps them is that they can
+type this one right now.
 
 ## The states, and what each one owes the Candidate
 
 Every variant has to answer all of these. Naming them is most of the work.
 
-- **Model downloading** — 60MB, first visit, roughly ten seconds. The composer
-  says so, shows real progress, and offers typing as the way through. Nobody
-  mid-Session waits on a progress bar with a clock running.
+- **Still warming** — the rare one, since setup normally finishes this before
+  the clock starts. Real progress, no megabytes, and typing offered as the way
+  through rather than as a consolation.
 - **Ready** — cached, warm, nothing said yet.
 - **Listening** — a level meter driven by real amplitude, not a timer. A ring
   that pulses on its own says "recording" even when the microphone is muted at
@@ -84,12 +131,21 @@ Every variant has to answer all of these. Naming them is most of the work.
 ## Shape of the implementation
 
 ```
+src/features/session-start/
+  InterviewSetupScreen.tsx         between Begin and the first question
+  hooks/useInterviewSetup.ts       the three steps, and their failures
+
 src/features/examination/
   components/VoiceComposer.tsx     the control and its states
   components/Composer.tsx          unchanged, and the fallback
   hooks/useDictation.ts            worker lifecycle, capture, level meter
   dictation/worker.ts              the model; nothing else imports it
 ```
+
+The setup screen sits **outside `RootLayout`**, for the reason onboarding
+already sits outside it: a nav rail around a screen you are meant to sit
+through is an invitation to leave it half-done — and here half-done means a
+Session that is started, paid for and abandoned.
 
 Rules the tree already enforces and this obeys:
 
@@ -99,9 +155,10 @@ Rules the tree already enforces and this obeys:
 - **The audio is a `Float32Array`, mono, at exactly 16kHz.** Whisper takes
   nothing else. `new AudioContext({ sampleRate: 16000 })` does the resample;
   `getChannelData(0)` takes the first channel and the rest are discarded.
-- **The worker is created once, per Session, not per turn.** A worker per
-  answer reloads the model from the Cache API on every question — fast, but not
-  free, and it is a hitch at exactly the wrong moment.
+- **The worker is created once, per Session, not per turn** — and it is
+  created by the *setup screen*, then handed to the examination. A worker per
+  answer reloads the model from the Cache API on every question: fast, not
+  free, and a hitch at exactly the wrong moment.
 - **`device: "webgpu"`, `dtype: "q8"`, and a fall back to `wasm`** where WebGPU
   is missing. It is slower on the CPU and it works. Which one ran is shown,
   because "why was that slow" is a question worth being able to answer.
@@ -145,6 +202,13 @@ the browser version because that is what was asked for; the seam is
 - [ ] Typing is reachable from every state of the voice composer, including
       while the model is downloading
 - [ ] A refused microphone leaves the Session usable and says what happened
+- [ ] The model is fetched at Session start, before the clock, and the screen
+      describes the interview being set up rather than a model being downloaded
+- [ ] A slow connection is named as such, and the real detail is reachable
+      without being forced on anybody
+- [ ] Setup failing — model, microphone or network — still lets the Session be
+      sat, by typing
+- [ ] The Session never begins on its own; a Candidate presses the button
 - [ ] The model downloads once and is served from cache on the next Session
 - [ ] Neither the download nor the inference blocks the main thread — the
       Session clock keeps ticking and the transcript keeps scrolling

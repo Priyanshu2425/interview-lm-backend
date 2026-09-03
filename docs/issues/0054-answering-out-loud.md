@@ -54,6 +54,17 @@ is sent in either case and the question is unchanged.
 `denied` renders the typing composer inline, plus "Try the microphone again". The
 Session is fine.
 
+### The transcribing state takes longer than the prototype claims
+
+Measured in a browser (ISSUE-0052): **0.37–0.45× realtime**. A forty-second
+answer is fifteen to twenty seconds of waiting, and more on a slower machine.
+
+The prototype says *"A few seconds."* That is false, and a false wait is worse
+than a long one — the Candidate starts wondering whether the button worked.
+Say something they can hold us to:
+
+> Writing down what you said. This takes about half as long as you spoke for.
+
 ### Two corrections to the prototype
 
 **Replace `contenteditable role="textbox"` with a real `<textarea id="answer">`.**
@@ -121,6 +132,7 @@ scratch.
 - [ ] Typing is reachable from every state, including `warming`
 - [ ] A refused microphone leaves the Session usable and says what happened
 - [ ] The two silences are told apart, and neither sends anything
+- [ ] The transcribing state's copy matches the measured 0.37–0.45× realtime
 - [ ] `#answer` is a real `<textarea>` with an accessible name matching `/answer/i`
 - [ ] Every control announces a name, and every state announces itself
 - [ ] The keyboard-only path still reaches submit within the tab budget

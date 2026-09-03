@@ -1,7 +1,7 @@
 # ISSUE-0052 — Two transcribers behind one seam
 
 Status: open
-Type: **HITL** — the model is settled; the latency that sets the copy is not
+Type: **HITL** — both measurements taken; see below
 Source: ISSUE-0049
 Covers: the dictation engine — Whisper in a Web Worker, the Web Speech API, and
 the interface that makes either one a swap
@@ -223,16 +223,58 @@ an English-only checkpoint: *"Cannot specify `task` or `language` for an
 English-only model."* Every `.en` model is affected, which is all of the ones
 under consideration. Omit it.
 
-## Why HITL
+## The second measurement, taken
 
-**One measurement remains** before this can be called done:
+**Recorded 2026-09-03**, Chromium via Playwright, single-threaded wasm on an
+Apple-silicon laptop — the real path, not `onnxruntime-node`.
+
+| | |
+|---|---|
+| cold start (77MB download, load, warm-up) | **16.9s** |
+| transcription | **0.37–0.45× realtime** |
+
+So a forty-second answer is **fifteen to twenty seconds** of transcribing, and
+on a slower machine more. **ISSUE-0054's "A few seconds." is a lie and must
+change.** Something closer to the truth: *this takes about half as long as you
+spoke for* — which is a promise the Candidate can hold us to, and which makes
+the wait legible instead of open-ended.
+
+The cold start justifies the whole of ISSUE-0053. Seventeen seconds inside a
+timed examination would be indefensible; seventeen seconds before the clock
+starts is a setup screen doing its job.
+
+### Two corrections the browser forced
+
+**The ONNX runtime does not need copying, and copying it breaks dev.** The
+plan had `scripts/copy-ort.mjs` put the runtime in `public/ort/` and the worker
+point `wasmPaths` at it, on the reasoning that the library's jsdelivr default
+is refused by `default-src 'self'`. In dev that fails outright — Vite appends
+`?import` to a `.mjs` under `public/` and refuses to serve it:
+
+```
+no available backend found. ERR: [wasm] TypeError: Failed to fetch
+dynamically imported module: /ort/ort-wasm-simd-threaded.jsep.mjs?import
+```
+
+It is also unnecessary. The loader reaches for the runtime through
+`new URL(..., import.meta.url)`, which the bundler rewrites to a hashed asset
+on our own origin — same-origin already, and emitted into `dist/assets/`.
+Setting `wasmPaths` on top of that ships 21MB twice and points at the copy that
+does not work. The `public/ort/` machinery is deleted and the `wasmPaths`
+message field with it: a field that is always empty is a control that reaches
+nothing.
+
+**The CSP change in ISSUE-0050 is still needed**, and for the other two
+reasons: `'wasm-unsafe-eval'` to compile the module at all, and `connect-src`
+for the weights on Hugging Face.
+
+## Why this stayed HITL
 
 **Inference latency in the browser.** A 40-second answer on single-threaded
 wasm is plausibly several times the 0.08× realtime measured natively.
-ISSUE-0054's copy says "A few seconds." If the real number is fifteen, that
-copy is a lie and the state needs a meter. **Set the copy from the
-measurement**, not the other way round — and take it in a browser, because
-that is the only place the number means anything.
+Measured above, and the number is fifteen. The copy is written from the
+measurement rather than the other way round, which is why this slice was HITL
+and why ISSUE-0054 inherits a correction rather than a guess.
 
 ## Acceptance criteria
 
@@ -249,6 +291,6 @@ that is the only place the number means anything.
 - [ ] No worker error path reaches `console.error`
 - [ ] Model files are cached; a second `prepare()` in a fresh tab does not re-download
 - [x] Term-level accuracy is measured, and the numbers are in this ticket
-- [ ] Inference latency is measured **in a browser**, and ISSUE-0054's copy is written from it
-- [ ] No `language` option is passed to an English-only checkpoint
+- [x] Inference latency is measured **in a browser**, and ISSUE-0054's copy is written from it
+- [x] No `language` option is passed to an English-only checkpoint
 - [ ] `npm run verify` green

@@ -20,9 +20,28 @@ import pytest
 # which is why it has to be asked for.
 os.environ.setdefault("BYOK_KEK_EPHEMERAL", "1")
 
+#: The suite's own database, on the same local Postgres.
+#:
+#: Clearing DATABASE_URL was half a guard: it stopped the tests reaching Neon
+#: and then let them fall through to `DEFAULT_DSN`, which is the *development*
+#: database somebody is signed into in another window. Every fixture here
+#: truncates — `clean_db` empties `identity` and `candidate`, `content_db`
+#: empties every notebook table — so a suite run silently deleted a
+#: developer's sign-in, their uploaded documents and their Sessions, and the
+#: damage showed up later as "why am I being asked to onboard again".
+#:
+#: So the guard now *redirects* rather than clears: production is still
+#: refused, and the tests own a database nobody is looking at.
+#: `createdb -U cortex cortex_test` once, or set the variable below.
+TEST_DSN = os.environ.get(
+    "INTERVIEW_LM_TEST_DATABASE_URL",
+    "postgresql+psycopg://cortex:cortex@127.0.0.1:55432/cortex_test",
+)
+
 if os.environ.get("INTERVIEW_LM_TEST_ALLOW_REMOTE_DB") != "1":
-    for _var in ("DATABASE_URL", "GRAPH_DATABASE_URL", "INTERVIEW_LM_DATABASE_URL"):
+    for _var in ("GRAPH_DATABASE_URL", "INTERVIEW_LM_DATABASE_URL"):
         os.environ.pop(_var, None)
+    os.environ["DATABASE_URL"] = TEST_DSN
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "backend" / "src"))

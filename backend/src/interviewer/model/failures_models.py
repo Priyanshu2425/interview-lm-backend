@@ -95,6 +95,37 @@ class UserFacingEvent:
                     route, True,
                 )
 
+        if route is Route.CREDITS:
+            # The `KEY_*` causes are named for the key that was refused, not for
+            # whose key it is. On this route the key is **ours**, so none of
+            # these may produce a BYOK message telling a Candidate to go and fix
+            # a key they do not have — nor a Credit message telling them their
+            # balance ran out, which it did not.
+            #
+            # Without these branches a rate-limited platform key fell through to
+            # the ValueError below, and the failure that raised inside the
+            # *parking* path turned a recoverable pause into a 500.
+            if cause is Cause.KEY_RATE_LIMITED:
+                return cls(
+                    Event.PROVIDER_UNAVAILABLE,
+                    f"{p} is rate-limiting this deployment right now. The Session "
+                    f"is parked and nothing was lost — resume in a moment.",
+                    route, True, provider,
+                )
+            if cause in (
+                Cause.KEY_REVOKED, Cause.KEY_INVALID, Cause.KEY_UNFUNDED
+            ):
+                # Ours, and broken rather than absent — but the Candidate's way
+                # out is the same one `PLATFORM_KEY_MISSING` already names, so
+                # it is that event rather than a second one meaning the same.
+                return cls(
+                    Event.PLATFORM_KEY_MISSING,
+                    f"{p} refused this deployment's provider key, so the Session "
+                    f"cannot run on Credits. Attach your own OpenRouter key and "
+                    f"start a new Session.",
+                    route, False, provider,
+                )
+
         if route is Route.BYOK:
             # There is deliberately no branch here that can reach a Credit event.
             key_events = {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 from interviewer.model.spend_models import SessionSpend, VisitCost
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -51,9 +51,10 @@ class StartIn(BaseModel):
     module_ids: list[str] = Field(min_length=1)
     duration_seconds: int = Field(gt=0)
     provider: str = "deepseek"
-    # Omitted means "whatever this Candidate's key situation implies". The
-    # surface holds no invariant (ADR-0009), and which key pays is one.
-    payment_route: str | None = None
+    # Omitted means "whatever this Candidate's key situation implies"; named
+    # means the Candidate chose, and the choice is obeyed. `mcp` is not on the
+    # list because it is not a Candidate's to pick — the MCP surface sets it.
+    payment_route: Literal["credits", "byok"] | None = None
 
 
 class TurnIn(BaseModel):
@@ -95,9 +96,15 @@ async def start(
 ) -> dict:
     """The route is settled here, once, and then belongs to the Session.
 
-    It is decided from the Key Vault rather than taken on the client's word: an
-    attached key is the Candidate paying their own Provider, and a Session that
-    billed Credits against an attached key would be charging twice over.
+    A Candidate who names a route gets it. What the Key Vault decides is the
+    *default* — an attached key means the Candidate is paying their own
+    Provider unless they say otherwise — and the one thing it still refuses is
+    `byok` with no key to spend, because there is nothing to bill against.
+
+    Choosing Credits with a key attached is not a double charge: the two routes
+    use different keys. Under `credits` the call goes out on ours and the cents
+    land on the Candidate's ledger; under `byok` it goes out on theirs and the
+    ledger records nothing. The key is left unused, not billed twice.
     """
     # A Module holding no Topic cannot be examined, and a Session scoped to one
     # would end before it began. Refused here rather than discovered later.
@@ -111,8 +118,6 @@ async def start(
     route = body.payment_route or ("byok" if key else "credits")
     if route == "byok" and key is None:
         raise HTTPException(409, "no active key is attached for this candidate")
-    if key is not None and route == "credits":
-        route = "byok"
 
     cfg = SessionConfig(
         scope_module_ids=tuple(body.module_ids),
@@ -120,9 +125,12 @@ async def start(
         provider=body.provider,
         payment_route=route,
     )
+    # Carried only by the route that spends it. A Credits Session that named a
+    # key in its bindings would say a key was used to buy what our own key
+    # bought.
     sid, first = runner.start(
         candidate_id=candidate_id, cfg=cfg,
-        byok_key_id=key.key_id if key else None,
+        byok_key_id=key.key_id if key and route == "byok" else None,
     )
     return {"session_id": sid, "kind": first.kind,
             "payment_route": route, **first.payload}
@@ -149,6 +157,50 @@ async def turn(
         return TurnOut(kind=r.kind, payload=r.payload)
 
     return once(f"{session_id}:{idempotency_key}", run) if idempotency_key else run()
+
+
+@router.get("/sessions")
+async def list_sessions(
+    candidate_id: str = Depends(current_candidate),
+    sessions: AsyncSessionStore = Depends(get_async_session_store),
+) -> dict:
+    """Every Session this Candidate has sat, newest first.
+
+    What a row says is what happened — when, for how long, over which Modules,
+    how far into its plan it got, and how many Topics it measured. What no row
+    says is how it went: there is no figure for a Session as a whole, and
+    `SessionReport` has no field that could hold one.
+
+    The three states are three different facts. A Session that is **running**
+    resumes. One that **ended** is graded and has a report. One that is
+    **parked** is waiting rather than finished, so it has not been graded and
+    has nothing to report — topping up Credits carries it on.
+    """
+    rows = await sessions.for_candidate(candidate_id)
+    return {
+        "sessions": [
+            {
+                "session_id": r["session_id"],
+                "state": r["state"],
+                "started_at": r["started_at"].isoformat() if r["started_at"] else None,
+                "ended_at": r["ended_at"].isoformat() if r["ended_at"] else None,
+                "duration_seconds": r["duration_seconds"],
+                "provider": r["provider_chosen"],
+                "payment_route": r["payment_route"],
+                "module_ids": list(r["scope_module_ids"] or []),
+                "ended_reason": r["ended_reason"],
+                "parked_reason": r["parked_reason"],
+                # Null rather than zero where a Session has no plan: MCP Mode's
+                # do not, and neither does anything older than the planner. A
+                # zero would read as a plan that asked nothing.
+                "budget_questions": r["budget_questions"],
+                "questions_asked": int(r["asked"] or 0),
+                # Evidence rows. A count of what was measured, never a score.
+                "topics_measured": int(r["measured"] or 0),
+            }
+            for r in rows
+        ]
+    }
 
 
 @router.get("/sessions/{session_id}")

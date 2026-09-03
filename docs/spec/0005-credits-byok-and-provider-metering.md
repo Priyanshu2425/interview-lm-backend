@@ -202,9 +202,15 @@ bindForVisit(sessionId, topicVisitId, candidateId): VisitProviderBinding
 
 - Called once, by the graph, at Visit open. Idempotent on `topic_visit_id`:
   a second call returns the existing binding.
-- Resolution order: the Candidate's active BYOK key if present and `active`,
-  otherwise the Credit route. Provider comes from the Session's chosen Provider,
-  falling back to the next live Provider **only at bind time**.
+- Resolution order: the **Session's** route, fixed at `POST /sessions` and
+  carried onto every Visit of it. The Candidate chooses it; where they choose
+  nothing it defaults to their active BYOK key if present and `active`, and
+  otherwise to the Credit route. A Candidate holding a key may still run a
+  Session on Credits — the two routes send different keys, so the attached key
+  is left unused rather than billed alongside the ledger — while `byok` with no
+  active key is refused at start rather than quietly resolved to Credits.
+  Provider comes from the Session's chosen Provider, falling back to the next
+  live Provider **only at bind time**.
 - There is no `rebind` and no mid-Visit failover call. Its absence is the design
   (ADR-0004 provenance argument, PRD-0005).
 

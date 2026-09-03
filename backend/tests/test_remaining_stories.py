@@ -153,6 +153,34 @@ def test_a_provider_failure_mid_visit_parks_rather_than_switching(metered_deps):
     assert d.evidence.rows_for("c_pf") == []
 
 
+def test_a_rate_limited_platform_key_parks_rather_than_erroring(metered_deps):
+    """A 429 on the Credits route is the *platform's* key being throttled.
+
+    The `key_rate_limited` cause was only classifiable on BYOK, so on Credits
+    it fell through to a ValueError raised inside `_park_on_provider_failure`
+    — the one path whose whole job is to turn a provider failure into a pause.
+    A recoverable park became a 500, and the Candidate lost the Session to a
+    condition that clears by waiting.
+    """
+    d = metered_deps
+    d.credits.grant("c_rl", 50_000, "p")
+    r = SessionRunner(d)
+    mods = [m.module_id for m in d.corpus.modules("aiml")][:1]
+    sid, _ = r.start(candidate_id="c_rl",
+                     cfg=SessionConfig(scope_module_ids=tuple(mods),
+                                       duration_seconds=1800))
+
+    d.transport.fail_with = "key_rate_limited"
+    out = r.submit(sid, "an answer")
+
+    assert out.kind == "session_parked"
+    assert out.payload["recoverable"] is True
+    # Not their key and not their balance: neither is what ran out.
+    assert "your key" not in out.payload["message"].lower()
+    assert "credits have run out" not in out.payload["message"].lower()
+    assert d.sessions.get(sid)["parked_reason"] == "provider_failure"
+
+
 def test_the_pool_is_prefunded_ahead_of_receipts(clean_db):
     pool = PoolLedger(clean_db)
     assert pool.prefunded_for(10_000) is False

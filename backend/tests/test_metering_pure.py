@@ -108,6 +108,49 @@ def test_a_byok_failure_names_the_provider_and_the_reason(cause, code):
         assert "DeepSeek" in e.message
 
 
+@pytest.mark.parametrize("cause", [
+    Cause.KEY_REVOKED, Cause.KEY_UNFUNDED, Cause.KEY_RATE_LIMITED, Cause.KEY_INVALID,
+])
+def test_a_refused_key_on_the_credits_route_is_ours_not_theirs(cause):
+    """The `KEY_*` causes name the key that was refused, not whose it is.
+
+    On the Credits route the key is the platform's, so none of these may reach
+    a Candidate as advice about a key they do not hold — the mirror of the rule
+    that no BYOK failure may name Credits.
+    """
+    e = UserFacingEvent.of(route=Route.CREDITS, cause=cause, provider="DeepSeek")
+
+    assert e.code not in CREDIT_EVENTS, "their balance did not run out"
+    assert e.code.value.startswith("PROVIDER_") or e.code is Event.PLATFORM_KEY_MISSING
+    assert "your key" not in e.message.lower()
+    assert "your credits" not in e.message.lower()
+
+
+def test_a_rate_limited_platform_key_parks_rather_than_ending_the_session():
+    """Waiting fixes it, so the Candidate is told to wait.
+
+    This is the case that used to raise. The failure happened *inside* the
+    parking path, so a pause the product was designed to recover from became a
+    500 instead.
+    """
+    e = UserFacingEvent.of(
+        route=Route.CREDITS, cause=Cause.KEY_RATE_LIMITED, provider="DeepSeek"
+    )
+    assert e.recoverable
+    assert "DeepSeek" in e.message
+
+
+def test_every_cause_a_provider_can_raise_is_classifiable_on_the_credits_route():
+    """The transport raises these from status codes without knowing whose key
+    it used. Any one of them unclassified is a 500 in the parking path."""
+    from interviewer.adapters.openrouter import OpenRouterTransport  # noqa: F401
+
+    for cause in Cause:
+        if cause in (Cause.BALANCE_EXHAUSTED, Cause.BALANCE_EXHAUSTED_MID_VISIT):
+            continue  # the ledger raises these, not the provider
+        UserFacingEvent.of(route=Route.CREDITS, cause=cause, provider="DeepSeek")
+
+
 def test_exhaustively_no_byok_input_can_produce_a_credit_event():
     """The honesty rule as a property over the whole input space."""
     for cause in Cause:

@@ -197,16 +197,31 @@ def test_deleting_a_personal_corpus_behaves_exactly_as_before(client, real_notes
 
 # -- what shared is for ------------------------------------------------------
 
-def test_a_shared_corpus_is_visible_to_every_candidate(client, real_notes):
+def test_a_shared_corpus_reaches_everybody_without_being_in_anybodys_notebook(
+    client, real_notes
+):
+    """The fact this defends is unchanged: a shared Corpus is examinable by
+    every Candidate, and that is the whole reason it exists — Topic Confidence
+    is keyed on `topic_id`, so a shared Corpus is what makes two Candidates'
+    Mastery on a Topic the same measurement.
+
+    What moved is where they meet it. It is offered in the Session picker,
+    where a scope is chosen; it is not in their Notebook, which is their own
+    material and nobody else's (SPEC-0006). Listing it there put documents a
+    Candidate never uploaded beside the ones they did.
+    """
     notebook_id = _shared(client)
-    client.post(
+    module_id = client.post(
         f"/v1/operator/skills/{notebook_id}/sources",
         json={"title": "Attention", "text": real_notes}, headers=HDR,
-    )
+    ).json()["module_id"]
+
     for candidate in ("cand-a", "cand-b"):
-        listed = client.get(f"/v1/notebooks?candidate_id={candidate}").json()
-        assert [n["notebook_id"] for n in listed] == [notebook_id]
-        assert listed[0]["visibility"] == "shared"
+        with signed_in_client(candidate) as c:
+            assert c.get("/v1/notebooks").json() == []
+            assert c.get(f"/v1/notebooks/{notebook_id}").status_code == 404
+            modules = c.get("/v1/skills/modules").json()
+            assert module_id in {m["module_id"] for m in modules}
 
 
 def test_a_shared_corpus_appears_in_the_picker_for_everyone(client, real_notes):

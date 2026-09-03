@@ -75,6 +75,11 @@ class SourceOut(BaseModel):
     progress_total: int = 0
     # Whether a Session may be scoped to this document's Module.
     selectable: bool = False
+    # How many Topics this document was cut into. Served rather than derived:
+    # the surface used to work it out by joining the Module list against this
+    # row's `module_id`, which is the client computing something the server
+    # owns (ADR-0009).
+    topic_count: int = 0
     # How long the current ingest has been running, and how long since it last
     # moved. A worker that stalls inside a live process cannot be detected by a
     # deadline we invented, so both are reported and neither is judged.
@@ -92,15 +97,21 @@ class NotebookOut(BaseModel):
     # read-only to all of them; there is no field here that would let one be
     # created, which is why a Candidate cannot make one by accident.
     visibility: str = "personal"
+    #: When this Library was started, so a listing can order and date itself
+    #: without asking a second endpoint.
+    created_at: str | None = None
 
 
-def _out(record) -> NotebookOut:
+def _out(record, topic_counts: dict[str, int] | None = None) -> NotebookOut:
     return NotebookOut(
         notebook_id=record.notebook_id,
         candidate_id=record.candidate_id,
         title=record.title,
         embedding_model=record.embedding_model,
         visibility=record.visibility,
+        created_at=(
+            record.created_at.isoformat() if record.created_at is not None else None
+        ),
         sources=[
             SourceOut(
                 source_id=s.source_id,
@@ -111,6 +122,7 @@ def _out(record) -> NotebookOut:
                 progress_done=s.progress_done,
                 progress_total=s.progress_total,
                 selectable=s.selectable,
+                topic_count=(topic_counts or {}).get(s.source_id, 0),
                 elapsed_seconds=s.elapsed_seconds if s.ingesting else None,
                 since_progress_seconds=(
                     s.since_progress_seconds if s.ingesting else None
@@ -135,6 +147,29 @@ async def _reachable(
     return record
 
 
+async def _own(
+    notebook_id: str,
+    candidate_id: str,
+    notebook_service: AsyncNotebookService = Depends(get_async_notebook_service),
+):
+    """The Candidate's *own* Library, and a 404 for anything that is not.
+
+    `_reachable` lets a shared Corpus through on purpose, because a write to
+    one must refuse with a reason rather than pretend it is missing. A read is
+    the other way round: the Notebook screen is a Candidate's own material
+    (SPEC-0006), and a shared Skill is chosen where it is used — the Session
+    picker — so here it is simply not theirs.
+
+    The check is on the owner rather than on `visibility`: `PLATFORM_OWNER` is
+    a sentinel for who holds a platform Corpus, never a rule about who may
+    read one.
+    """
+    record = await notebook_service.store.get(notebook_id)
+    if record is None or record.candidate_id != candidate_id:
+        raise HTTPException(404, "unknown notebook_id")
+    return record
+
+
 @router.post("/notebooks", status_code=201, response_model=NotebookOut)
 async def create_notebook(
     body: NotebookIn,
@@ -152,9 +187,18 @@ async def list_notebooks(
     candidate_id: str = Depends(current_candidate),
     notebook_service: AsyncNotebookService = Depends(get_async_notebook_service),
 ) -> list[NotebookOut]:
-    """This Candidate's Library: their own Corpora, plus every shared one."""
-    records = await notebook_service.store.visible_to(candidate_id)
-    return [_out(r) for r in records]
+    """This Candidate's own Corpora, and nobody else's.
+
+    Not `visible_to`: a shared Skill is imported by an operator and chosen at
+    Session setup, where it is used. Listing it here made the Notebook screen
+    a place where material the Candidate never uploaded sat beside material
+    they did, with no way to tell which was which (SPEC-0006).
+    """
+    records = await notebook_service.store.for_candidate(candidate_id)
+    counts = await notebook_service.store.topic_counts(
+        [r.notebook_id for r in records]
+    )
+    return [_out(r, counts) for r in records]
 
 
 @router.get("/notebooks/{notebook_id}", response_model=NotebookOut)
@@ -164,7 +208,146 @@ async def read_notebook(
     notebook_service: AsyncNotebookService = Depends(get_async_notebook_service),
 ) -> NotebookOut:
     """One Library, with each document's state and progress."""
-    return _out(await _reachable(notebook_id, candidate_id, notebook_service))
+    record = await _own(notebook_id, candidate_id, notebook_service)
+    counts = await notebook_service.store.topic_counts([notebook_id])
+    return _out(record, counts)
+
+
+class SpanOut(BaseModel):
+    """Where a Topic was drawn from, addressed into the Source's own text.
+
+    `text[char_start:char_end]` is the passage exactly (`util/chunking_utils`),
+    which is what lets a surface show the material a Topic came from rather
+    than a paraphrase of it. The text itself is not repeated here: it is the
+    slice these offsets name, and carrying both would send the document twice.
+    """
+
+    chunk_id: str
+    page: int
+    char_start: int
+    char_end: int
+
+
+class TopicOut(BaseModel):
+    """One Topic this document was cut into, frozen at ingest (ADR-0015)."""
+
+    topic_id: str
+    title: str
+    topic_order: int
+    dossier_tokens: int
+    spans: list[SpanOut]
+
+
+class PageOut(BaseModel):
+    """A page boundary, in the same coordinate space as a span."""
+
+    number: int
+    char_start: int
+    char_end: int
+    anchor: str
+
+
+class SourceDetailOut(SourceOut):
+    """One document read back: what was extracted, and what became of it.
+
+    `text` is what one extractor made of the document and is a cache of it,
+    not the document — the bytes themselves are in the object store
+    (ISSUE-0033) and are not served here.
+
+    The Topics and their spans travel with it deliberately. The offsets are
+    only meaningful against one exact string, so a surface that fetched text
+    and spans separately could pair a highlight with a re-extracted text and
+    point at the wrong passage — silently, which is the one failure this
+    screen exists to prevent.
+    """
+
+    notebook_id: str
+    media_type: str
+    byte_length: int
+    text: str
+    pages: list[PageOut]
+    topics: list[TopicOut]
+
+
+@router.get(
+    "/notebooks/{notebook_id}/sources/{source_id}",
+    response_model=SourceDetailOut,
+)
+async def read_source(
+    notebook_id: str,
+    source_id: str,
+    candidate_id: str = Depends(current_candidate),
+    notebook_service: AsyncNotebookService = Depends(get_async_notebook_service),
+) -> SourceDetailOut:
+    """One document, its text, and the Topics cut out of it.
+
+    Every state answers. A document being read has text and no Topics yet; one
+    that carried no text says why and has neither; one whose embedding failed
+    has its text and no Topics. None of those is an error — a state is data,
+    and a document that vanished from this route would look like one that
+    never arrived.
+    """
+    record = await _own(notebook_id, candidate_id, notebook_service)
+    source = next(
+        (s for s in record.sources if s.source_id == source_id), None
+    )
+    if source is None:
+        raise HTTPException(404, "unknown source_id")
+
+    store = notebook_service.store
+    text = await store.source_text(notebook_id, source_id) or ""
+    topics = await store.topics_of_source(source_id)
+    spans = await store.spans_of_topics([t["topic_id"] for t in topics])
+
+    by_topic: dict[str, list[SpanOut]] = {}
+    for span in spans:
+        by_topic.setdefault(span["topic_id"], []).append(
+            SpanOut(
+                chunk_id=span["chunk_id"],
+                page=span["page"],
+                char_start=span["char_start"],
+                char_end=span["char_end"],
+            )
+        )
+
+    return SourceDetailOut(
+        source_id=source.source_id,
+        notebook_id=notebook_id,
+        module_id=source.module_id,
+        title=source.title,
+        state=source.state,
+        stub_reason=source.stub_reason,
+        progress_done=source.progress_done,
+        progress_total=source.progress_total,
+        selectable=source.selectable,
+        topic_count=len(topics),
+        elapsed_seconds=source.elapsed_seconds if source.ingesting else None,
+        since_progress_seconds=(
+            source.since_progress_seconds if source.ingesting else None
+        ),
+        media_type=source.media_type,
+        byte_length=source.byte_length,
+        text=text,
+        pages=[
+            PageOut(
+                number=p.number,
+                char_start=p.char_start,
+                char_end=p.char_end,
+                anchor=p.anchor,
+            )
+            for p in source.pages
+        ],
+        topics=[
+            TopicOut(
+                topic_id=t["topic_id"],
+                title=t["title"],
+                topic_order=t["topic_order"],
+                dossier_tokens=t["dossier_tokens"],
+                spans=by_topic.get(t["topic_id"], []),
+            )
+            for t in topics
+        ],
+    )
 
 
 async def _route_for(

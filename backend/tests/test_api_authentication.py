@@ -199,6 +199,13 @@ def test_a_shared_corpus_stays_readable_by_everyone(clean_db):
 
     A shared Corpus is the operator's to make — there is no field on the
     Candidate's route that would create one (ISSUE-0032).
+
+    Where it is *readable* moved. The Notebook routes are a Candidate's own
+    material now, so a shared Corpus is not there — but it is still served to
+    the operator who owns it, and still offered to every Candidate in the
+    Session picker. What has not moved is the refusal below: a write is
+    declined with a reason rather than pretended missing, and that is the
+    assertion this test was written for.
     """
     owner = signed_in_client("cand_owner")
     created = owner.post("/v1/operator/skills", json={"title": "Shared"},
@@ -207,6 +214,8 @@ def test_a_shared_corpus_stays_readable_by_everyone(clean_db):
     notebook_id = created.json()["notebook_id"]
 
     stranger = signed_in_client("cand_stranger")
-    assert stranger.get(f"/v1/notebooks/{notebook_id}").status_code == 200
+    assert stranger.get(f"/v1/notebooks/{notebook_id}").status_code == 404
+    assert owner.get(f"/v1/operator/skills/{notebook_id}",
+                     headers=OPERATOR).status_code == 200
     # and cannot be written to by anybody — the service refuses it, not the route
     assert stranger.delete(f"/v1/notebooks/{notebook_id}").status_code in (403, 409)

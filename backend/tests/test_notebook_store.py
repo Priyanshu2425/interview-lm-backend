@@ -177,3 +177,83 @@ def test_a_notebook_is_not_listed_for_another_candidate(
     # (ISSUE-0037), so a shared Library would show here and this deployment has
     # none.
     assert other.get("/v1/skills/modules").json() == []
+
+
+# -- reading one document back (the Notebook screen) -------------------------
+#
+# The screen shows a document's text beside the Topics cut from it, and
+# highlights where each Topic came from. These are the reads behind that, and
+# what they must not select matters as much as what they must.
+
+
+async def _store():
+    from interviewer.db.engine_async import async_db_context
+    from interviewer.repository.async_notebooks.store import AsyncNotebookStore
+
+    async with async_db_context() as session:
+        yield AsyncNotebookStore(session)
+
+
+async def test_the_topics_of_a_document_come_back_in_frozen_order(notebooks, notebook):
+    """`topic_order` is the order the clusterer settled on, and reading is rows
+    rather than maths (ADR-0015) — so the list is ordered by the column, never
+    re-derived."""
+    async for store in _store():
+        topics = await store.topics_of_source("s1")
+
+    assert len(topics) == notebook.topics
+    assert [t["topic_order"] for t in topics] == sorted(t["topic_order"] for t in topics)
+    assert all(t["title"] for t in topics)
+
+
+async def test_reading_topics_never_materialises_a_centroid(notebooks, notebook):
+    """768 floats per Topic that no screen can use. The enforcement is that the
+    column is absent from the result, not that a caller remembers to drop it."""
+    async for store in _store():
+        topics = await store.topics_of_source("s1")
+
+    assert topics
+    assert all("centroid" not in t and "chunk_hashes" not in t for t in topics)
+
+
+async def test_every_span_indexes_the_text_it_names(notebooks, notebook):
+    """The claim the whole screen is built on: `text[char_start:char_end]` is
+    the chunk exactly (`util/chunking_utils`). If this drifts, a Topic
+    highlights the wrong passage and nothing else fails."""
+    async for store in _store():
+        text = await store.source_text("nb-1", "s1")
+        topics = await store.topics_of_source("s1")
+        spans = await store.spans_of_topics([t["topic_id"] for t in topics])
+
+    assert text
+    assert spans
+    for span in spans:
+        assert 0 <= span["char_start"] < span["char_end"] <= len(text)
+        assert text[span["char_start"]:span["char_end"]].strip()
+
+
+async def test_spans_are_asked_for_by_topic_and_none_is_no_question(notebooks, notebook):
+    """`ix_chunk_topic` is the only index covering this, and an empty list is
+    answered without asking the database anything."""
+    async for store in _store():
+        assert await store.spans_of_topics([]) == []
+
+
+async def test_a_documents_text_is_scoped_to_its_own_notebook(notebooks, notebook):
+    """A source id guessed from somebody else's Library must not resolve, with
+    or without a route remembering to check."""
+    notebooks.create("nb-2", "cand-2", "Somebody else's")
+    async for store in _store():
+        assert await store.source_text("nb-1", "s1")
+        assert await store.source_text("nb-2", "s1") is None
+        assert await store.source_text("nb-1", "no-such-source") is None
+
+
+async def test_the_library_counts_topics_per_document(notebooks, notebook):
+    """So a listing can say what became of a document without the surface
+    joining two endpoints to work it out (ADR-0009)."""
+    async for store in _store():
+        counts = await store.topic_counts(["nb-1"])
+        assert await store.topic_counts([]) == {}
+
+    assert counts["s1"] == notebook.topics

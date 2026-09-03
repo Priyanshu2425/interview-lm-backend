@@ -93,6 +93,9 @@ class NotebookRecord:
     #: Discovery only. A disabled shared Corpus is still fully deletable and
     #: its Topics still fully readable — see `db/content.py`.
     active: bool = True
+    #: When this Library was started. Defaulted rather than required so every
+    #: existing caller keeps meaning what it meant.
+    created_at: object | None = None
 
     @property
     def shared(self) -> bool:
@@ -162,6 +165,7 @@ class NotebookStore:
                 visibility=row["visibility"],
                 provenance=_provenance_from(row["provenance"]),
                 active=bool(row["active"]),
+                created_at=row["created_at"],
             )
 
     def for_candidate(self, candidate_id: str) -> list[NotebookRecord]:
@@ -211,6 +215,7 @@ class NotebookStore:
                     visibility=r["visibility"],
                     provenance=_provenance_from(r["provenance"]),
                     active=bool(r["active"]),
+                    created_at=r["created_at"],
                 )
                 for r in rows
             ]

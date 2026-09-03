@@ -1,0 +1,80 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // The API with a reloader, for when you are editing rather than
+      // debugging. Breakpoints do not bind through the reloader — use the
+      // "API" launch configuration for those.
+      "label": "api: dev server",
+      "type": "shell",
+      "command": ".venv/bin/uvicorn interviewer.app:app --port 8000 --reload",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "INTERVIEWER_FAKE_MODEL": "1" }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "uvicorn",
+        "pattern": { "regexp": "^\\s*(ERROR.*)$", "message": 1 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Started server process.*",
+          "endsPattern": ".*Application startup complete.*"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      // The API with debugpy listening, so "Attach to a running API" can
+      // reach it while the reloader is still doing its job.
+      //
+      // Needs `.venv/bin/pip install debugpy` once; it is not a declared
+      // dependency of the project.
+      "label": "api: dev server (debuggable)",
+      "type": "shell",
+      "command": ".venv/bin/python -m debugpy --listen 5678 -m uvicorn interviewer.app:app --port 8000 --reload",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "INTERVIEWER_FAKE_MODEL": "1" }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "uvicorn",
+        "pattern": { "regexp": "^\\s*(ERROR.*)$", "message": 1 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Started server process.*",
+          "endsPattern": ".*Application startup complete.*"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": ".venv/bin/pytest -q",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      // Stop at the first failure, for a suite that is already red.
+      "label": "pytest: stop at first failure",
+      "type": "shell",
+      "command": ".venv/bin/pytest -x -q",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      // Is it up, and can it see the database? The one call that answers
+      // both, and the readiness the surface's proxy depends on.
+      "label": "api: health",
+      "type": "shell",
+      "command": "curl -s http://127.0.0.1:8000/v1/health && echo",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    }
+  ]
+}

@@ -102,12 +102,34 @@ class AsyncNotebookStore:
             visibility=row["visibility"],
             provenance=_provenance_from(row["provenance"]),
             active=bool(row["active"]),
+            created_at=row["created_at"],
         )
 
     async def _sources(self, notebook_id: str) -> tuple[SourceRecord, ...]:
         result = await self._s.execute(
             sa.select(
-                notebook_source,
+                # Named rather than `notebook_source` whole: the table carries
+                # the document's entire extracted text, and a listing that
+                # selects it drags every byte of every document through this
+                # process on every poll to build records that have no text
+                # field. `source_text()` is how one document's text is read.
+                notebook_source.c.source_id,
+                notebook_source.c.module_id,
+                notebook_source.c.title,
+                notebook_source.c.source_order,
+                notebook_source.c.state,
+                notebook_source.c.stub_reason,
+                notebook_source.c.media_type,
+                notebook_source.c.object_key,
+                notebook_source.c.byte_length,
+                notebook_source.c.structure,
+                notebook_source.c.track_key,
+                notebook_source.c.track_title,
+                notebook_source.c.pages,
+                notebook_source.c.progress_done,
+                notebook_source.c.progress_total,
+                notebook_source.c.started_at,
+                notebook_source.c.progress_at,
                 # Read from Postgres rather than from this process: the
                 # timestamps were written by that clock, and two clocks
                 # subtracted from each other is a duration nobody can defend.
@@ -165,6 +187,7 @@ class AsyncNotebookStore:
                 visibility=r["visibility"],
                 provenance=_provenance_from(r["provenance"]),
                 active=bool(r["active"]),
+                created_at=r["created_at"],
             )
             for r in rows
         ]
@@ -195,6 +218,7 @@ class AsyncNotebookStore:
                 visibility=r["visibility"],
                 provenance=_provenance_from(r["provenance"]),
                 active=bool(r["active"]),
+                created_at=r["created_at"],
             )
             for r in rows
         ]
@@ -468,6 +492,99 @@ class AsyncNotebookStore:
         rows = result.all()
         return {h: tuple(v) for h, v in rows}
 
+    # -- reading one document back ------------------------------------------
+    #
+    # What the Notebook screen shows: the text an extractor made of a document,
+    # the Topics cut from it, and where in the text each Topic was cut from.
+    # `text[char_start:char_end]` is the chunk exactly (`util/chunking_utils`),
+    # so these three reads describe one coordinate space and are only
+    # meaningful together.
+
+    async def source_text(self, notebook_id: str, source_id: str) -> str | None:
+        """The extracted text of one document, or None if it is not this one's.
+
+        Scoped by both ids rather than by `source_id` alone: a source id
+        guessed from somebody else's Library must not resolve, and a route
+        that forgot to check would otherwise be the only thing stopping it.
+
+        Deliberately not a field on `SourceRecord`: `_sources()` runs for every
+        notebook in a listing, and a `Text` column there means listing five
+        notebooks drags every byte of every document into this process to
+        render a page of titles.
+        """
+        result = await self._s.execute(
+            sa.select(notebook_source.c.text).where(
+                notebook_source.c.notebook_id == notebook_id,
+                notebook_source.c.source_id == source_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def topics_of_source(self, source_id: str) -> list[dict[str, Any]]:
+        """The Topics one document was cut into, in the order they were frozen.
+
+        Never selects `centroid`: it is 768 floats per row and no screen can
+        use it, so a UI read that materialises one is paying for a vector to
+        throw it away.
+        """
+        result = await self._s.execute(
+            sa.select(
+                notebook_topic.c.topic_id,
+                notebook_topic.c.module_id,
+                notebook_topic.c.title,
+                notebook_topic.c.topic_order,
+                notebook_topic.c.dossier_tokens,
+            )
+            .where(notebook_topic.c.source_id == source_id)
+            .order_by(notebook_topic.c.topic_order)
+        )
+        return [dict(r) for r in result.mappings()]
+
+    async def spans_of_topics(self, topic_ids: list[str]) -> list[dict[str, Any]]:
+        """Where each Topic was drawn from, as spans into its Source's text.
+
+        Queried by `topic_id` because `ix_chunk_topic` is the only index that
+        covers this — there is none on `notebook_chunk.source_id`.
+
+        Text only: a figure is anchored to a page rather than to a span of
+        prose (ADR-0017), so an image chunk has no range to highlight. The
+        chunk's own text is not selected because it *is* the slice the offsets
+        name, and sending it beside them would send the document twice.
+        """
+        if not topic_ids:
+            return []
+        result = await self._s.execute(
+            sa.select(
+                notebook_chunk.c.chunk_id,
+                notebook_chunk.c.topic_id,
+                notebook_chunk.c.page,
+                notebook_chunk.c.char_start,
+                notebook_chunk.c.char_end,
+            )
+            .where(
+                notebook_chunk.c.topic_id.in_(topic_ids),
+                notebook_chunk.c.modality == "text",
+            )
+            .order_by(notebook_chunk.c.char_start)
+        )
+        return [dict(r) for r in result.mappings()]
+
+    async def topic_counts(self, notebook_ids: list[str]) -> dict[str, int]:
+        """How many Topics each document produced, keyed by `source_id`.
+
+        One grouped query for a whole listing, so a Library can say what became
+        of a document without the surface joining two endpoints to work it out
+        — which is the surface deciding something the server owns (ADR-0009).
+        """
+        if not notebook_ids:
+            return {}
+        result = await self._s.execute(
+            sa.select(notebook_topic.c.source_id, sa.func.count())
+            .where(notebook_topic.c.notebook_id.in_(notebook_ids))
+            .group_by(notebook_topic.c.source_id)
+        )
+        return {source_id: int(n) for source_id, n in result.all()}
+
     # -- ownership, deletion, and the async half of upload ------------------
     #
     # Ingestion itself never runs here. `ingest_worker.py` always claims and
@@ -633,6 +750,7 @@ class AsyncNotebookStore:
                 visibility=r["visibility"],
                 provenance=_provenance_from(r["provenance"]),
                 active=bool(r["active"]),
+                created_at=r["created_at"],
             )
             for r in rows
         ]

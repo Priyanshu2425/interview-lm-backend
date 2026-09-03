@@ -1,0 +1,147 @@
+{
+  // Debugging the API. Open VS Code on `backend/` — every path here is
+  // relative to it.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // The API, under the debugger.
+      //
+      // Deliberately no `--reload`: the reloader runs the app in a child
+      // process the debugger never attached to, so breakpoints bind to
+      // nothing and appear simply not to work. Restart the session (⇧⌘F5)
+      // instead — or run the reloading server in a terminal and use
+      // "Attach to a running API" below.
+      //
+      // Port 8000 is what the surface's dev proxy expects. If something is
+      // already listening there this fails with "address already in use":
+      // stop that server first.
+      "name": "API",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["interviewer.app:app", "--port", "8000"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        // A scripted provider: deterministic, no network, real metering.
+        // Drop this to debug against a live provider.
+        "INTERVIEWER_FAKE_MODEL": "1"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      // The same, stepping into FastAPI, SQLAlchemy and LangGraph as well as
+      // our own code. Slower to start, and the only way to see why a request
+      // died inside somebody else's frame.
+      "name": "API (step into libraries)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["interviewer.app:app", "--port", "8000"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "INTERVIEWER_FAKE_MODEL": "1" },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // The API on a spare port, for poking at it while another instance
+      // holds 8000. The surface's proxy will not reach this one.
+      "name": "API (port 8001)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["interviewer.app:app", "--port", "8001"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "INTERVIEWER_FAKE_MODEL": "1" },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      // For a server already running with a reloader, started by the
+      // "api: dev server (debuggable)" task.
+      //
+      // That task is the one thing here that needs debugpy installed in the
+      // virtualenv — the launch configurations above do not, because the
+      // Python extension injects its own copy:
+      //
+      //   .venv/bin/pip install debugpy
+      //
+      // It is not in pyproject.toml, so this stays a local convenience
+      // rather than a dependency everybody acquires.
+      "name": "Attach to a running API",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "127.0.0.1", "port": 5678 },
+      "pathMappings": [
+        { "localRoot": "${workspaceFolder}", "remoteRoot": "${workspaceFolder}" }
+      ],
+      "justMyCode": true
+    },
+    {
+      // The whole suite. `tests/conftest.py` removes DATABASE_URL from the
+      // environment unless INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1, so no
+      // envFile is attached here — the suite is deliberately self-contained
+      // and must never be pointed at a real database by accident.
+      "name": "Pytest: everything",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "-q"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Pytest: this file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "-q", "${file}"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // Stops at the failing assertion of whichever test you name, rather
+      // than at the top of the file.
+      "name": "Pytest: this test (by name)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-x", "-q", "-k", "${input:testName}"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // Whatever module is open — the CLIs under `util/` and the corpus
+      // tools are all runnable this way.
+      "name": "Python: this file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "testName",
+      "type": "promptString",
+      "description": "Substring of the test name to run (pytest -k)",
+      "default": "test_"
+    }
+  ]
+}

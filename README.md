@@ -28,17 +28,19 @@ so it cannot be made by accident.
 
 ```
 backend/                 the backend, entire — its own root
-  src/interviewer/       the graph, the Judge, metering, the FastAPI app
-  tests/                 840 of them
-  scripts/               Corpus import, the scraper, embedding maintenance
-  deploy.sh              the deploy script — setup, update, status, logs
-  create_example_env.sh  generates a sample .env file (--local / --prod)
+  src/interviewer/       layered: routes, services, repositories, adapters
+  tests/                 1,087 of them
+  scripts/               Corpus import, embedding maintenance, dev sign-in
+  deploy.sh              the deploy script — setup, update, start, status, logs
+  create_example_env.sh  copies the right example env file into place
   Dockerfile             the image — its build context is backend/, not here
   requirements.txt       the runtime set, pinned
   requirements-dev.txt   that plus pytest and pillow
-  .env.example           every variable the code reads
+  .env.example           every variable the code reads, all fifty
   .env.prod.example      the eleven a deployment decides
-docs/                    26 ADRs, 5 PRDs, 5 specs, 37 slices
+scrape.mjs, login.mjs…   the Corpus scraper (ADR-0007). Node, and at the root
+                         because it is not the backend — the image never sees it
+docs/                    27 ADRs, 5 PRDs, 5 specs, 55 slices
 data/                    Corpus source material, ignored except its README
 ```
 
@@ -72,9 +74,10 @@ Python 3.12 or newer, Docker, and about two minutes.
 
 **The Postgres container below is local only.** Production is Neon and is
 covered under [Deploying](#deploying) — the two never swap. Local dev
-deliberately cannot reach the shared database: `conftest.py:24` strips
-`DATABASE_URL` before anything imports the engine, because 840 tests pointed at
-Neon would create schemas and insert rows on production.
+deliberately cannot reach the shared database: `backend/tests/conftest.py`
+rewrites `DATABASE_URL` to a local test database before anything imports the
+engine, because 1,087 tests pointed at Neon would create schemas and insert
+rows on production.
 
 ```bash
 git clone https://github.com/Priyanshu2425/interview-lm-backend.git
@@ -87,7 +90,15 @@ backend/.venv/bin/pip install -e backend                        # the package it
 docker run -d --name cortex-pg \
   -e POSTGRES_USER=cortex -e POSTGRES_PASSWORD=cortex -e POSTGRES_DB=cortex \
   -p 55432:5432 pgvector/pgvector:pg16
+docker exec cortex-pg createdb -U cortex cortex_test  # the one the suite owns
 ```
+
+**Two databases on that one container.** `cortex` is yours to develop against;
+`cortex_test` is the suite's, and it is not optional. Every fixture truncates,
+so a suite run against `cortex` empties the database you are signed into in
+another window — the damage reads later as "why am I being asked to onboard
+again". `conftest.py` redirects to `cortex_test` rather than merely refusing
+Neon, which is the fix for exactly that.
 
 `requirements.txt` is the runtime set the image installs, pinned to the
 versions the suite passes against; `requirements-dev.txt` is that plus pytest.
@@ -102,7 +113,7 @@ builds every schema it needs, and there are no migrations to replay —
 Then:
 
 ```bash
-backend/.venv/bin/python -m pytest backend/tests -q            # 840 tests, ~100s
+backend/.venv/bin/python -m pytest backend/tests -q         # 1,087 tests
 backend/.venv/bin/uvicorn interviewer.app:app --port 8000  # the API
 ```
 
@@ -169,18 +180,21 @@ One script handles everything — no separate deploy directory:
 ```bash
 git clone https://github.com/Priyanshu2425/interview-lm-backend.git /opt/interview-lm
 cd /opt/interview-lm
-sudo backend/create_example_env.sh --prod   # generate backend/.env
-sudo $EDITOR backend/.env                    # fill in real values
+sudo backend/create_example_env.sh --prod   # copies .env.prod.example → .env
+sudo $EDITOR backend/.env                   # fill in real values
 sudo backend/deploy.sh setup --prod         # build, install systemd + logrotate
 ```
 
 For local/staging:
 
 ```bash
-sudo backend/create_example_env.sh --local  # generate backend/.env.local
+sudo backend/create_example_env.sh --local  # copies .env.example → .env.local
 sudo $EDITOR backend/.env.local             # fill in real values
 sudo backend/deploy.sh setup --local        # uses backend/.env.local
 ```
+
+The mode names the env file, and the installed service is written against that
+name — so the two can sit on one box without reading each other's file.
 
 Subsequent updates:
 
@@ -239,7 +253,7 @@ Most of the guarantees above are constraints and static checks rather than
 conventions: one Visit yields one Evidence row by unique index, Evidence is
 append-only because no UPDATE reaches it, a Session cannot advance past an
 unresolved Visit because of a partial unique index, and the build fails if
-anything outside `metering/` imports an HTTP client. `backend/README.md` lists
+anything outside `service/metering/` constructs a provider client. `backend/README.md` lists
 them. `docs/STORY-COVERAGE.md` maps all 191 user stories to a module and a
 test, and `test_story_coverage.py` verifies that map on every run — so the
 claim fails loudly if a PRD gains a story nothing implements.

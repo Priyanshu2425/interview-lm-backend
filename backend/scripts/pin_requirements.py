@@ -4,7 +4,7 @@
 `pyproject.toml` declares only the dependencies the Notebook Adapter cannot
 work without, and says outright that the rest of the runtime is the
 deployment's business. This is the deployment's business, written down: the
-image installs exactly what 840 passing tests ran against.
+image installs exactly what the passing suite ran against.
 
 Runtime only. The test dependencies are pinned separately in
 `requirements-dev.txt`, because a test runner carried by every container for

@@ -10,36 +10,64 @@ here, and the Docker build context is this directory:
 ```
 backend/
   src/interviewer/     the packages, listed under Layout below
-  tests/               840, run from the repository root
+  tests/               1,087, run from the repository root
   scripts/             the tooling — see below
+  knowledge/           notes kept where they were written: the schema, and
+                       what serving the surface from here would take
+  deploy.sh            the whole deployment — setup, update, start, status, logs
+  create_example_env.sh  puts the right example env file in place before setup
   Dockerfile           built as `docker build backend/`
   .dockerignore        what to keep out of the context
   pyproject.toml       what the Notebook Adapter cannot work without
   requirements.txt     the runtime set the image installs, pinned
   requirements-dev.txt  that plus pytest and pillow
-  .env.example         all thirty-six variables the code reads
+  .env.example         every variable the code reads, all fifty
   .env.prod.example    the eleven a deployment decides
-  package.json         playwright, for the Node scrapers in scripts/
+  package.json         playwright, for the Node scrapers at the repository root
 ```
 
 Everything in `scripts/` is run **from the repository root**, not from here —
-the scrapers address `data/` and `.auth/` relative to the working directory:
+the tooling addresses `data/`, `backend/.env` and `.auth/` relative to the
+working directory:
 
-| | |
+| `backend/scripts/` | |
 |---|---|
-| `import_corpus.py` | **deprecated** — a conformant Corpus into Postgres. Resumable, no-op per Module on a re-run. Create and populate a shared Skill through the admin dashboard instead; this script still backs bulk structured loads via `POST /operator/skills/{id}/import` |
+| `import_corpus.py` | **deprecated** — a conformant Corpus into Postgres. Resumable, no-op per Module on a re-run. Create and populate a shared Skill through the admin dashboard instead; this script still backs bulk structured loads via `POST /v1/operator/skills/{id}/import` |
 | `pin_requirements.py` | regenerates `requirements.txt` from the environment the suite passes in |
+| `reset_core.py` | drops and rebuilds the `core` schema. It destroys Evidence, so it asks twice — `INTERVIEWER_ALLOW_DESTRUCTIVE_RESET=1` and `--confirm-host`, the host read off the DSN rather than from memory |
 | `reset_embeddings.py` | re-embeds every notebook with the configured provider |
 | `publish_model.py` | a Hugging Face checkpoint to the bucket, so a boot needs no hub |
+| `dev-auth-setup.sh` | makes a machine able to sign in against Gatehouse locally |
+
+The Node scrapers are **at the repository root**, not under `backend/`, because
+they are not the backend: they produce `data/`, and the image's build context
+does not reach them (ADR-0007, ADR-0009). `backend/package.json` carries their
+one dependency.
+
+| repository root | |
+|---|---|
 | `scrape.mjs` | the InterviewLM Corpus Adapter (ADR-0007). Node, and not ported (ADR-0009) |
 | `login.mjs`, `recon.mjs`, `api-probe.mjs`, `verify.mjs` | the scraper's supporting tools |
 | `ingest-transcripts.mjs` | fills stub Classes from `data/pending-transcripts.json` |
-| `dev-auth-setup.sh` | makes a machine able to sign in against Gatehouse locally |
 
 `deploy.sh` (this directory) handles everything: deployment via systemd
-(`setup`, `update`) and local container management (`start`, `stop`, `status`,
-`logs`). It embeds the systemd unit and logrotate config so no other directory
-is needed. `create_example_env.sh` generates sample env files before setup.
+(`setup`, `update`) and local container management (`build`, `start`, `stop`,
+`status`, `logs`). It embeds the systemd unit and the logrotate config, so no
+other directory is needed and there is nothing to keep in step with it.
+
+The env file is named by the mode and the service is installed against that
+name, so a `--local` service and a `--prod` service on one box do not read each
+other's file:
+
+| | env file | from |
+|---|---|---|
+| `deploy.sh setup --prod` | `backend/.env` | `.env.prod.example` — the eleven a deployment decides |
+| `deploy.sh setup --local` | `backend/.env.local` | `.env.example` — every variable, with its default |
+
+`create_example_env.sh --prod` and `--local` copy the matching example into
+place. It copies rather than generating its own template: a third listing of
+the variables is a third listing to keep true, and the two examples are the
+ones the code is read against.
 
 ## Running it locally
 
@@ -52,10 +80,18 @@ backend/.venv/bin/pip install -r backend/requirements-dev.txt
 backend/.venv/bin/pip install -e backend
 docker run -d --name cortex-pg -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cortex \
   -e POSTGRES_DB=cortex -p 55432:5432 pgvector/pgvector:pg16
+docker exec cortex-pg createdb -U cortex cortex_test        # the suite's own
 
-backend/.venv/bin/python -m pytest backend/tests -q           # 840 tests, ~100s
-backend/.venv/bin/uvicorn interviewer.app:app --port 8000 # the API
+backend/.venv/bin/python -m pytest backend/tests -q         # 1,087 tests
+backend/.venv/bin/uvicorn interviewer.app:app --port 8000   # the API
 ```
+
+**Two databases on the one container, and the second is not optional.** The
+suite runs against `cortex_test` and every fixture truncates — so pointing it
+at `cortex` empties the development database a developer is signed into in
+another window, and the damage reads later as "why am I being asked to onboard
+again". `INTERVIEW_LM_TEST_DATABASE_URL` names a different one if you want it
+elsewhere.
 
 The container keeps the name it was created with. It is local scratch: drop it
 and re-create it whenever, the suite builds every schema it needs.
@@ -107,10 +143,13 @@ creating schemas on the shared instance before anyone noticed.
 
 What guards you, and what does not:
 
-- **The test suite is pinned.** `backend/tests/conftest.py` clears
-  `DATABASE_URL`, `GRAPH_DATABASE_URL` and `INTERVIEW_LM_DATABASE_URL` before
-  anything imports the engine. `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the
-  deliberate way past it.
+- **The test suite is pinned, and it is pinned by redirection.**
+  `backend/tests/conftest.py` drops `GRAPH_DATABASE_URL` and
+  `INTERVIEW_LM_DATABASE_URL` and *sets* `DATABASE_URL` to `cortex_test`, before
+  anything imports the engine. Merely clearing it was half a guard: it stopped
+  the tests reaching Neon and then let them fall through to the development
+  database, which the fixtures then truncated.
+  `INTERVIEW_LM_TEST_ALLOW_REMOTE_DB=1` is the deliberate way past it.
 - **Nothing reads `.env` on its own.** No `load_dotenv` anywhere. It reaches a
   process through `uvicorn --env-file` or `docker run --env-file`, and through
   nothing else.
@@ -171,18 +210,41 @@ invocation is what keeps it from applying to the next one.
 
 ## Layout
 
-The packages under `src/interviewer/`:
+`src/interviewer/` is layered, and the layer is the directory (ADR-0027). A
+name says which layer a file is in before it says what it does, so the import
+direction is readable from the path alone: routes call services, services call
+repositories, repositories are the only things that touch a table, and
+`adapters/` is where every foreign system is spoken to.
+
+| Directory | Owns |
+|---|---|
+| `app.py`, `wiring.py`, `deps.py`, `deps_async.py` | the composition root — the app, and what is handed to what |
+| `config/` | every environment variable, read once, defaults in code |
+| `routes/v1/` | the HTTP surface: skills, sessions, candidate, notebooks, operator, health |
+| `model/` | the request and response shapes, one file per subject |
+| `service/` | the business logic, listed below |
+| `repository/` | data access. `async_*` is the request path; `core/` is the sync one the graph runs on |
+| `db/` | the schemas themselves, and the engines — `core`, `content`, and the graph checkpointer's |
+| `adapters/` | the foreign systems, one file each: `openrouter.py`, `gatehouse.py`, `s3.py` (ADR-0027) |
+| `middleware/` | rate limiting, request logging, security headers |
+| `security/` | token verification, and who the caller is |
+| `mcp/` | the tool surface and the invariants that survive it (PRD-0004, ADR-0006) |
+| `exception/`, `util/` | the failure vocabulary, and the small shared functions |
+| `ingest_worker.py` | ingest, in a thread, in this process — SPEC-0000 refuses a queue |
+
+And the packages under `service/`, which are where the product actually lives:
 
 | Package | Owns | Decided by |
 |---|---|---|
-| `corpus/` | the Adapter contract, the Dossier Loader, conformance | PRD-0001, ADR-0005, ADR-0007 |
-| `confidence/` | Beta math, the Evidence Floor, the stores, selection | PRD-0002, ADR-0003, ADR-0004 |
+| `corpus/` | the Adapter contract, the Dossier Loader, conformance, the Notebook sources | PRD-0001, ADR-0005, ADR-0007 |
+| `confidence/` | Beta math, the Evidence Floor, selection | PRD-0002, ADR-0003, ADR-0004 |
 | `graph/` | the state machine, ports, the Session runner | PRD-0003, ADR-0001, ADR-0011 |
 | `judge/` | the blind Judge, the Question Writer, the agentic region, re-judging | ADR-0002 |
 | `metering/` | the chokepoint, credits, key custody, the operator readings | PRD-0005, ADR-0008, ADR-0013, ADR-0014 |
-| `mcp/` | the tool surface and the invariants that survive it | PRD-0004, ADR-0006 |
-| `identity/` | Candidates, and the indirection to an IdP | ADR-0012 |
-| `db/` | the `core` schema; `graph` belongs to the checkpointer | ADR-0010, SPEC-0002 |
+| `notebooks/` | a Candidate's own material: upload, ingest, reading, citations | ADR-0017, ISSUE-0033 |
+| `embeddings/` | the provider registry — `hashing`, `siglip`, `http`, `openrouter` | ADR-0019 |
+| `identity/` | Candidates, and the indirection to an IdP | ADR-0012, ADR-0026 |
+| `ending_service.py` | the one reading a Session ends with | ISSUE-0045 |
 
 ## Where the design is enforced rather than described
 
@@ -199,7 +261,7 @@ Most of the guarantees are constraints and static checks, not conventions:
 - **Evidence is append-only** — no UPDATE or DELETE reaches it.
 - **A posterior cannot fall below the prior** — `CHECK (alpha >= 1 AND beta >= 1)`.
 - **An unmetered call is impossible** — `test_architecture.py` fails the build if
-  anything outside `metering/` imports an HTTP client.
+  anything outside `service/metering/` constructs a provider client.
 - **Coverage and Mastery never fuse** — there is no function or response field
   that returns them combined. The rule is an absent API.
 - **No Credit message can reach a BYOK Candidate** — checked exhaustively over

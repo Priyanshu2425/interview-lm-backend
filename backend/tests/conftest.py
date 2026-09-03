@@ -8,7 +8,7 @@ import pytest
 #
 # `make_engine()` with no argument reads DATABASE_URL, so an exported one — the
 # shared Neon URL this repo is provisioned on, say, exported to run an import —
-# would silently point all 780 tests at production. They create schemas, insert
+# would silently point the whole suite at production. They create schemas, insert
 # eight hundred rows and drop what they made. This is not hypothetical: it
 # happened to `cltv` on the same database.
 #

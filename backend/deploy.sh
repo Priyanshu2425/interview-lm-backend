@@ -8,14 +8,15 @@
 #   sudo backend/deploy.sh setup --local   # first deploy, local env
 #   sudo backend/deploy.sh setup --prod    # first deploy, production env
 #   sudo backend/deploy.sh update          # pull + rebuild + restart
-#   sudo backend/deploy.sh start           # run the container locally (no systemd)
+#   sudo backend/deploy.sh start [--local] # run the container locally (no systemd)
 #   sudo backend/deploy.sh stop            # stop the local container
 #   sudo backend/deploy.sh status          # service state + health check
 #   sudo backend/deploy.sh logs            # tail the live log
 #
-# Env files (create with create_example_env.sh before running setup):
-#   --local  → backend/.env.local
-#   --prod   → backend/.env
+# Env files. `create_example_env.sh` copies the matching example into place;
+# the mode picks both the file and the example it comes from:
+#   --local  → backend/.env.local, from backend/.env.example
+#   --prod   → backend/.env,       from backend/.env.prod.example
 #
 # Can be run from anywhere inside the repo — it cd's to the root.
 
@@ -79,8 +80,12 @@ run_container() {
 # Write the systemd unit (embedded, no deploy/ folder needed)
 # ---------------------------------------------------------------------------
 
+# The env file is a parameter, not an assumption. `setup --local` used to
+# install a unit pointing at backend/.env while the flag said .env.local — the
+# service then ran on whichever file happened to be there, and the mode flag
+# only affected the check that one existed.
 write_systemd_unit() {
-  local env_path="${INSTALL_DIR}/backend/.env"
+  local env_path="${INSTALL_DIR}/${1:?env file required}"
 
   cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<UNIT
 # InterviewLM API — managed by deploy.sh. Do not edit by hand.
@@ -189,7 +194,7 @@ cmd_setup() {
   docker build -t "$IMAGE" backend/
 
   info "Writing systemd unit"
-  write_systemd_unit
+  write_systemd_unit "$ENV_FILE"
 
   info "Writing logrotate config"
   write_logrotate
@@ -260,6 +265,16 @@ cmd_build() {
 # ---------------------------------------------------------------------------
 
 cmd_start() {
+  # Same flags as setup, and for the same reason: which env file runs is a
+  # decision, never whichever one is on disk. Bare `start` is the prod file,
+  # which is what a box that has only ever been deployed to has.
+  local env_file
+  case "${1:-}" in
+    --local) env_file="backend/.env.local" ;;
+    --prod|"") env_file="backend/.env"     ;;
+    *) die "usage: deploy.sh start [--local | --prod]" ;;
+  esac
+
   # Build if the image doesn't exist yet
   if ! docker image inspect "$IMAGE" &>/dev/null; then
     cmd_build
@@ -267,7 +282,7 @@ cmd_start() {
 
   # Stop any existing container with the same name
   docker rm -f "$CONTAINER" 2>/dev/null || true
-  run_container "backend/.env"
+  run_container "$env_file"
 }
 
 # ---------------------------------------------------------------------------
@@ -335,9 +350,9 @@ First deploy (requires an env file — create one first):
   setup --local     Deploy with backend/.env.local
   setup --prod      Deploy with backend/.env
 
-  No env file yet? Generate one:
-    backend/create_example_env.sh --local   → creates backend/.env.local
-    backend/create_example_env.sh --prod    → creates backend/.env
+  No env file yet? Copy the matching example into place:
+    backend/create_example_env.sh --local   → backend/.env.local
+    backend/create_example_env.sh --prod    → backend/.env
   Then edit it with your real values before running setup.
 
 Build:
@@ -347,7 +362,8 @@ Ongoing:
   update            Pull latest, rebuild image, restart, health check
 
 Local development (no systemd):
-  start             Build (if needed) and run the container locally
+  start [--local]   Build (if needed) and run the container locally.
+                    --local uses backend/.env.local; bare start uses backend/.env
   stop              Stop the local container
 
 Observability:
@@ -372,7 +388,13 @@ Examples:
   sudo backend/deploy.sh update
 
   # Run locally without systemd
-  backend/deploy.sh start
+  backend/deploy.sh start --local
+
+Health:
+  /v1/health/live   liveness. Point supervisors and uptime monitors here — it
+                    touches no database, so a check on a timer costs nothing.
+  /v1/health        readiness. Reads a row, and so wakes Neon's compute. Ask it
+                    by hand.
 EOF
   exit 0
 }
@@ -389,7 +411,10 @@ case "${1:-}" in
   --help|-h|help) usage ;;
   build)  cmd_build  ;;
   update) cmd_update ;;
-  start)  cmd_start  ;;
+  start)
+    shift || true
+    cmd_start "$@"
+    ;;
   stop)   cmd_stop   ;;
   status) cmd_status ;;
   logs)   cmd_logs   ;;

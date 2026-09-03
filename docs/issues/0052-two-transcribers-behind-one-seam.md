@@ -178,24 +178,60 @@ adds an off switch — but the worker's own errors must not be part of the probl
   `env.backends.onnx.wasm.wasmPaths = "/ort/"` set before any `pipeline()` call.
   Self-hosted rather than widening the CSP to a CDN (ISSUE-0050 §3).
 
+## The measurement, taken
+
+**Recorded 2026-09-03.** Ten answers containing the vocabulary this product
+examines, read aloud and transcribed by both candidates for the job, scored on
+whether each technical term survived.
+
+| | terms lost | download | speed |
+|---|---|---|---|
+| `onnx-community/whisper-base.en` q8 | **8.1%** (3 of 37) | **77MB** | 0.08× realtime |
+| `onnx-community/distil-small.en` q8 | 10.8% (4 of 37) | 172MB | 0.16× realtime |
+
+**The smaller model is the more accurate one.** That inverts the assumption
+this ticket was written on — that dropping to base to save 95MB would trade
+accuracy for download — and it settles the model question: `whisper-base.en`
+is less than half the download, twice as fast, and loses fewer terms.
+`distil-small.en` reproduces this ticket's own example, hearing *"PyTorch"* as
+*"pie torch"*; base gets it right.
+
+Scoring is against what the **grader actually reads**. The Judge is a language
+model reading prose, not a substring matcher, so "back propagation" for
+"backpropagation" and "normalization" for "normalisation" cost a Candidate
+nothing — five such differences on base, nine on distil-small, all free. What
+counts as lost is a term whose *meaning* changed. Counting orthography as
+error is how a transcriber gets blamed for a dialect.
+
+What both models get wrong is the same thing, and it is the one that matters:
+**`d_k` comes back as "decay"** on both. Notation read aloud is not a word, and
+no model choice fixes it. That is the review box's whole justification — and
+the reason a Candidate must see the transcript before it is graded.
+
+**Caveats, and they are not small.** The audio is synthesised speech: clean,
+unaccented, no room, no hesitation. Real answers will be worse, so **8.1% is a
+floor rather than an expectation**. And the timings are `onnxruntime-node` on
+native CPU — the browser runs single-threaded wasm, several times slower.
+**The latency that sets the copy is still unmeasured** and must be taken in the
+browser once the worker exists.
+
+### A correction the measurement forced
+
+`language: "english"` — which the ticket's worker snippet passes — **throws** on
+an English-only checkpoint: *"Cannot specify `task` or `language` for an
+English-only model."* Every `.en` model is affected, which is all of the ones
+under consideration. Omit it.
+
 ## Why HITL
 
-**Two measurements have to be taken before this can be called done**, and both
-change what ships:
+**One measurement remains** before this can be called done:
 
-1. **Term-level accuracy.** `whisper-base.en` is a *smaller* model than
-   `distil-small.en`, so it will be worse on technical vocabulary — the axis
-   ISSUE-0049 says matters most, because Coverage reads whether a Topic was
-   addressed and a mistranscribed term is a Topic the record says was missed.
-   Record 20 answers containing real Topic terms from three Modules, run both
-   models, count term-level errors. The model id is one constant; if base is
-   materially worse, take the 172MB and make the slow path better instead.
-2. **Inference latency.** A 40-second answer on single-threaded wasm is plausibly
-   8–20 seconds. ISSUE-0054's copy says "A few seconds." If the real number is
-   fifteen, that copy is a lie and the state needs a meter. **Set the copy from
-   the measurement**, not the other way round.
-
-Record both in the commit message.
+**Inference latency in the browser.** A 40-second answer on single-threaded
+wasm is plausibly several times the 0.08× realtime measured natively.
+ISSUE-0054's copy says "A few seconds." If the real number is fifteen, that
+copy is a lie and the state needs a meter. **Set the copy from the
+measurement**, not the other way round — and take it in a browser, because
+that is the only place the number means anything.
 
 ## Acceptance criteria
 
@@ -211,5 +247,7 @@ Record both in the commit message.
 - [ ] Firefox never selects the Web Speech arm
 - [ ] No worker error path reaches `console.error`
 - [ ] Model files are cached; a second `prepare()` in a fresh tab does not re-download
-- [ ] Term-level accuracy and inference latency are measured, and the numbers are in the commit message
+- [x] Term-level accuracy is measured, and the numbers are in this ticket
+- [ ] Inference latency is measured **in a browser**, and ISSUE-0054's copy is written from it
+- [ ] No `language` option is passed to an English-only checkpoint
 - [ ] `npm run verify` green

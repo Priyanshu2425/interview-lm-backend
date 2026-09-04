@@ -50,10 +50,37 @@ one dependency.
 | `login.mjs`, `recon.mjs`, `api-probe.mjs`, `verify.mjs` | the scraper's supporting tools |
 | `ingest-transcripts.mjs` | fills stub Classes from `data/pending-transcripts.json` |
 
-`deploy.sh` (this directory) handles everything: deployment via systemd
-(`setup`, `update`) and local container management (`build`, `start`, `stop`,
-`status`, `logs`). It embeds the systemd unit and the logrotate config, so no
-other directory is needed and there is nothing to keep in step with it.
+`deploy.sh` (this directory) is the deployment: the service via systemd
+(`setup`, `update`, `restart`, `stop`) and the container by hand (`build`,
+`start`, `status`, `logs`). It embeds the systemd unit and the logrotate
+config, so no other directory is needed and there is nothing to keep in step
+with it.
+
+`update` rolls back. It records the commit that was serving, and if the new one
+does not answer `/v1/health/live` within thirty seconds it resets to the old
+one, rebuilds and restarts — a deploy that fails at 2am fails back to something
+that worked, and what went wrong is still in `journalctl`.
+
+### The reverse proxy
+
+**`deploy.sh` does not make the API reachable, and is not trying to.** The
+container publishes to `127.0.0.1:8000` and nothing else. **Caddy** is what
+faces the world: it terminates TLS, serves the built surface and proxies `/v1`
+to that port, which is the same-origin shape SPEC-0000 §7 describes and why
+`ALLOWED_ORIGINS` is empty in production.
+
+That config is not embedded here on purpose. The certificate and the domain
+outlive any one deploy, and a script rewriting the proxy on every `update`
+could take the site down while shipping a backend change. It is configured once
+on the box, and `caddy validate` and `systemctl status caddy` are how it is
+checked — not this script.
+
+**TLS is load-bearing, not decoration.** A Candidate answers out loud
+(ISSUE-0049) and `getUserMedia` is refused outside a secure context, so an API
+reached over plain HTTP has no microphone and nothing on screen saying why. The
+CSP that lets the transcriber compile its WebAssembly is emitted by this API
+(`middleware/security_headers.py`) — so whatever Caddy serves the surface
+from has to carry the same policy, or the microphone fails there instead.
 
 The env file is named by the mode and the service is installed against that
 name, so a `--local` service and a `--prod` service on one box do not read each

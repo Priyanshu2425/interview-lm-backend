@@ -216,11 +216,20 @@ The shape, and why each piece is where it is:
 - **Database** — Neon, deliberately not on this box. It holds Evidence,
   Evidence outlives any one deployment (ADR-0003), and a database on the
   machine it serves dies when you rebuild the machine.
-- **Surface** — nginx serves the built `dist/` and proxies `/v1` to the API, so
+- **Reverse proxy** — Caddy, and it is what makes the API reachable at all:
+  the container publishes to `127.0.0.1:8000` and nothing else. Caddy
+  terminates TLS, serves the built `dist/` and proxies `/v1` to the API, so
   there is one origin and no CORS to configure. That is SPEC-0000 §7's original
   design; ADR-0020 reversed it only because a CDN forces a second origin, and
   records that `ALLOWED_ORIGINS` and `VITE_API_URL` empty is the single-origin
   deployment exactly as it was.
+
+  `deploy.sh` deliberately does not write that config. The certificate and the
+  domain outlive any one deploy, and a script that rewrote the proxy on every
+  `update` could take the site down while shipping a backend change.
+- **TLS** — Caddy's, and not optional. A Candidate answers out loud
+  (ISSUE-0049) and `getUserMedia` is refused outside a secure context, so an
+  API reached over plain HTTP has no microphone and no visible reason why.
 - **Documents** — Cloudflare R2, on every production deployment. Local disk is
   permitted by the code and is what development uses, but since ISSUE-0033 the
   stored document is the only copy of what a Candidate handed over, and on one

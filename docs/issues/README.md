@@ -158,11 +158,16 @@ and is not deleted when the surface lands — it is what `0020` compares against
 
 ## Not in this set
 
-Screens 06 (code editor) and 07 (voice) in `design-system/` are **future surfaces**.
-SPEC-0003 gives them no endpoints, and they are deliberately absent here so
-nobody builds them by momentum. The code editor would arrive as an additive
-fourth Grading Mode rather than a rewrite; voice needs the Answer Turn boundary
-problem solved first.
+Screen 06 (code editor) in `design-system/` is a **future surface**. SPEC-0003
+gives it no endpoint, and it is deliberately absent here so nobody builds it by
+momentum. It would arrive as an additive fourth Grading Mode rather than a
+rewrite.
+
+Screen 07 (voice) was in this paragraph until ISSUE-0049, on the grounds that
+voice "needs the Answer Turn boundary problem solved first". It was solved by
+variant A: the boundary is the Candidate pressing submit on a transcript they
+have read, which is the same boundary text already had. Built across
+ISSUE-0050–0055.
 
 Payment processing is out of scope throughout. PRD-0005's boundary is a
 *payment cleared* event in, a grant out.

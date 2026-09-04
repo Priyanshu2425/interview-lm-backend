@@ -1,6 +1,6 @@
 # ISSUE-0050 — Spoken reaches the record, and the clock starts when the interview does
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ISSUE-0049
 Covers: the API and the schema learning that an answer can be spoken, and the

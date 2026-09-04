@@ -1,9 +1,48 @@
 # ISSUE-0049 — The answer is spoken
 
-Status: proposed — needs a human signature on §"Two decisions that are not ours"
+Status: **resolved** — built across ISSUE-0050, 0051, 0052, 0053, 0054, 0055
 Type: surface
 Source: none — asked for directly
 Covers: how a Candidate gives an Answer Turn
+
+> ## What this document got wrong
+>
+> Kept rather than corrected in place, because the corrections are the useful
+> part: each one was found by building the thing, and the next person to
+> propose a browser-side model should not have to re-derive them.
+>
+> * **The model is 172MB, not 60MB.** The figure appears four times below and
+>   is wrong every time. It was copied from a model card for a different
+>   quantisation and then repeated between three documents. `/session/setup`
+>   computes the number from the bytes that actually arrive, so it cannot drift
+>   again (ISSUE-0053).
+> * **The repository named below does not exist.** The one that does is
+>   resolved in `features/dictation/whisper/`, and ISSUE-0052 records which and
+>   why.
+> * **`webgpu` + `q8` is broken.** The combination produces garbage output, not
+>   an error, which is the worst way for it to fail. ISSUE-0052 measured it and
+>   settled the device and quantisation question.
+> * **Per-word confidence is not available.** Transformers.js does not expose
+>   per-token scores through the pipeline this uses, so "low-confidence words
+>   marked" — below, twice — describes a measurement the surface cannot get.
+>   `ReviewBox` claims only what is true instead (ISSUE-0054).
+> * **Transcription is slower than "a few seconds".** Measured at 0.37–0.45×
+>   realtime: a forty-second answer is fifteen to twenty seconds of waiting.
+>   The copy says so now, because a false wait is worse than a long one.
+> * **The clock started at `POST /sessions`**, not at the first question, so
+>   everything below about setup happening "before the clock" was describing a
+>   deadline that was already running. ISSUE-0050 split `POST
+>   /v1/sessions/{id}/begin` out to make it true.
+> * **The Web Speech arm cannot claim the audio stays on the machine.** It is
+>   sent to the browser's vendor to be transcribed. `privacyLine` names the
+>   engine that actually ran, in the composer and on the setup screen
+>   (ISSUE-0052, 0053, 0054).
+>
+> The Answer Turn boundary question — recorded in `CONTEXT.md` as "pauses are
+> not endings, and barge-in means the boundary can move backwards" — was
+> answered by not inferring the boundary from the audio at all. The Candidate
+> stops the recording, reads the transcript, and submits. Pauses end nothing,
+> and there is no barge-in, because the examiner does not speak.
 
 > **Prototypes**, both `?variant=A|B|C` with every state on the keys `1`–`0`:
 >

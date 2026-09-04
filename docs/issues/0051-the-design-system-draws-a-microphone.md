@@ -1,6 +1,6 @@
 # ISSUE-0051 — The design system draws a microphone
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ISSUE-0049
 Covers: the tokens, icons and CSS both voice screens are built from

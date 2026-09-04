@@ -249,9 +249,15 @@ Exactly one **Evidence** update follows exactly one Answer Turn.
 Named because it is the one thing every surface must supply, and the one thing
 surfaces disagree about:
 
-- **Text** (the surface being built) — unambiguous; the Candidate submits.
-- **Voice** (later) — genuinely hard; pauses are not endings, and barge-in
-  means the boundary can move backwards.
+- **Text** — unambiguous; the Candidate submits.
+- **Voice** (built, ISSUE-0049) — this was "genuinely hard; pauses are not
+  endings, and barge-in means the boundary can move backwards." It was answered
+  by not inferring the boundary from the audio at all. The Candidate stops the
+  recording, reads the transcript back, and submits it — so the boundary is the
+  same submit event text has, and the microphone is an input method rather than
+  a second kind of turn. Pauses end nothing, and there is no barge-in, because
+  the examiner does not speak. The turn carries `spoken`, which records how the
+  text arrived and weights nothing.
 - **Code editor** (later) — submission is explicit, but a test run may precede
   the answer being final.
 

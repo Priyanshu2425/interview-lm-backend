@@ -1,6 +1,6 @@
 # ISSUE-0055 — The record of what is built
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ISSUE-0049
 Covers: the tooling and documents that still say voice is not built

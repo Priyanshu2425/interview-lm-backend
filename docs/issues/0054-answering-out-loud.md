@@ -1,6 +1,6 @@
 # ISSUE-0054 — Answering out loud
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ISSUE-0049 · prototype `frontend/prototypes/voice-answer.prototype.html?variant=A`
 Covers: the composer, once an Answer Turn can be spoken

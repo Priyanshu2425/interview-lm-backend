@@ -1,6 +1,6 @@
 # ISSUE-0052 — Two transcribers behind one seam
 
-Status: open
+Status: resolved
 Type: **HITL** — both measurements taken; see below
 Source: ISSUE-0049
 Covers: the dictation engine — Whisper in a Web Worker, the Web Speech API, and

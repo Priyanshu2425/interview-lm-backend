@@ -1,6 +1,6 @@
 # ISSUE-0053 — Setting up the interview
 
-Status: open
+Status: resolved
 Type: AFK
 Source: ISSUE-0049 · prototype `frontend/prototypes/interview-setup.prototype.html?variant=B`
 Covers: the screen between Begin on `/session/new` and the first question

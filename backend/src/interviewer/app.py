@@ -92,7 +92,15 @@ def create_app() -> FastAPI:
     )
 
     # 1. Security headers (outermost - applied to all responses)
-    app.add_middleware(SecurityHeadersMiddleware, csp_policy="default-src 'self'")
+    #
+    # No `csp_policy=` argument. It used to pass `default-src 'self'` here,
+    # which is the same string the middleware's default *was* — so when
+    # ISSUE-0052 widened the default to permit the transcriber's WebAssembly,
+    # this call silently kept serving the old one. The header the app actually
+    # sent and the policy the class documented had drifted apart, and the test
+    # covering it constructed the middleware directly and so agreed with the
+    # class rather than with the app (ISSUE-0054).
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # 2. Rate limit (before auth/logging)
     rl = config.rate_limit

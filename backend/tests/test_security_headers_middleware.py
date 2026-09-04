@@ -223,3 +223,40 @@ class TestTheDefaultPolicyLetsTheSurfaceListen:
         headers = client.get("/test").headers
         assert "Cross-Origin-Opener-Policy" not in headers
         assert "Cross-Origin-Embedder-Policy" not in headers
+
+
+class TestTheRealAppSendsIt:
+    """The policy the application actually serves, asked of the application.
+
+    Every other test here constructs `SecurityHeadersMiddleware` directly, so
+    it can only ever agree with the class. That is how the app came to send
+    `default-src 'self'` for a whole slice after the default was widened:
+    `create_app` passed an explicit `csp_policy=` that had been copied from the
+    old default, the class-level tests stayed green, and the microphone would
+    have failed in production with a blocked WebAssembly compile and nothing on
+    screen saying why (ISSUE-0052, ISSUE-0054).
+
+    So these go through `create_app`. A test that cannot see the wiring cannot
+    catch the wiring being wrong.
+    """
+
+    @pytest.fixture()
+    def app_client(self):
+        from interviewer.app import create_app
+
+        return TestClient(create_app())
+
+    def test_the_served_policy_permits_the_transcriber(self, app_client):
+        csp = app_client.get("/v1/health/live").headers["Content-Security-Policy"]
+        assert "'wasm-unsafe-eval'" in csp, csp
+
+    def test_the_served_policy_reaches_the_model_host(self, app_client):
+        csp = app_client.get("/v1/health/live").headers["Content-Security-Policy"]
+        assert "huggingface.co" in csp, csp
+
+    def test_the_served_policy_is_the_documented_default(self, app_client):
+        """Not "contains the parts we remembered to check". The header and the
+        constant are the same string, so widening one without the other fails
+        here rather than in a Candidate's browser."""
+        csp = app_client.get("/v1/health/live").headers["Content-Security-Policy"]
+        assert csp == SecurityHeadersMiddleware.DEFAULT_CSP_POLICY

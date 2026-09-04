@@ -90,9 +90,16 @@ class IdentityConfig:
 
 @dataclass(frozen=True, slots=True)
 class SurfaceConfig:
-    """Surface (frontend) configuration."""
+    """Surface (frontend) configuration.
+
+    No `surface_dir`. The API served the built surface at `/` until ADR-0020
+    split the origins; the mount went and this setting stayed, read into
+    configuration and used by nothing — while the Dockerfile, both env examples
+    and `tools/preflight.mjs` all went on describing what it did. A setting
+    nothing reads is worse than an absent one: it answers "why is the surface
+    not being served?" with a plausible thing to try.
+    """
     allowed_origins: str = ""
-    surface_dir: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,7 +224,6 @@ def _load_identity() -> IdentityConfig:
 def _load_surface() -> SurfaceConfig:
     return SurfaceConfig(
         allowed_origins=os.environ.get("ALLOWED_ORIGINS", ""),
-        surface_dir=os.environ.get("SURFACE_DIR", ""),
     )
 
 

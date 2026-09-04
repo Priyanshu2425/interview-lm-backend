@@ -14,12 +14,11 @@
 # insisted on building one could not be built at all.
 #
 # The surface is deployed separately and reaches this API cross-origin
-# (ADR-0020). For a single-origin deployment the API still mounts whatever
-# `SURFACE_DIR` points at, so a built surface can be mounted in at run time or
-# copied in by an image that extends this one:
-#
-#   FROM interview-lm
-#   COPY dist /app/frontend/dist
+# (ADR-0020). **This image serves no surface at all** — the mount went with that
+# decision, and the `SURFACE_DIR` that configured it was read by nothing for
+# some months afterwards while this comment went on describing what it did.
+# Copying a `dist/` into an image that extends this one achieves nothing;
+# put a reverse proxy in front instead, which is what production does.
 
 # --- the API ----------------------------------------------------------------
 FROM python:3.12-slim AS api
@@ -62,12 +61,7 @@ RUN pip install --no-deps -e ./backend
 RUN useradd --create-home --uid 10001 cortex && chown -R cortex:cortex /app
 USER cortex
 
-ENV SURFACE_DIR=/app/frontend/dist \
-    PORT=8000
-
-# Absent by default, and `create_app` skips the mount rather than failing when
-# the directory is not there.
-RUN mkdir -p /app/frontend
+ENV PORT=8000
 
 EXPOSE 8000
 

@@ -29,7 +29,7 @@ so it cannot be made by accident.
 ```
 backend/                 the backend, entire — its own root
   src/interviewer/       layered: routes, services, repositories, adapters
-  tests/                 1,087 of them
+  tests/                 1,103 of them, and 8 skipped
   scripts/               Corpus import, embedding maintenance, dev sign-in
   deploy.sh              the deploy script — setup, update, start, status, logs
   create_example_env.sh  copies the right example env file into place
@@ -76,7 +76,7 @@ Python 3.12 or newer, Docker, and about two minutes.
 covered under [Deploying](#deploying) — the two never swap. Local dev
 deliberately cannot reach the shared database: `backend/tests/conftest.py`
 rewrites `DATABASE_URL` to a local test database before anything imports the
-engine, because 1,087 tests pointed at Neon would create schemas and insert
+engine, because 1,103 tests pointed at Neon would create schemas and insert
 rows on production.
 
 ```bash
@@ -113,7 +113,7 @@ builds every schema it needs, and there are no migrations to replay —
 Then:
 
 ```bash
-backend/.venv/bin/python -m pytest backend/tests -q         # 1,087 tests
+backend/.venv/bin/python -m pytest backend/tests -q         # 1,103 tests, ~4min
 backend/.venv/bin/uvicorn interviewer.app:app --port 8000  # the API
 ```
 

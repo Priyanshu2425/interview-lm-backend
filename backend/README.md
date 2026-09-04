@@ -10,7 +10,7 @@ here, and the Docker build context is this directory:
 ```
 backend/
   src/interviewer/     the packages, listed under Layout below
-  tests/               1,087, run from the repository root
+  tests/               1,103, run from the repository root
   scripts/             the tooling — see below
   knowledge/           notes kept where they were written: the schema, and
                        what serving the surface from here would take
@@ -109,7 +109,7 @@ docker run -d --name cortex-pg -e POSTGRES_PASSWORD=cortex -e POSTGRES_USER=cort
   -e POSTGRES_DB=cortex -p 55432:5432 pgvector/pgvector:pg16
 docker exec cortex-pg createdb -U cortex cortex_test        # the suite's own
 
-backend/.venv/bin/python -m pytest backend/tests -q         # 1,087 tests
+backend/.venv/bin/python -m pytest backend/tests -q         # 1,103 tests, ~4min
 backend/.venv/bin/uvicorn interviewer.app:app --port 8000   # the API
 ```
 
